@@ -61,7 +61,7 @@
 #       each paragraph record is `{ move, binding_rationale, leaves }`, the writer's stdin carries no `*Serves:*` line
 #       (kogaki#1859), one claim line equal to
 #       the proposition,
-#       no `{` left, and no article-so-far prose; a list of two
+#       no `{` left, and no article-so-far block (kogaki#1911); a list of two
 #       writes three Segments tables (kogaki#1681, kogaki#1688).
 #   (p) a file with a projecting binding passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
 #   (q) a `projection` entry with an unknown `move` or carrying `waypoints` is refused naming its index, and
@@ -636,7 +636,7 @@ for (const [name, file] of [["projected", projFile], ["projected-list", listFile
   ok(JSON.stringify(claimLines) === JSON.stringify([`- ${PROPOSITION}`]), `(o) ${name}: the claims block is not the proposition alone: ${JSON.stringify(claimLines)}`);
   ok(!pk.includes("{"), `(o) ${name}: the Packet carries a Role id in braces`);
   const soFar = blockOf(pk, SO_FAR);
-  ok(soFar !== null && soFar === blockOf(jPacket, SO_FAR) && !soFar.includes("WRITTEN"), `(o) ${name}: the Packet carries article-so-far prose: ${soFar}`);
+  ok(soFar === null && !pk.includes("WRITTEN"), `(o) ${name}: the Packet carries an article-so-far block: ${soFar}`);
   ok(readFileSync(join(o.o, "paragraph.md"), "utf8").startsWith("WRITTEN") && !existsSync(join(o.o, "bind2.yaml")) && !existsSync(join(o.o, "paragraph2.md")),
     `(o) ${name}: paragraph.md is not the whole answer, or bind2.yaml or paragraph2.md was written`);
   const oSheet = existsSync(join(o.o, "sheet.html")) ? readFileSync(join(o.o, "sheet.html"), "utf8") : "";

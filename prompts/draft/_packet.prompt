@@ -14,9 +14,6 @@ One thing keeps one name through the whole paragraph.
 - Argument {{number}}. {{sentence}}
 {{/each}}
 - CentralClaim. {{plan.central_claim}}
-
-The reader must be able to recover every Argument from the paragraph.
-The reader must be able to recover the CentralClaim from the paragraph.
 {{#if plan.segments}}
 
 ### The parts of the paragraph, in order
@@ -42,30 +39,27 @@ A part that later parts point to also does what each of their lines says of the 
 
 The claims below are the whole plan of this paragraph.
 {{/if}}
+{{#if claims.lines}}
 
 ## The claims this Leg asserts
 
 Each line below is one claim, and every line is a claim of this Leg: none is
-subordinate to another. Your prose must make every one of them recoverable,
-and must assert nothing beyond them: these lines are the whole of what this
-Leg may assert.
+subordinate to another. Your prose must assert nothing beyond them: these
+lines are the whole of what this Leg may assert.
 
-{{#if claims.lines}}
 {{#each claims.lines}}
 - {{text}}
 {{/each}}
-{{else}}
-(none recorded)
 {{/if}}
-
-## The Journey material this Leg edits — NOT a claim to recover
-
 {{#if journeys.entries}}
+
+## The Journey material this Leg edits
+
 Material for a concrete example serving this Leg — use as much or as little of it as the Leg needs, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
 
 Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg**: cut it, compress it, use as much or as little as it needs.
 
-Nothing here is a claim. The claims above are the whole of what this Leg asserts, and the round trip asks for those back and never for a fragment of a Journey. A Journey you use well may leave almost none of its original wording on the page.
+Nothing here is a claim. The claims above are the whole of what this Leg asserts. A Journey you use well may leave almost none of its original wording on the page.
 
 {{#each journeys.entries}}
 - **{{strand}}'s Journey**. Served at `{{#if cite}}{{cite}}{{else}}(no journey cite recorded in the Brief){{/if}}`:
@@ -75,9 +69,8 @@ Nothing here is a claim. The claims above are the whole of what this Leg asserts
 
 {{/if}}
 {{/each}}
-{{else}}
-(none — this Leg draws on no Journey material, and nothing here asks for any.)
 {{/if}}
+{{#if section_placement.title}}
 
 ## The Section this Leg sits in
 
@@ -87,14 +80,6 @@ one, and the line below says which. Where it continues, the heading is already
 on the page and you are writing further into it: do not restate the heading's
 claim, and do not open a new subject.
 
-{{#if section_placement.derived}}
-{{#if section_placement.untitled}}
-{{#if section_placement.opens}}
-- **This Leg OPENS the article's one Section.** This Brief declares no Section titles, so no heading is rendered above your prose.
-{{else}}
-- **This Leg CONTINUES the article's one Section.** This Brief declares no Section titles, so no heading is rendered, and prose you are writing further into sits above.
-{{/if}}
-{{else}}
 {{#if section_placement.opens}}
 - **This Leg OPENS a Section.** Its heading is **"{{section_placement.title}}"**, rendered by the Harness immediately above your prose.
 - **Your prose is what the heading promises.** {{#if section_placement.whole}}This Leg is the whole Section.{{else}}{{#if section_placement.one_further}}1 further Leg continues under it, so open the question rather than closing it.{{else}}{{section_placement.further}} further Legs continue under it, so open the question rather than closing it.{{/if}}{{/if}}
@@ -103,76 +88,33 @@ claim, and do not open a new subject.
 - **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.
 {{/if}}
 {{/if}}
-{{else}}
-(no Section could be derived for this Leg.)
-{{/if}}
-
 {{#if reader_target_line.reaches}}
+
 This Leg reaches the Reader target.
-{{else}}
+{{/if}}
 {{#if reader_target_line.closing}}
+
 This Leg follows the Reader target: introduce nothing, raise nothing, and move only what the reader asks, expects or trusts.
-{{else}}
-
 {{/if}}
-{{/if}}
-
-## What crosses into this Leg
-
-This is the whole of what you may speak of as already available: a term you
-introduce here, a term or claim re-activated from a Leg you depend on, or a
-re-activated Journey. Each line carries what crosses with it — a term with
-its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
-Where a term comes from is the Brief's own record, not material for the prose.
-Nothing not listed here is material for this Leg: the reader may hold more, but what they
-hold and do not see below is not yours to speak of or rely on.
-
-{{#if crosses_here.entries}}
-{{#each crosses_here.entries}}
-{{#if unread}}
-- {{unread}}
-{{/if}}
-{{#if introduced}}
-- {{term}}{{#if meaning}} — {{meaning}}{{/if}}
-{{/if}}
-{{#if reactivated_term}}
-- {{term}}{{#if meaning}} — meaning: {{meaning}}{{/if}} (re-activated from {{from}})
-{{/if}}
-{{#if reactivated_claim}}
-- {{as}} (re-activated from {{from}}, strand {{strand}})
-{{/if}}
-{{#if reactivated_journey}}
-- **{{strand}}'s Journey** (re-activated from {{from}}){{#if use}} — used there for: {{use}}{{/if}}. Its scene, served at `{{#if cite}}{{cite}}{{else}}(no journey cite recorded in the Brief){{/if}}`:
-
-{{text}}
-{{/if}}
-{{/each}}
-{{else}}
-(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)
-{{/if}}
+{{#if prior_sections.texts}}
 
 ## The article so far, up to this Leg:
 
-{{#if prior_sections.texts}}
 {{#each prior_sections.texts}}
 {{text}}
 {{#if more}}
 
 {{/if}}
 {{/each}}
-{{else}}
-{{#if prior_sections.continues}}
-(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)
-{{else}}
-(nothing yet — this Leg opens the Section, so its prose is the first in it.)
-{{/if}}
 {{/if}}
 
 ## How the prose reads
 
 **Language.** Write this Leg in {{language}}.
+{{#if reader_own_world}}
 
-**The reader's own world.** {{#if reader_own_world}}{{reader_own_world}}{{else}}(the Persona declares no prior knowledge; a referent comes from the Journey block alone){{/if}}
+**The reader's own world.** {{reader_own_world}}
+{{/if}}
 
 **What the register below governs.** The register governs how sentences read.
 It changes nothing the plan above says.

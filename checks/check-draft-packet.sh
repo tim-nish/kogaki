@@ -46,17 +46,17 @@
 #       removes it.
 #   (i) A LEG INTRODUCES NO TERM (kogaki#1768, retiring kogaki#1491's crossing
 #       line): a Brief whose Leg carries `introduces` is refused naming the
-#       field, and the fixture Leg renders a Packet whose crossing block carries
-#       no term line.
+#       field, and the fixture Leg renders a Packet carrying no term line and
+#       no crossing block (kogaki#1911).
 #   (j) NO OBLIGATION ROW REACHES THE PACKET, AND THE PACKET ASKS FOR NO
 #       SENTENCE THE PLAN DOES NOT CARRY (kogaki#1584, kogaki#1496): a Leg
 #       of a Brief, which carries no Obligation row since kogaki#1699 (a
 #       Brief carrying one is refused naming the key) -- renders a Packet
 #       carrying none of the retired Obligations heading, "*Promise:*",
 #       "*Keeps:*" or the row's item words (the heading spelled apart, since
-#       the Issue's Acceptance greps checks/ for it), whose Write block carries the
-#       round trip's "Each claim above must be recoverable from what you
-#       write", and which nowhere carries "concede it explicitly" or "Honor
+#       the Issue's Acceptance greps checks/ for it), which nowhere holds
+#       "recover" or "round trip" (kogaki#1911),
+#       and which nowhere carries "concede it explicitly" or "Honor
 #       the rows"; the same Packet with the retired Obligations block put
 #       back, and the render with the pre-kogaki#1496 honour line restored to the
 #       passage and round-trip paragraph to the Writer's file, are each refused by
@@ -351,7 +351,7 @@ if (!r.error) {
 
 // (i) A LEG INTRODUCES NO TERM (kogaki#1768): a Leg binds no Move and carries no `introduces`, so a
 // Brief whose Leg carries one is refused naming the field, and the ledgerless fixture Leg renders a
-// Packet whose crossing block carries no term line.
+// Packet carrying no term line and no crossing block (kogaki#1911).
 {
   const TERM = { term: "unfed guard", meaning: "a guard whose input nobody feeds" };
   const recordWith = (extra) => briefRecordText({
@@ -369,13 +369,13 @@ if (!r.error) {
     : renderPacket({ brief: gBrief, leg: asRead(gBrief.legs[0]), priorSections: [],
       section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
   if (g.error) fails.push(`(i) the fixture Packet with no introduced term did not render: ${g.error}`);
-  else if (g.packet.includes(`- ${TERM.term} — `)) fails.push("(i) the crossing block carries a term line from no `introduces`");
+  else if (g.packet.includes(`- ${TERM.term} — `) || g.packet.includes("What crosses into this Leg")) fails.push("(i) the Packet carries a term line from no `introduces` or a crossing block");
 }
 
 // (j) no Obligation row reaches the Packet (kogaki#1584), and the Packet asks for no sentence the plan does not carry (kogaki#1496).
 {
   const ROW = "the reader is owed why the copy is overwritten";
-  const RECOVERABLE = "Each claim above must be recoverable from what you write";
+  const RECOVERY = /recover|round trip/i;
   const RETIRED_HEADING = ["## This Leg's", "Obligations"].join(" ");
   // A record s1 opens (kogaki#1612). The Brief carries no Obligations ledger since kogaki#1699,
   // so a Brief carrying one is refused naming the key, and the Packet is rendered from the
@@ -401,7 +401,7 @@ if (!r.error) {
     }
     const w = writeBlock(packet, "\n## Write\n");
     if (w === null) return "the Packet carries no Write block";
-    if (!flat(w).includes(RECOVERABLE)) return `the Write block does not carry "${RECOVERABLE}"`;
+    if (RECOVERY.test(packet)) return "the Packet holds \"recover\" or \"round trip\"";
     for (const bad of ["concede it explicitly", "Honor the rows"]) {
       if (flat(packet).includes(bad)) return `the Packet carries "${bad}"`;
     }
@@ -415,15 +415,15 @@ if (!r.error) {
     else {
       const why = asksNoUnplannedSentence(j.packet);
       if (why) fails.push(`(j) ${why}`);
-      const restored = j.packet.replace("## The article so far", `${RETIRED_HEADING}\n\n- ${ROW}\n\n## The article so far`);
+      const restored = j.packet.replace("## How the prose reads", `${RETIRED_HEADING}\n\n- ${ROW}\n\n## How the prose reads`);
       if (restored === j.packet) fails.push("(j) the fixture could not put the retired Obligations block back");
       else if (asksNoUnplannedSentence(restored) === null) fails.push("(j) the Packet with the retired Obligations block passed the predicate (j) applies");
     }
     const before = {
-      [PACKET_FILE]: passage.replace("## The article so far", "Honor the rows below in the prose rather than restating them as fields.\n\n## The article so far"),
-      [WRITER_PROMPT_FILE]: template.replace(/\*\*The round trip — claims only\.\*\*[\s\S]*?\n\n/, "**The round trip — claims only.** Each claim above must be recoverable from\n"
+      [PACKET_FILE]: passage.replace("## How the prose reads", "Honor the rows below in the prose rather than restating them as fields.\n\n## How the prose reads"),
+      [WRITER_PROMPT_FILE]: template.replace("**When a step cannot be performed.**", "**The round trip — claims only.** Each claim above must be recoverable from\n"
         + "what you write. Where making one plain loses something, either restore the\nloss or **concede it explicitly in the prose**. "
-        + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n") };
+        + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n**When a step cannot be performed.**") };
     if (!before[PACKET_FILE].includes("Honor the rows") || !before[WRITER_PROMPT_FILE].includes("concede it explicitly")) fails.push("(j) the fixture could not rebuild the pre-kogaki#1496 template");
     else {
       const old = await jRender(before);

@@ -203,14 +203,14 @@ claim the reader wrote, the passage, and the question "is this declared claim
 among them" — so a Leg declaring N claims costs N calls for this item. Whether
 a paraphrase counts as recovered is the judge's answer in words and never a
 shared-word count. **Surplus is not judged at all**: the Packet renders Journey
-material under "NOT a claim to recover" and tells the writer to retell it, so a
+material as no claim and tells the writer to retell it, so a
 correctly realized passage asserts more than its declared claim by design. The
 row fails when any declared claim fails, and **the correction is told which
 one** — the entry carries the declared claim's text, so `What failed` names the
 claim that went missing rather than only the item that did.
 
 **A judged item whose DECLARED side is empty is decided by the Harness too, and
-costs no call.** Where the Packet renders a stated absence — no claims, no
+costs no call.** Where the Packet leaves a block out — no claims, no
 `introduces` — the item's own table row declares the answer and its sentence, so
 nothing is rendered and no model is asked a question quantifying over nothing.
 The answer is a fact about the declared side rather than a reading of the prose,

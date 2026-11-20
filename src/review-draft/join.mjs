@@ -571,7 +571,7 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         continue;
       }
 
-      // A declared side the Packet renders as a stated absence can leave an
+      // A declared side the Packet leaves out (kogaki#1911) can leave an
       // item with nothing to ask about: a negative item goes vacuous (there is
       // no exemplar, so nothing of one can leak) and a positive one quantifies
       // over an empty list (`claims`, and since kogaki#1016 `introduces`).

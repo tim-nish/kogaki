@@ -278,8 +278,7 @@ export function packetPersonaPath(brief) {
 // how the prose presents it (kogaki#1491, owner decision 2026-10-21) -- a line
 // prescribing an act of naming is a second structural authority beside the
 // bound Move's Segments. Every typed item renders
-// `- <term> — <meaning>` (kogaki#1571). A bare or anchored term renders as it
-// always did. The line's words stand in prompts/draft/_packet.prompt (kogaki#1855).
+// `- <term> — <meaning>` (kogaki#1571). No Packet renders the line since kogaki#1911.
 export function introducedEntry(raw) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.typed) return { unread: typeof raw === "string" ? raw : JSON.stringify(raw) };
@@ -289,8 +288,8 @@ export function introducedEntry(raw) {
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the
 // Audience's `persona.prior_knowledge` field, read directly here rather than
 // through `readerProse` — that reader refuses by name on an absent register,
-// and an absent or empty `prior_knowledge` is a STATED CASE this one must
-// render, never a refusal. The file is read by `audienceRecord`, the YAML
+// and an absent or empty `prior_knowledge` renders no line (kogaki#1911),
+// never a refusal. The file is read by `audienceRecord`, the YAML
 // reader the Brief and the Move are read by (kogaki#1413).
 export function personaPriorKnowledge(path) {
   const a = audienceRecord(path);

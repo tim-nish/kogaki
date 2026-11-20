@@ -9,17 +9,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
+import { readerProse, audienceLanguage } from "../compose.mjs";
 import { parseTermsYaml, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { sha256, readerTargetCase } from "./brief-reader.mjs";
 import { renderPromptFile, promptFilePath } from "../prompt-file.mjs";
-import {
-  resolveLegJourneys,
-  packetPersonaPath,
-  introducedEntry,
-  introducedMeaning,
-  personaPriorKnowledge,
-} from "./journeys.mjs";
+import { resolveLegJourneys, packetPersonaPath, personaPriorKnowledge } from "./journeys.mjs";
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
 import { legSentences } from "../sme/arguments.mjs";
 import { SENSES_FILE, senseNames, loadSenses, loadOwnSenses, loadHypophora } from "../sme/edges.mjs";
@@ -140,48 +134,11 @@ export function renderPacket({
   // THE STRAND ID IS THE BRIEF'S, NOT THE PACKET'S (kogaki#1094): a claim line is the proposition alone.
   // A FLAT LIST, ONE LINE PER CLAIM (kogaki#1215).
   const claimTexts = (leg.claims || []).map((g) => ({ text: g.proposition }));
-  const intro = leg.introduces || [];
-  // WHAT THIS LEG RE-ACTIVATES (kogaki#1237, owner decision 2026-09-30), each resolved to the NAMED LEG's own
-  // material: a `term` to that Leg's `introduces` line with its meaning (kogaki#1282), a `claim` to its `as`
-  // restatement, a Journey to its served scene (kogaki#1261).
-  const reactivateEntries = (leg["re-activate"] || []).map((raw) => parseReactivateEntry(raw)).filter((e) => !e.error);
-  const active = reactivateEntries.map((e) => {
-    const target = (brief.legs || []).find((l) => l.leg_id === e.leg_id);
-    if (e.kind === "journey") {
-      const j = (leg.reactivatedJourneys || []).find((x) => x.leg_id === e.leg_id && x.strand === e.value);
-      if (!j || typeof j.resolvedText !== "string" || j.resolvedText.trim() === "") {
-        need(`${leg.leg_id}'s re-activated Journey ${e.value} text`, null);
-        return {};
-      }
-      const cite = (brief.strands.find((st) => st.id === e.value)?.cites || []).find((c) => c.kind === "journey cite");
-      return {
-        reactivated_journey: true,
-        strand: e.value,
-        from: e.leg_id,
-        ...(j.use ? { use: j.use } : {}),
-        ...(cite ? { cite: cite.cite } : {}),
-        text: j.resolvedText.trim(),
-      };
-    }
-    if (e.kind === "term") {
-      const found = (target?.introduces || [])
-        .map((raw) => parseIntroducesEntry(raw))
-        .find((p) => !p.error && p.term === e.value);
-      const meaning = found ? introducedMeaning(found) : null;
-      return {
-        reactivated_term: true,
-        term: found ? found.term : e.value,
-        from: e.leg_id,
-        ...(meaning ? { meaning } : {}),
-      };
-    }
-    return { reactivated_claim: true, as: e.as, from: e.leg_id, strand: e.value };
-  });
   // THE AUDIENCE'S REGISTER (kogaki#1261, kogaki#1370), refused by name where it cannot be read.
   const personaPath = packetPersonaPath(brief);
   const register = typeof personaPath === "string" ? readerProse(personaPath) : personaPath;
   if (register.error) missing.push(`the Audience's register (${register.error})`);
-  // THE READER'S OWN WORLD (kogaki#1285): an absent `prior_knowledge` is a stated case, never a hole.
+  // THE READER'S OWN WORLD (kogaki#1285): an absent `prior_knowledge` renders no line (kogaki#1911).
   const priorKnowledge = typeof personaPath === "string" ? personaPriorKnowledge(personaPath) : null;
   // THE ARTICLE'S LANGUAGE (kogaki#1417); a second-language realization names its own (kogaki#1158).
   const language = languageOverride
@@ -217,9 +174,6 @@ export function renderPacket({
     section_placement: sectionPlacement(section),
     // THE READER TARGET LINE (kogaki#1231, kogaki#1247): the marked Leg's, a closing Leg's, or nothing.
     reader_target_line: readerTargetCase(brief.legs, leg.leg_id),
-    // WHAT CROSSES INTO THIS LEG (kogaki#1282, owner ruling 2026-10-06): LEG LINKING IS DEFAULT-DENY.
-    crosses_here:
-      intro.length || active.length ? { entries: [...intro.map((raw) => introducedEntry(raw)), ...active] } : {},
     // SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling 2026-10-06).
     prior_sections: priorProseInSection(priorSections, sections || [], section?.index ?? 1, leg.leg_id),
     // `budget` -- a LIMIT the writer sees, never a target.
