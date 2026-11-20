@@ -14,7 +14,7 @@ import {
   unfilledSlots,
   briefLegs,
   briefStructureRefusal,
-  legschema,
+  undeclaredLegKeyRefusal,
 } from "../compose.mjs";
 
 export function fail(msg) {
@@ -98,15 +98,14 @@ export function readBrief(text, path = "<brief>") {
   // below re-sorts it.
   const legs = [];
   if (Array.isArray(record.reader_path)) {
-    const declared = new Set(Object.keys(legschema().fields));
     for (const [i, raw] of record.reader_path.entries()) {
-      const bad = legRecordRefusal(raw, declared, `the Brief at ${path}, leg ${raw?.leg_id ?? i + 1}`);
+      const bad = legRecordRefusal(raw, `the Brief at ${path}, leg ${raw?.leg_id ?? i + 1}`);
       if (bad) {
         refusals.push(bad);
         continue;
       }
     }
-    // `carries` AND `relation` BIND ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
+    // `relation` BINDS ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
     const unbound = refusals.length
       ? null
       : briefStructureRefusal(record.reader_path, record.structure, `the Brief at ${path}`);
@@ -123,7 +122,7 @@ export function readBrief(text, path = "<brief>") {
 // One Leg of the record, held to the shapes a Packet needs: the key set
 // `src/leg-schema.json` declares, and each field's own grammar through the
 // composition side's predicates. Returns a refusal string or null.
-function legRecordRefusal(raw, declared, at) {
+function legRecordRefusal(raw, at) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `${at}: a Leg is a map of named fields`;
   if (typeof raw.leg_id !== "string" || raw.leg_id === "") return `${at}: carries no \`leg_id\``;
   for (const k of Object.keys(raw)) {
@@ -133,12 +132,10 @@ function legRecordRefusal(raw, declared, at) {
         "exit are its Move's `takes` and `leaves`, which no Brief records"
       );
     }
-    // `relation` NAMES THE HIGHER-ORDER RELATION THE LEG SERVES (kogaki#1768), bound
-    // against the Brief's `structure` below; the satellite-marking relations layer of
-    // kogaki#1215 stays retired as `relations` (src/compose/leg-schema.mjs).
-    if (!declared.has(k)) {
-      return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
-    }
+  }
+  {
+    const bad = undeclaredLegKeyRefusal(raw, at);
+    if (bad) return bad;
   }
   if (
     !Array.isArray(raw.claims) ||
@@ -147,10 +144,7 @@ function legRecordRefusal(raw, declared, at) {
     return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;
   }
   // THE LEG ENDS AT ITS RELATION'S `holds` (kogaki#1775): its `text`, which the Packet renders above the
-  // paragraphs /paragraph-plan wrote for it (kogaki#1777); a Brief Waypoint is refused by name.
-  if (Object.hasOwn(raw, "waypoints")) {
-    return `${at}: carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775) and its paragraphs are /paragraph-plan's (kogaki#1777)`;
-  }
+  // paragraphs /paragraph-plan wrote for it (kogaki#1777).
   if (typeof raw.text !== "string" || raw.text.trim() === "")
     return `${at}: carries no \`text\`, its relation's \`holds\` (kogaki#1775)`;
   if (raw.opens_section !== undefined) {

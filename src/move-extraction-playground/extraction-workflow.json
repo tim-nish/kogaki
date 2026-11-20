@@ -62,29 +62,5 @@
     "note": "The third call per paragraph, in the place the obligation call held (kogaki#1698, owner ruling 2026-11-06: the constraints a Move carries are one key with two sides, `takes` and `leaves`, over four closed kinds, read by judgment). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes the content-bound call, and its input is the four kinds with their definitions (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs), the record's `segments`, each `operation` and `relation`, and the record's `takes` and `leaves`: no Passage, no sentence, no `content` clause, no `subject_nouns`. `validateConstraintsUnit` reads the answer's shape back; an entry judged unsupported, or a thing a Segment leaves that no entry names, refuses the Extraction naming the entry or the Segment, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. `extract.mjs rejudge --constraints --library <dir>` runs the same call over an admitted library's records with the two lists null and the record's `obligation` beside its Segments, so the answer is the derived lists, and with `--write` writes them onto each record, changing no other field; `--retire-state` beside `--write` also deletes the retired `before`, `after` and `after_segment` from each record it writes (kogaki#1699). No schema file is rendered: nothing of FORMAT is this call's input.",
     "governing": "kogaki#1698, owner ruling 2026-11-06",
     "prompt_file": "move-extraction-playground/constraints-unit"
-  },
-  "leg_path_unit": {
-    "id": "leg_path_unit",
-    "binds": {
-      "leg": {
-        "leg_id": "content",
-        "claims": "content",
-        "waypoints": "content",
-        "waypoints.point": "content",
-        "waypoints.case": "content"
-      }
-    },
-    "binds_unread": {
-      "leg": [
-        "relation",
-        "reaches_target",
-        "opens_section",
-        "text"
-      ]
-    },
-    "note": "The one Leg and its Brief Waypoints (kogaki#1385, owner decision 2026-10-15), rebuilt to the Leg with no Move (kogaki#1768). AUTHORED HERE, its point text included: the span from \"EACH WAYPOINT IS A POINT\" through \"is refused.\" has its origin here since the Brief's `lpp_waypoints` row left the Brief (kogaki#1775), and the Mapping Playground copies it through its `copies`. Reader start is retired (kogaki#1699): the Leg opens from the Persona's prior knowledge, given as `persona_prior_knowledge`, and carries no reader state. The Extractions stand in for Strands as the material, one Claim per paragraph. The refusals are the production `validateLegs` (which runs `waypointsRefusal`) over the Leg, imported, plus the one-Leg shape this row adds and the recoverability criterion over the Segment content (kogaki#1495).",
-    "schema_file": "src/leg-schema.json",
-    "governing": "SPEC-draft-pipeline, the Leg's shape and the claims rule; kogaki#1385; kogaki#1768; kogaki#1775",
-    "prompt_file": "move-extraction-playground/leg-path-unit"
   }
 }

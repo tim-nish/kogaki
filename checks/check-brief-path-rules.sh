@@ -3,13 +3,13 @@
 #   (am) a Leg carrying `journeys` is refused (kogaki#1286, kogaki#1768); (an) the
 #        Discharge item and the question chain retired (kogaki#1283, #1325, #1699).
 #   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
-#   (aw) the Defined Terms (kogaki#1331), no Leg introducing one (kogaki#1768); (ax)
-#        no Move information reaches the Brief, and a structure Brief's Leg carrying
-#        `waypoints` or `move` is refused naming the field (kogaki#1775).
+#   (aw) the Defined Terms (kogaki#1331), no Leg introducing one (kogaki#1768); (ax) no Move
+#        information reaches the Brief (kogaki#1775), a Brief with no `structure` is refused at its
+#        first Leg, and a Leg key the schema does not declare is refused naming it (kogaki#1885).
 #   (ay) Thesis attainment (kogaki#1330, kogaki#1775): one Leg per reached relation, its
 #        text the relation's holds, the apex's Leg alone marked, at any position.
-#   (az) a point read alone (kogaki#1449); (bb) no method verb (kogaki#1554); (ba) recoverability
-#   (kogaki#1494); (bc) no Obligation rule (kogaki#1699); (bd) a legacy waypoint `case` (#1732).
+#   (bb) the one list of method verbs (kogaki#1554); (ba) recoverability (kogaki#1494);
+#   (bc) no Obligation rule (kogaki#1699).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -29,7 +29,7 @@ bindFlow(BRIEF_FLOW);
 import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
 import { readBrief, renderPacket, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
-import { recordOf, briefOfRecord, legacyLegsToText, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
+import { recordOf, briefOfRecord, fixtureLeg, structureOf, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 import { METHOD_VERBS } from "./src/compose/leg-schema.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
@@ -48,16 +48,15 @@ const S1775 = {
 };
 const C1775 = [{ id: "L1", claim: "A check reads what it is handed." }, { id: "L2", claim: "A check misses what it is not handed." }];
 const fails = [];
-const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
+const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
 
 // (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06), RETIRED AT THE LEG
 // (kogaki#1768): a Leg binds no Move and carries no `journeys`, so `validateLegs` refuses a Leg
 // carrying one naming the field and kogaki#1768, `legRecord` writes none, and the Packet rendered
 // for a Leg of the Brief carries none of the three use words.
 {
-  const leg = { leg_id: "s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }],
-    waypoints: [{ point: "the paragraph establishes what s1 claims", case: "own" }], reaches_target: true };
-  const carrying = validateLegs([{ ...leg, journeys: [{ strand: "L1", use: "contrast" }] }], []);
+  const leg = fixtureLeg("s1", { reaches_target: true });
+  const carrying = validateLegs([{ ...leg, journeys: [{ strand: "L1", use: "contrast" }] }], { structure: structureOf([leg]) });
   if (!carrying.error || !carrying.error.includes("carries `journeys`, which is retired") || !carrying.error.includes("kogaki#1768")) {
     fails.push(`(am) a Leg carrying \`journeys\` was not refused naming the field and kogaki#1768: ${carrying.error}`);
   }
@@ -84,11 +83,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // chain" item beside it was RETIRED at kogaki#1325: a record carrying `question_chain` is
 // refused by name, and `questionChainPairs` is no longer exported.
 {
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
+  const legOf = fixtureLeg;
   const legs = [legOf("s1"), legOf("s2"), legOf("s3")];
   if ("questionChainPairs" in compose) fails.push("(an) src/compose.mjs still exports questionChainPairs, retired at kogaki#1325");
   if ("dischargeRows" in compose) fails.push("(an) src/compose.mjs still exports dischargeRows, retired at kogaki#1699");
@@ -132,8 +127,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const { adoptCandidate, selectionOptionIds } = await import("./src/assemble.mjs");
   const { parseBriefRecord } = compose;
   const fx = "checks/fixtures/adopt-candidate";
-  const minted = parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml");
   const reviewed = JSON.parse(readFileSync(join(fx, "reviewed.json"), "utf8"));
+  const minted = parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml");
+  if (!minted.error) minted.record.structure = structureOf(reviewed.candidates[0].legs); // the relations the fixture Legs name (kogaki#1885)
   const long = "a sentence long enough that no single line of the record could hold it, ".repeat(5).trim();
   const leg1 = reviewed.candidates[0].legs[0];
   leg1.claims[0].proposition = long;
@@ -154,9 +150,8 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
       const path = back.error ? [] : back.record.reader_path;
       if (back.error || path.length !== 2) fails.push(`(av) the written brief.yaml does not read back with its two Legs: ${back.error || path.length}`);
       for (const leg of path) {
-        for (const k of ["claims", "waypoints"]) {
-          if (!Array.isArray(leg[k])) fails.push(`(av) ${leg.leg_id}.${k} is not a list in the record`);
-        }
+        if (!Array.isArray(leg.claims)) fails.push(`(av) ${leg.leg_id}.claims is not a list in the record`);
+        if (typeof leg.relation !== "string" || typeof leg.text !== "string") fails.push(`(av) ${leg.leg_id} carries no relation or no text in the record`);
         for (const k of ["reader_state_after", "reader_state_before"]) {
           if (k in leg) fails.push(`(av) ${leg.leg_id} carries \`${k}\`, retired with the Leg's reader states (kogaki#1699)`);
         }
@@ -164,11 +159,10 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
           if (k in leg) fails.push(`(av) ${leg.leg_id} carries \`${k}\`, retired with the Leg's Move (kogaki#1768)`);
         }
         if ((leg.claims || []).some((g) => typeof g !== "object" || typeof g.proposition !== "string")) fails.push(`(av) ${leg.leg_id}.claims is not a list of maps`);
-        if ((leg.waypoints || []).some((w) => !w || typeof w !== "object" || typeof w.point !== "string")) fails.push(`(av) ${leg.leg_id}.waypoints is not a list of maps`);
       }
       if (path[0]?.claims?.[0]?.proposition !== long) fails.push("(av) the lengthened Claim did not read back whole after wrapping");
       // the Draft reads the adopted Legs by their text (kogaki#1775, kogaki#1777)
-      const read = readBrief(briefRecordText({ ...r.record, reader_path: legacyLegsToText(r.record.reader_path) }), "brief.yaml");
+      const read = readBrief(briefRecordText(r.record), "brief.yaml");
       if (read.refusals.length) fails.push(`(av) the Draft's reader refused the adopted record: ${JSON.stringify(read.refusals)}`);
       else if (read.legs.some((l) => "reader_state_before" in l || "reader_state_after" in l)) fails.push("(av) the Draft's reader derived a reader state the Brief no longer carries (kogaki#1699)");
     }
@@ -213,9 +207,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const legsFor = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "what the reader now holds", ...s1Extra }),
     leg1276("s2", { reaches_target: true,
       claims: [{ type: "strand", strand: "L1", proposition: "the check reads what it was handed" }], ...s2Extra })];
-  const used = compose.validateLegs(legsFor(), {});
+  const used = compose.validateLegs(legsFor(), { structure: structureOf(legsFor()) });
   if (used.error) fails.push(`(aw) a Leg 2 claim using a defined word was refused, though no Leg introduces a term (kogaki#1768): ${used.error}`);
-  const added = compose.validateLegs(legsFor({}, { introduces: ["check"] }), {});
+  const added = compose.validateLegs(legsFor({}, { introduces: ["check"] }), { structure: structureOf(legsFor()) });
   if (!added.error || !/leg 2 \(s2\): carries `introduces`, which is retired/.test(added.error)) {
     fails.push(`(aw) a Leg carrying \`introduces\` was not refused naming the Leg and the field: ${added.error}`);
   }
@@ -226,44 +220,39 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   }
 }
 
-// (ax) kogaki#1375 -- NO MOVE INFORMATION REACHES THE BRIEF. A Brief Waypoint carries
-// `point` and `case` only: a waypoint carrying `move` or `segments` is refused by name,
-// naming the Leg and the waypoint, by `validateLegs` -- at the compose unit's validator and
-// at every Brief read, which run it through `waypointsRefusal` -- and `legRecord` writes
-// neither. The Leg schema declares neither field, the Brief workflow table carries no
-// paragraph-Move row, and compose_path declares no paragraph-Move judge: the paragraph Move
-// is bound by /paragraph-plan, after the Brief.
+// (ax) kogaki#1375 -- NO MOVE INFORMATION REACHES THE BRIEF. The Brief workflow table carries no
+// paragraph-Move row and compose_path declares no paragraph-Move judge: /paragraph-plan takes the
+// Move, after the Brief. A Leg carrying `move` is refused naming the field (kogaki#1775). A Brief
+// with no `structure` is refused at its first Leg, and a Leg key src/leg-schema.json does not
+// declare is refused naming the key, in one sentence for every reader of a stored Brief (kogaki#1885).
 {
-  const legsWith = (w) => [leg1276("s1", { opens_section: "Intro", waypoints: [{ point: "the term is defined", case: "own", ...w }] }),
-    leg1276("s2", { reaches_target: true })];
-  for (const f of compose.RETIRED_WAYPOINT_MOVE_FIELDS) {
-    const r = compose.validateLegs(legsWith({ [f]: "p_define" }), []);
-    if (!r.error) fails.push(`(ax) a waypoint carrying \`${f}\` was not refused`);
-    else if (!new RegExp(`leg 1 \\(s1\\): waypoint 1 carries \`${f}\`, which is retired`).test(r.error) || !r.error.includes("kogaki#1375")) {
-      fails.push(`(ax) a waypoint carrying \`${f}\` was refused without naming the field, the Leg and the waypoint: ${r.error}`);
-    }
-  }
-  const plain = compose.validateLegs(legsWith({}), []);
-  if (plain.error) fails.push(`(ax) a waypoint carrying point and case alone was refused: ${plain.error}`);
-  const rec = compose.legRecord({ ...leg1276("s1"), waypoints: [{ point: "a point", case: "own", move: "p", segments: "1. x" }] });
-  if (rec.waypoints.some((w) => Object.keys(w).sort().join() !== "case,point")) fails.push(`(ax) legRecord wrote a waypoint field other than point and case: ${JSON.stringify(rec.waypoints)}`);
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const sv = compose.validateLegs(legsWith({ serves: ["L1"] }), []).error || ""; // kogaki#1861: `serves` is retired by name
-  if (!/leg 1 \(s1\): waypoint 1 carries `serves`, which is retired/.test(sv)) fails.push(`(ax) a waypoint carrying \`serves\` was not refused by name: ${sv}`);
-  for (const f of ["move", "segments", "serves"]) {
-    if (schema.waypoint.fields[f]) fails.push(`(ax) src/leg-schema.json's waypoint still declares \`${f}\``);
+  for (const gone of ["waypoints", "move", "segments", "serves"]) {
+    if (schema.fields[gone]) fails.push(`(ax) src/leg-schema.json still declares the Leg field \`${gone}\``);
   }
+  if (schema.waypoint) fails.push("(ax) src/leg-schema.json still holds the block `waypoint`");
   if (JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).paragraph_move_unit) fails.push("(ax) src/brief-workflow.json still carries the paragraph_move_unit row");
   const brief = briefRuntimeText();
   if (/bindJudge|paragraphMove(Prompts|Verdict)/.test(brief)) fails.push("(ax) the Brief runtime still declares the paragraph-Move judge inside the compose job");
-  // A LEG OF A BRIEF CARRYING A `structure` CARRIES NO WAYPOINT AND NO MOVE (kogaki#1775): each is refused naming the field.
+  // A LEG OF A BRIEF CARRIES NO MOVE (kogaki#1775): it is refused naming the field.
   const derived = structureLegs(S1775, C1775).map((l, i) => (i === 0 ? { ...l, opens_section: "Where a check looks" } : l));
-  for (const [f, v] of [["waypoints", [{ point: "a point", case: "own" }]], ["move", "p_define"]]) {
-    const r = compose.validateLegs(derived.map((l, i) => (i === 1 ? { ...l, [f]: v } : l)), { structure: S1775 });
-    if (!r.error || !r.error.includes(`leg 2 (L2): carries \`${f}\``)) fails.push(`(ax) a structure Brief's Leg carrying \`${f}\` was not refused naming the field: ${r.error}`);
-  }
+  const moved = compose.validateLegs(derived.map((l, i) => (i === 1 ? { ...l, move: "p_define" } : l)), { structure: S1775 });
+  if (!moved.error || !moved.error.includes("leg 2 (L2): carries `move`")) fails.push(`(ax) a Leg carrying \`move\` was not refused naming the field: ${moved.error}`);
   const clean = compose.validateLegs(derived, { structure: S1775 });
   if (clean.error) fails.push(`(ax) the derived Legs were refused: ${clean.error}`);
+  // NO `structure`, NO LEG (kogaki#1885): the same well-formed Legs are refused at the first one.
+  const bare = compose.validateLegs(derived);
+  if (!bare.error || !bare.error.startsWith("leg 1 (L1): the Brief carries no `structure`, and a Leg names one relation of it")) {
+    fails.push(`(ax) validateLegs with no structure did not refuse the first Leg: ${bare.error}`);
+  }
+  // AN UNDECLARED LEG KEY IS REFUSED NAMING IT (kogaki#1885), and a Leg of declared keys alone is not.
+  const stale = compose.undeclaredLegKeyRefusal({ ...derived[0], waypoints: [{ point: "a point", case: "own" }] }, "the Brief at b.yaml, leg L1");
+  if (stale !== "the Brief at b.yaml, leg L1: carries `waypoints`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read") {
+    fails.push(`(ax) a Leg carrying an undeclared key was not refused naming it: ${stale}`);
+  }
+  if (compose.undeclaredLegKeyRefusal(derived[0], "leg L1") !== null) fails.push("(ax) a Leg of declared keys alone was refused as carrying an undeclared one");
+  const staleBrief = readBrief(briefRecordText({ ...recordOf([fixtureLeg("s1", { reaches_target: true })]), reader_path: [{ ...fixtureLeg("s1", { reaches_target: true }), waypoints: [{ point: "a point", case: "own" }] }] }), "b.yaml");
+  if (!staleBrief.refusals.some((m) => m.includes("leg s1: carries `waypoints`, which is not a Leg field"))) fails.push(`(ax) the Draft's reader did not refuse a stored Leg carrying the key, naming it: ${JSON.stringify(staleBrief.refusals)}`);
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   for (const row of ["lpp_waypoints", "lpp_grounded"]) if (table[row]) fails.push(`(ax) src/brief-workflow.json still carries the \`${row}\` row`);
 }
@@ -306,63 +295,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   if (!two || !two.includes("2 Legs carry it")) fails.push(`(ay3) a path marking two Legs was not refused: ${two}`);
 }
 
-// (az) kogaki#1449 -- A BRIEF WAYPOINT'S POINT IS READ ALONE. `validateLegs` runs
-// `waypointsRefusal` with the Leg's Claims, so a waypoint whose point opens with "This" is
-// refused naming the Leg, the waypoint and the word, and the same point with the noun named
-// in full passes; "these <noun>" whose noun is in no Claim of the Leg is refused,
-// and with the noun in a Claim of the Leg passes. Without Claim text -- the Waypoints' call
-// and every Brief read -- the rule does not apply. The Move-Extraction Playground's `leg_path_unit` row, which
-// composes a legacy Leg's waypoints and is the rule's origin since kogaki#1775, states it;
-// `validateLegs` over a Leg carrying waypoints is where it refuses.
+// (bb) kogaki#1554 -- THE METHOD VERBS ARE ONE LIST. `METHOD_VERBS` stands in
+// src/compose/leg-schema.mjs: the Extractor imports its refusal and declares no list of its own.
 {
-  const legsWith = (second, claim = "claim of s1") => [leg1276("s1", { opens_section: "Intro",
-    claims: [{ type: "strand", strand: "L1", proposition: claim }],
-    waypoints: [{ point: "A measure of defence takes one of two cases.", case: "own" }, { point: second, case: "own" }] }),
-  leg1276("s2", { reaches_target: true })];
-  const opens = compose.validateLegs(legsWith("This value decides which case a society is in."), []);
-  if (!opens.error) fails.push("(az) a waypoint 2 point opening with \"This\" was not refused");
-  else if (!/leg 1 \(s1\): waypoint 2's point opens with "This"/.test(opens.error) || !opens.error.includes("kogaki#1449")) {
-    fails.push(`(az) the refusal of a point opening with "This" does not name the Leg, the waypoint and the word: ${opens.error}`);
-  }
-  const full = compose.validateLegs(legsWith("The measure of defence decides which case a society is in."), []);
-  if (full.error) fails.push(`(az) the same point with the noun named in full was refused: ${full.error}`);
-  const these = compose.validateLegs(legsWith("A society holds these values apart."), []);
-  if (!these.error || !/waypoint 2's point carries "these values", and "values" is in no Claim of the Leg/.test(these.error)) {
-    fails.push(`(az) "these <noun>" whose noun is in no Claim of the Leg was not refused naming it: ${these.error}`);
-  }
-  const grounded = compose.validateLegs(legsWith("A society holds these values apart.", "a measure of defence takes two values"), []);
-  if (grounded.error) fails.push(`(az) "these <noun>" whose noun is in a Claim of the Leg was refused: ${grounded.error}`);
-  const bare = compose.waypointsRefusal([{ point: "This case follows." }], "a Waypoint list", null, null, { paragraph: true });
-  if (bare) fails.push(`(az) waypointsRefusal without Claim text applied the read-alone rule: ${bare}`);
-  const row = JSON.parse(readFileSync("src/move-extraction-playground/extraction-workflow.json", "utf8")).leg_path_unit;
-  if (!row || !(await import("./src/workflow/judge.mjs")).withPromptText({ id: "leg_path_unit", ...row }).judgment_point.includes("A WAYPOINT'S POINT IS READ ALONE (kogaki#1449)")) {
-    fails.push("(az) the Move-Extraction Playground's leg_path_unit row does not state the read-alone rule in its judgment point");
-  }
-}
-
-// (bb) kogaki#1554 -- NO BRIEF WAYPOINT POINT CARRIES A METHOD VERB. `validateLegs` runs
-// `waypointsRefusal` with the Leg's Claims, so a point carrying "can be explained at face
-// value" is refused naming the Leg, the waypoint and the word, and the same point with the
-// clause removed passes. A second listed verb in another form is refused too, so the case
-// pins the list rather than the specimen. Without Claim text the rule does not apply.
-// `METHOD_VERBS` is the one list: the Extractor imports it and declares none of its own.
-{
-  const legsWith = (second) => [leg1276("s1", { opens_section: "Intro",
-    waypoints: [{ point: "A measure of defence takes one of two cases.", case: "own" }, { point: second, case: "own" }] }),
-  leg1276("s2", { reaches_target: true })];
-  const method = compose.validateLegs(legsWith("A country starting a war declares it acts in defence, so that the stock declaration can be explained at face value."), []);
-  if (!method.error) fails.push("(bb) a waypoint 2 point carrying \"explained\" was not refused");
-  else if (!/leg 1 \(s1\): waypoint 2's point carries "explained", a form of the method verb "explain"/.test(method.error) || !method.error.includes("kogaki#1554")) {
-    fails.push(`(bb) the refusal of a point carrying "explained" does not name the Leg, the waypoint and the word: ${method.error}`);
-  }
-  const removed = compose.validateLegs(legsWith("A country starting a war declares it acts in defence."), []);
-  if (removed.error) fails.push(`(bb) the same point with the clause removed was refused: ${removed.error}`);
-  const other = compose.validateLegs(legsWith("A country starting a war justifies it as defence."), []);
-  if (!other.error || !/waypoint 2's point carries "justifies", a form of the method verb "justify"/.test(other.error)) {
-    fails.push(`(bb) a point carrying "justifies" was not refused naming the word: ${other.error}`);
-  }
-  const bare = compose.waypointsRefusal([{ point: "The defence is explained." }], "a Waypoint list", null, null, { paragraph: true });
-  if (bare) fails.push(`(bb) waypointsRefusal without Claim text applied the method-verb rule: ${bare}`);
   if (!Array.isArray(METHOD_VERBS) || !METHOD_VERBS.includes("explain")) fails.push("(bb) src/compose/leg-schema.mjs exports no METHOD_VERBS list");
   const extractText = readFileSync("src/move-extraction-playground/extract.mjs", "utf8");
   if (!/import \{[^}]*\bmethodWordRefusal\b[^}]*\} from "\.\.\/compose\/leg-schema\.mjs"/.test(extractText)) {
@@ -376,18 +311,16 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 }
 
 // (ba) kogaki#1494 — the Path Review's recoverability criterion, run through the
-// `review_path` state's own resumption over a Candidate whose waypoint point
+// `review_path` state's own resumption over a Candidate whose Leg's claim
 // carries "registers": a word in no served claim, no renderings entry and no
-// `introduces`. The same point passes once the record declares "registers" as
+// `introduces`. The same claim passes once the record declares "registers" as
 // the rendering of a served word. Then adoption refuses a Leg carrying the
 // retired `introduces` (kogaki#1768), naming the Leg and the field.
 {
   const material = "Each defense records whether attack is the more effective means.";
   const point = "Each defense registers whether attack is the more effective means.";
-  const legs = [leg1276("s1", { opens_section: "Intro", claims: [{ type: "strand", strand: "L1", proposition: material }],
-    waypoints: [{ point, case: "own" }] }), leg1276("s2", { reaches_target: true,
-    claims: [{ type: "strand", strand: "L1", proposition: "attack is the more effective means" }],
-    waypoints: [{ point: "attack is the more effective means", case: "own" }] })];
+  const legs = [leg1276("s1", { opens_section: "Intro", claims: [{ type: "strand", strand: "L1", proposition: point }] }),
+    leg1276("s2", { reaches_target: true, claims: [{ type: "strand", strand: "L1", proposition: "attack is the more effective means" }] })];
   const reviewPath = (renderings) => {
     const dir = mkdtempSync(join(tmpdir(), "kogaki-1494-review-"));
     const strands = [{ display_id: "L1", slug: "defense", cite: "fixture" }];
@@ -408,12 +341,12 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   };
   const failing = await reviewPath([]);
   const f0 = failing && failing[0];
-  if (!f0 || f0.verdict !== "fails" || f0.word !== "registers" || f0.field !== "waypoints[0].point") {
-    fails.push(`(ba) the Path Review did not fail leg s1 naming "registers" in waypoints[0].point: ${JSON.stringify(failing)}`);
+  if (!f0 || f0.verdict !== "fails" || f0.word !== "registers" || f0.field !== "claims[0].proposition") {
+    fails.push(`(ba) the Path Review did not fail leg s1 naming "registers" in claims[0].proposition: ${JSON.stringify(failing)}`);
   }
   if (!failing || !failing[1] || failing[1].verdict !== "holds") fails.push(`(ba) leg s2, every word served, did not hold: ${JSON.stringify(failing)}`);
   const declared = await reviewPath([{ term: "records", as: "registers" }]);
-  if (!declared || !declared[0] || declared[0].verdict !== "holds") fails.push(`(ba) the same point with "registers" declared as the rendering of a served word did not pass: ${JSON.stringify(declared)}`);
+  if (!declared || !declared[0] || declared[0].verdict !== "holds") fails.push(`(ba) the same claim with "registers" declared as the rendering of a served word did not pass: ${JSON.stringify(declared)}`);
   const legsIntro = legs.map((l, i) => (i === 0 ? { ...l, introduces: ["registers — the word the article uses for records"] } : l));
   const viaLedger = compose.recoverabilityOf(legsIntro, { material: { L1: material } });
   if (viaLedger[0].verdict !== "holds") fails.push(`(ba) a word the Leg's introduces hands it was not recovered: ${JSON.stringify(viaLedger)}`);
@@ -421,6 +354,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   // adoption: a Leg carrying `introduces` is refused as retired (kogaki#1768), whatever the renderings record holds.
   const minted = compose.parseBriefRecord(composeBrief({ slug: "t", strands: [{ display_id: "L1", slug: "defense", cite: "fixture" }],
     thesis: "Attack decides.", composePath: "audiences/dev-to-zenn.md" }), "brief.yaml").record;
+  minted.structure = structureOf(legs); // the relations the fixture Legs name (kogaki#1885)
   const renderings = [{ term: "records", as: "registers" }];
   const bad = compose.fillBrief(minted, { legs: legs.map((l, i) => (i === 0 ? { ...l, introduces: ["records"] } : l)), renderings });
   if (!bad.error) fails.push("(ba) adoption did not refuse a Leg carrying `introduces`");
@@ -436,42 +370,10 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   }
 }
 
-// (bd) A BRIEF WAYPOINT RECORDS ITS CASE (kogaki#1732): `validateLegs` refuses a Brief Waypoint carrying
-// no `case`, a `case` other than `own` and `apart`, and a Leg whose last Waypoint is `apart`, each
-// naming the Leg and the Waypoint; an `apart` Waypoint followed by an `own` one passes, `legRecord`
-// writes the value, and a Waypoint list owes no `case`.
-{
-  const two = (a, b) => [leg1276("s1", { opens_section: "Intro", waypoints: [
-    { point: "the paragraph establishes what s1 claims", ...a },
-    { point: "the paragraph carries what s1 claims onto the subject", ...b }] }),
-  leg1276("s2", { reaches_target: true })];
-  for (const [what, a, b, want] of [
-    ["a Brief Waypoint carrying no case", {}, { case: "own" }, /leg 1 \(s1\): waypoint 1 carries no `case`/],
-    ["a case outside own and apart", { case: "own" }, { case: "elsewhere" }, /leg 1 \(s1\): waypoint 2 carries case "elsewhere"/],
-    ["a Leg ending on apart", { case: "own" }, { case: "apart" }, /leg 1 \(s1\): waypoint 2 is `apart` and ends the Leg/],
-  ]) {
-    const r = compose.validateLegs(two(a, b), []);
-    if (!r.error) fails.push(`(bd) ${what} was not refused`);
-    else if (!want.test(r.error) || !r.error.includes("kogaki#1732")) fails.push(`(bd) ${what} was refused without naming the Leg and the Waypoint: ${r.error}`);
-  }
-  const ok = compose.validateLegs(two({ case: "apart" }, { case: "own" }), []);
-  if (ok.error) fails.push(`(bd) an apart Brief Waypoint followed by an own one was refused: ${ok.error}`);
-  const rec = compose.legRecord(two({ case: "apart" }, { case: "own" })[0]);
-  if (rec.waypoints.map((w) => w.case).join() !== "apart,own") fails.push(`(bd) legRecord did not write each Brief Waypoint's case: ${JSON.stringify(rec.waypoints)}`);
-  const pws = compose.waypointsRefusal([{ point: "A Waypoint states its point." }], "a Waypoint list",
-    null, null, { paragraph: true });
-  if (pws) fails.push(`(bd) a Waypoint list was refused for carrying no case: ${pws}`);
-  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const c = schema.waypoint.fields.case;
-  if (!c || c.required !== true || JSON.stringify(c.values) !== JSON.stringify(["own", "apart"])) {
-    fails.push(`(bd) src/leg-schema.json's waypoint does not declare a required \`case\` whose values are the validator's: ${JSON.stringify(c)}`);
-  }
-}
-
 if (fails.length > 0) {
   console.log("FAIL check-brief-path-rules");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-rules — the Journey use boundary retired at the Leg (kogaki#1286, kogaki#1768); the retired Discharge item and question chain each refused by name (kogaki#1283, kogaki#1325, kogaki#1699); adoption writing brief.yaml in list or map form with no line over 120 characters and no Leg reader state (kogaki#1328, kogaki#1699); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Brief Waypoint's point read alone (kogaki#1449); no Brief Waypoint point carrying a method verb (kogaki#1554); recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing a Leg carrying the retired introduces (kogaki#1494, kogaki#1768); no Obligation path rule left in the Leg schema (kogaki#1699); and every Brief Waypoint carrying `case`, own or apart, with no Leg ending on apart (kogaki#1732); and no Brief Waypoint carrying `serves` (kogaki#1861).");
+console.log("ok: check-brief-path-rules — the Journey use boundary retired at the Leg (kogaki#1286, kogaki#1768); the retired Discharge item and question chain each refused by name (kogaki#1283, kogaki#1325, kogaki#1699); adoption writing brief.yaml in list or map form with no line over 120 characters and no Leg reader state (kogaki#1328, kogaki#1699); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); the one list of method verbs (kogaki#1554); recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing a Leg carrying the retired introduces (kogaki#1494, kogaki#1768); no Obligation path rule left in the Leg schema (kogaki#1699); and a Brief with no structure refused at its first Leg, with a Leg key the schema does not declare refused naming it (kogaki#1885).");
 JS

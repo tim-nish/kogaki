@@ -24,12 +24,13 @@ function baseRefusal(base, at = "") {
   return null;
 }
 
-// A binding: `move` resolving in the library, and `binding_rationale` where given (kogaki#1883). `at` prefixes every field it names.
-function bindingRefusal(record, movesDir, at = "") {
+// A binding: `move` resolving in the library, and `binding_rationale` where given (kogaki#1883). `at` prefixes every field it
+// names. `beside` holds the keys the record declares beside the binding's two; any other key is refused naming it (kogaki#1885).
+function bindingRefusal(record, movesDir, at = "", beside = []) {
   if (Object.hasOwn(record, "grounds"))
     return `${at}grounds is no field of a binding: why the Move was chosen is \`${at}binding_rationale\` (kogaki#1678)`;
-  if (Object.hasOwn(record, "waypoints"))
-    return `\`${at}waypoints\` is no field of a binding: a binding carries \`move\` and \`binding_rationale\``;
+  const extra = Object.keys(record).find((k) => !["move", "binding_rationale", ...beside].includes(k));
+  if (extra) return `\`${at}${extra}\` is no field of a binding: a binding carries \`move\` and \`binding_rationale\``;
   if (Object.hasOwn(record, "binding_rationale") && !isText(record.binding_rationale)) {
     return `${at}binding_rationale is not one text — why the Move was chosen (kogaki#1675)`;
   }
@@ -158,7 +159,7 @@ export function validateRbsTable(record, _proposition, { movesDir = "moves", str
     const r = tableRefusal(t, structure, at);
     if (r) return r;
   }
-  const m = bindingRefusal(record, movesDir) || projectionRefusal(record, movesDir);
+  const m = bindingRefusal(record, movesDir, "", ["tables", "projection"]) || projectionRefusal(record, movesDir);
   if (m) return { group: "shape", error: m };
   const bound = boundMovesOf(record);
   if (bound.length) {

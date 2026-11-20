@@ -161,8 +161,8 @@ export function claimRegisterRefusal(entries, legs) {
 
 // ---------------------------------------------------------------------------
 // RECOVERABILITY (kogaki#1494, owner decision 2026-10-21). The Path Review's
-// claim judgment gains one criterion: a claim's proposition and a waypoint's
-// point are recoverable from the Claim's served material under the Brief's
+// claim judgment gains one criterion: a claim's proposition is
+// recoverable from the Claim's served material under the Brief's
 // renderings record. The entry is the HARNESS'S, computed by
 // src/compose.mjs `recoverabilityOf` at the `review_path` state and attached
 // beside the judged review — one entry per Leg, `holds`, or `fails` naming

@@ -5,7 +5,6 @@
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { parseYaml } from "../../yaml.mjs";
 import { JUDGE_INPUT_MARKER } from "../../workflow/judge.mjs";
 
@@ -14,23 +13,15 @@ import { JUDGE_INPUT_MARKER } from "../../workflow/judge.mjs";
 export const SHEET_TITLES = {
   extraction: "Extraction",
   move: "Move",
-  brief: "Brief",
-  paragraphPlan: "ParagraphPlan",
-  packet: "Packet",
-  draft: "Draft",
   runRecord: "Run record",
 };
 
 // Every card carries one badge, production or Move-Extraction Playground substitute (kogaki#1400, carried
-// onto the seven cards by #1401). A substitute's note, where it has one, goes in the badge's
+// onto every card by #1401). A substitute's note, where it has one, goes in the badge's
 // title attribute.
 export const SHEET_CELL_BADGE = {
   extraction: { type: "substitute" },
   move: { type: "production", note: "production code, written into this run's own library" },
-  brief: { type: "substitute", note: "production rows with declared substitutions" },
-  paragraphPlan: { type: "production" },
-  packet: { type: "production" },
-  draft: { type: "production" },
   runRecord: { type: "production" },
 };
 
@@ -127,24 +118,12 @@ export function callsBlock(calls, label = "recorded model calls", shown = []) {
     .join("");
 }
 
-// THE ANCHORED BRIEF (kogaki#1495). A Brief whose Leg was judged recoverable from the
-// Extraction's Segment content reads "Move-Extraction Playground substitute, anchored". The mark is read from
-// the run's own Leg Brief composer record (`brief.json`'s `anchored`), never from the live
-// code, so an older run's sheet, composed before the criterion, still reads unanchored.
-export const ANCHORED_SUFFIX = ", anchored";
-export function briefAnchored(legBriefRun) {
-  const rec = legBriefRun ? readJson(join(legBriefRun, "brief.json")) : null;
-  return !!(rec && rec.anchored === true);
-}
-
 // Every card carries one badge: production, or Move-Extraction Playground substitute with a coloured left
 // border and the note (if any) in the badge's title attribute.
-function badgeSpan(key, anchored = false) {
+function badgeSpan(key) {
   const b = SHEET_CELL_BADGE[key];
   if (!b) return "";
-  const label =
-    (b.type === "substitute" ? "Move-Extraction Playground substitute" : "production") +
-    (anchored ? ANCHORED_SUFFIX : "");
+  const label = b.type === "substitute" ? "Move-Extraction Playground substitute" : "production";
   return ` <span class="badge ${b.type}"${b.note ? ` title="${esc(b.note)}"` : ""}>${esc(label)}</span>`;
 }
 
@@ -166,12 +145,12 @@ export function inputsList(entries, idx = 0) {
 // One card: Output (folded, kogaki#1559 -- the anchor script below opens it on its link), Inputs,
 // Prompt, Calls, in that order -- and Rounds between Output and Inputs where the card has one (the
 // ParagraphPlan card, kogaki#1437).
-export function cardWrap(key, { output, rounds, inputs, prompt, calls, anchored = false, copiedFrom = null }, idx = 0) {
+export function cardWrap(key, { output, rounds, inputs, prompt, calls, copiedFrom = null }, idx = 0) {
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
   return (
-    `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>` +
+    `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key)}${copiedBadge(copiedFrom)}</h3>` +
     `<details class="part out"><summary>Output</summary>${output}</details>` +
     (rounds !== undefined ? `<details class="part rounds"><summary>Rounds</summary>${rounds}</details>` : "") +
     `<details class="part in"><summary>Inputs</summary>${inputs}</details>` +
@@ -259,8 +238,8 @@ export function segmentCount(moveText) {
 // so two runs on one page never collide.
 export const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
 
-// A PER-PARAGRAPH (OR PER-BRIEF-WAYPOINT) ROW, folded (kogaki#1410, owner 2026-10-17): closed by
-// default, open only for the first. The anchor id the comparison table links to sits on a
+// A PER-PARAGRAPH ROW, folded (kogaki#1410, owner 2026-10-17): closed by
+// default, open only for the first. The anchor id sits on a
 // `div` INSIDE the details, never on the details itself: a browser navigating to a fragment
 // opens the closed details that are the target's ancestors, not a details that is the target.
 export const prowBlock = (card, n, idx, summary, body, cls = "") =>
@@ -283,54 +262,39 @@ export const ANCHOR_SCRIPT = `<script>const openTo=()=>{const t=location.hash&&d
 // owner-authored input... model-written... mechanically derived with no model call").
 const DIAGRAM_CLASSES = {
   ownerInput: ["Passage", "Audience"],
-  modelWritten: ["Extraction", "Brief", "ParagraphPlan", "Draft"],
-  mechanical: ["Move", "Packet"],
+  modelWritten: ["Extraction"],
+  mechanical: ["Move"],
 };
 const DIAGRAM_CLASS_LABELS = {
   ownerInput: "owner-authored input",
   modelWritten: "model-written",
   mechanical: "mechanically derived, no model call",
 };
-// The production/substitute border rides the dashed style (kogaki#1400), on Extraction and
-// Brief only -- ParagraphPlan and Draft are production and stay solid.
-const DIAGRAM_DASHED = ["Extraction", "Brief"];
+// The production/substitute border rides the dashed style (kogaki#1400), on Extraction only.
+const DIAGRAM_DASHED = ["Extraction"];
 
-// THE PIPELINE DIAGRAM (kogaki#1402, redrawn at kogaki#1410): one left-to-right flowchart, opening
-// the run's section, laid out in two rows -- Extraction, Move, ParagraphPlan, Packet, Draft on the
-// first, Brief under Move, fed by Extraction and Audience and feeding ParagraphPlan and Packet, on
-// the second. Passage and Audience are the only sources; Segments and Persona are not drawn as
-// nodes (Segments is section 3 of the Extraction, and Persona is a key of the Audience file).
-// Audience also feeds Packet, for the Packet's prose rules. Every node is a link to where that
-// material sits on the page, and carries one of three provenance classes -- owner-authored input,
-// model-written or mechanically derived with no model call -- with the production/substitute
-// distinction (kogaki#1400) riding a dashed border on Extraction and Brief. The artifact node names
+// THE PIPELINE DIAGRAM (kogaki#1402, redrawn at kogaki#1410 and kogaki#1885): one left-to-right
+// flowchart, opening the run's section -- Passage and Audience into Extraction, Extraction into Move.
+// Passage and Audience are the only sources; Segments and Persona are not drawn as nodes (Segments is
+// section 3 of the Extraction, and Persona is a key of the Audience file). Every node is a link to
+// where that material sits on the page, and carries one of three provenance classes -- owner-authored
+// input, model-written or mechanically derived with no model call -- with the production/substitute
+// distinction (kogaki#1400) riding a dashed border on Extraction. The artifact node names
 // are the pipeline nouns SHEET_TITLES carries and nothing else (kogaki#1400). Mermaid is loaded
 // from a pinned CDN; the diagram's own text is also written as a `<pre>` fallback inside a closed
 // details element, so a sheet opened offline still shows the graph as text, collapsed by default.
 export function pipelineDiagram(idx) {
   const cardHref = (key) => `#card-${idx}-${key}`;
   const nodes = [
-    ["Passage", `#comparison-${idx}`],
+    ["Passage", `#review-${idx}`],
     ["Audience", "#run-conditions"],
     ["Extraction", cardHref("extraction")],
     ["Move", cardHref("move")],
-    ["Brief", cardHref("brief")],
-    ["ParagraphPlan", cardHref("paragraphPlan")],
-    ["Packet", cardHref("packet")],
-    ["Draft", cardHref("draft")],
   ];
   const edges = [
     ["Passage", "Extraction"],
     ["Audience", "Extraction"],
     ["Extraction", "Move"],
-    ["Extraction", "Brief"],
-    ["Audience", "Brief"],
-    ["Move", "ParagraphPlan"],
-    ["Brief", "ParagraphPlan"],
-    ["Brief", "Packet"],
-    ["ParagraphPlan", "Packet"],
-    ["Audience", "Packet"],
-    ["Packet", "Draft"],
   ];
   const nodeId = (name) => `${name}_${idx}`;
   const lines = ["flowchart LR"];

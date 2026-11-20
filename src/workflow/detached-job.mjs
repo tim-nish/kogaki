@@ -283,7 +283,7 @@ export async function cmdJobSupervise(args) {
     unitsRunning = new Map();
     // THE MAPPER'S ACT, CARRIED OUT: a reading call spawned, the plan call spawned over the
     // input the Mapper composed, the unit ended `done` on the record the Mapper wrote (kogaki#1865),
-    // or the unit ended naming the Leg, the Brief Waypoint and the stage.
+    // or the unit ended naming the Leg and the stage.
     const mapperAct = (u, act, flag, bytes = 0, stdoutPath = readerPathUnitStdoutPath(dir, u.id)) => {
       const st = S.get(u.id);
       if (act.done)
@@ -316,7 +316,6 @@ export async function cmdJobSupervise(args) {
         return { row: runningRow(u, 0), progressed: true };
       }
       // THE PLAN CALL OVER THE MAPPER'S INPUT: its refusals and Rounds are counted from here.
-      // The Waypoints call after the bind call opens the next Round (kogaki#1812).
       if (st.phase === "compose") beginNextRound(st, Date.now());
       st.roundBase = st.rounds - 1;
       st.refusalBase = st.refusals.length;

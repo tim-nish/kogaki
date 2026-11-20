@@ -57,8 +57,8 @@ node --input-type=module - <<'JS'
 // EVERY ENTRY IS ITERATED, NONE IS NAMED. A table read only for the keys its reader asks
 // for binds nothing else (consulted: coding::lesson/a-declaration-table-binds-only-the-keys-its-reader-names@b2ad9ce23c4c67d80cdc22a66f3648eed141a84224ac68415b0015cf0ad8078f),
 // so this walks every row, every schema field and every declared entry, and the row text
-// it tests is the text `judgePrompt` renders -- shared text substituted, a copied row
-// derived -- never the raw table string.
+// it tests is the text `judgePrompt` renders -- shared text substituted --
+// never the raw table string.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -68,7 +68,6 @@ const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { withPromptText, passagesOf, judgePrompt } = await imp("src/workflow/judge.mjs");
 // The run record binds no default lane (kogaki#1741); this check reads row text, not a lane.
 (await imp("src/workflow/run-record.mjs")).bindFlow({ lane: "schema-binds", label: "schema-binds check" });
-const { derivedRow } = await imp("src/move-extraction-playground/leg-brief.mjs");
 const { MOVE_CARRIED_FIELDS } = await imp("src/compose.mjs");
 
 const TABLES = Object.freeze([
@@ -96,7 +95,6 @@ function schemaFields(decl = readJson(BINDS_SCHEMA)) {
   const leg = readJson("src/leg-schema.json");
   out.leg = [
     ...Object.keys(leg.fields), ...Object.keys(leg.derived),
-    ...Object.keys(leg.waypoint.fields).map((k) => `waypoints.${k}`),
   ];
   return out;
 }
@@ -134,13 +132,7 @@ function rowsOf(table) {
 }
 
 function renderedRow(table, key, row) {
-  let r = row;
-  if (row.copy_of) {
-    const d = derivedRow(table, key);
-    if (d.error) throw new Error(d.error);
-    r = d.row;
-  }
-  return r.prompt_file ? withPromptText({ id: key, ...r }) : { id: key, ...r };
+  return row.prompt_file ? withPromptText({ id: key, ...row }) : { id: key, ...row };
 }
 
 // What the model call reads: the row rendered by `judgePrompt` up to the input marker, so
@@ -402,7 +394,7 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
   ok(f.some((l) => l.includes("`fixture_plan_unit`") && l.includes("`fixture_judge_unit`") && l.includes("1 word(s) changed")),
     `(f3) two rows carrying one sentence one word apart fail naming both rows: ${f.join(" | ")}`);
   // (f4) the control: identical sentences are one criterion said twice, not a restatement.
-  table.fixture_judge_unit.judgment_point = table.fixture_judge_unit.judgment_point.replace("Waypoint states.", "Waypoint says.");
+  table.fixture_judge_unit.judgment_point = table.fixture_judge_unit.judgment_point.replace("paragraph states.", "paragraph says.");
   const g = restatedFailures(path, table);
   ok(g.length === 0, `(f4) the same two rows carrying the sentence identically pass: ${g.join(" | ")}`);
 }

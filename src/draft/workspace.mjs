@@ -99,22 +99,9 @@ export function loadBrief(args) {
   }
   const brief = readBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  // NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired, kogaki#1311): the Move is read up to
-  // Waypoint generation and never again.
+  // NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired, kogaki#1311).
   if (args["moves-dir"] !== undefined) {
-    fail(
-      "--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg's paragraphs and their " +
-        "Waypoints are written by /paragraph-plan, and the Packet renders those",
-    );
-  }
-  // THE LEG IS THE UNIT (kogaki#1777): a Leg carries its relation's `holds` as `text` and no Brief Waypoint.
-  for (const leg of brief.legs) {
-    if (Array.isArray(leg.waypoints)) {
-      fail(
-        `the Brief at ${path}, leg ${leg.leg_id} carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775), ` +
-          "and its paragraphs are /paragraph-plan's (kogaki#1777); compose the Brief again with /brief",
-      );
-    }
+    fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311)");
   }
   // EACH LEG'S SEGMENTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375, kogaki#1865):
   // `/paragraph-plan` writes `paragraph-plan.yaml` next to the Brief, naming the Brief's path and content hash, and

@@ -25,8 +25,7 @@
 #       `technique`, a `before` written as one joined line, prose `breaks`, no `segments`, no `description`,
 #       an unknown figure kind, a field ROLES.json maps to no role) in the sentence
 #       src/move-validate.mjs prints; and the
-#       Brief's compose and Move-fit judge inputs read the admitted Moves, each bound to a
-#       Leg, without refusal.
+#       Adapter reads the admitted Moves, every one, without refusal.
 #   (b3) an entry of `segments` is read as a Segment or refused, never dropped (kogaki#1416):
 #       an admitted Move carries exactly as many Segments as the Extraction lists; an entry
 #       carrying a label key, one with an empty `operation`, one after the first with no
@@ -413,21 +412,18 @@ for edit, words in ((label, ("Segment 2 carries %sfunction%s" % (BT, BT), "canno
             bad.append("%s: the refusal does not say %r: %s" % (edit.__name__, missing, e))
     if [n for n in os.listdir(lib) if n.endswith(".yaml")]:
         bad.append("%s: a refused Extraction left a Move in the library" % edit.__name__)
-# THE BRIEF READS WHAT THE INGEST ADMITTED: its compose input and Move-fit judge input read
-# the library run_from_extraction wrote, each Move bound to a Leg, without refusal.
+# THE ADAPTER READS WHAT THE INGEST ADMITTED: loadMoveContracts reads the library
+# run_from_extraction wrote, every Move of it, without refusal.
 ids = [os.path.basename(w)[:-len(".yaml")] for w in r["written"] or []]
 brief = subprocess.run(["node", "--input-type=module", "-e",
-    "const { loadMoveContracts, moveContractsForLegs } = await import(process.argv[1]);"
-    "const ids = JSON.parse(process.argv[3]);"
+    "const { loadMoveContracts } = await import(process.argv[1]);"
     "const lib = loadMoveContracts(process.argv[2]);"
-    "const legs = moveContractsForLegs(ids.map((id, i) => ({ leg_id: 'L' + (i + 1), move: id, waypoints: ['w'] })), process.argv[2]);"
-    "process.stdout.write(JSON.stringify({ lib: lib.error || null, legs: legs.error || null, n: (lib.moves || []).length,"
-    " bound: (legs.contracts || []).map((c) => c.move) }));",
-    "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), moves, json.dumps(ids)],
+    "process.stdout.write(JSON.stringify({ lib: lib.error || null, n: (lib.moves || []).length }));",
+    "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), moves],
     capture_output=True, text=True)
 got = json.loads(brief.stdout or "{}") if brief.returncode == 0 else {"error": brief.stderr}
-if got.get("error") or got.get("lib") or got.get("legs") or got.get("n") != len(ids) or got.get("bound") != ids:
-    bad.append("the Brief's compose and judge inputs did not read the admitted Moves: %r" % got)
+if got.get("error") or got.get("lib") or got.get("n") != len(ids):
+    bad.append("the Adapter did not read the admitted Moves: %r" % got)
 print("\\n".join(bad))
 sys.exit(1 if bad else 0)
 `, ...files], { encoding: "utf8", cwd: repo });

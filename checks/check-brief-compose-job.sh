@@ -3,7 +3,7 @@
 # one Leg per relation and higher-order relation the apex reaches, derived with no Call, each
 # Leg's `text` its relation's `holds`, the apex's Leg alone marked at any position.
 #   (a) the five derived Legs, and compose_path declaring no job or Waypoint row; (b) the
-#       reach rule's refusals; (c) `validateLegs` refusing `waypoints`, `move`, no `text`.
+#       reach rule's refusals; (c) `validateLegs` refusing `move` and no `text`.
 #   (aj) the no-tools sentence on the one job a Brief starts (`review_path`).
 #   (ak) the lines above the Candidate question; (am) the Reader Path reading.
 #   (al) END TO END: one advance from `mint` over a fake judge makes the renderings and
@@ -100,7 +100,7 @@ const LEGS = structureLegs(STRUCTURE, CLAIMS);
   if (pathReachRefusal(apexFirst, STRUCTURE)) fails.push(`(b) a path with the marked Leg first was refused, though the apex's Leg stands at any position: ${pathReachRefusal(apexFirst, STRUCTURE)}`);
 }
 
-// (c) THE LEG SCHEMA UNDER A STRUCTURE: a Brief Leg carrying `waypoints` or `move`, or no `text`, is refused by name.
+// (c) THE LEG SCHEMA UNDER A STRUCTURE: a Brief Leg carrying `move`, or no `text`, is refused by name.
 {
   // The first Leg opens a Section, as the leg_sections Call answers it (the Section grouping rule 3).
   const sectioned = (legs) => legs.map((l, i) => (i === 0 ? { ...l, opens_section: "What the walk leaves out" } : { ...l }));
@@ -108,7 +108,6 @@ const LEGS = structureLegs(STRUCTURE, CLAIMS);
   if (ok.error) fails.push(`(c) the derived Legs were refused by validateLegs: ${ok.error}`);
   const withField = (k, v) => LEGS.map((l, i) => (i === 1 ? { ...l, [k]: v } : { ...l }));
   const cases = [
-    ["a Leg carrying waypoints", withField("waypoints", [{ point: "x" }]), /carries `waypoints`/],
     ["a Leg carrying move", withField("move", "m-1"), /`move`/],
     ["a Leg with no text", LEGS.map((l, i) => { const { text, ...rest } = l; return i === 1 ? rest : { ...l }; }), /`text`/],
   ];
@@ -243,7 +242,7 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose-job — kogaki#1775: compose_path derives five Legs with no Call, one per relation and higher-order relation the apex reaches, each saying its relation's holds, the apex's alone marked at any position; the reach rule and the Leg schema refuse an outside, doubled or missing Leg and a Leg carrying waypoints, move or no text by name; one advance makes the renderings and leg_sections calls alone and writes one Candidate with no Waypoint and no Round; the Reader Path renders each Leg's relation and text");
+console.log("ok: check-brief-compose-job — kogaki#1775: compose_path derives five Legs with no Call, one per relation and higher-order relation the apex reaches, each saying its relation's holds, the apex's alone marked at any position; the reach rule and the Leg schema refuse an outside, doubled or missing Leg and a Leg carrying move or no text by name; one advance makes the renderings and leg_sections calls alone and writes one Candidate with no Waypoint and no Round; the Reader Path renders each Leg's relation and text");
 JS
 status=$?
 if grep -lqs -- "check-brief-compose-job-fixture" "${HOME}/.claude/kogaki-open-gates"/*.json; then

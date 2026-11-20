@@ -37,15 +37,13 @@ export {
   pathRule,
   journeysRefusal,
   budgetRefusal,
-  waypointsRefusal,
-  READ_ALONE_OPENERS,
-  RETIRED_WAYPOINT_MOVE_FIELDS,
   READER_STATE_DIMENSIONS,
   RETIRED_LEG_STATE_FIELDS,
   readerStateShapeRefusal,
   readerStateDimensionLine,
   validateLegs,
   briefStructureRefusal,
+  undeclaredLegKeyRefusal,
 } from "./compose/leg-schema.mjs";
 export {
   figureKinds,
@@ -86,7 +84,6 @@ export {
   readerProse,
   audienceLanguage,
   loadMoveContracts,
-  moveContractsForLegs,
 } from "./compose/audience.mjs";
 export {
   specializationSchema,

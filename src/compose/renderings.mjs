@@ -1,5 +1,5 @@
 // compose/renderings — the Brief's renderings record and the recoverability
-// of a claim or a point from its served material under it (kogaki#1494,
+// of a claim from its served material under it (kogaki#1494,
 // owner decision 2026-10-21).
 
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
@@ -77,7 +77,7 @@ export function renderingsOf(record) {
 
 // ---- RECOVERABILITY (kogaki#1494) ----
 //
-// A claim's `proposition` and a waypoint's `point` are recoverable from the
+// A claim's `proposition` is recoverable from the
 // claim's served material under the renderings record: every word in them is
 // a word of that material, a word of a declared rendering of a term the
 // material carries, a word of a term `introduces` has handed the Leg (on it
@@ -275,11 +275,10 @@ function unrecoveredWord(text, allowed) {
 }
 
 // One entry per Leg, in Leg order: `{ leg_id, verdict: "holds" }`, or
-// `{ leg_id, verdict: "fails", field, word }` naming the first claim or point
+// `{ leg_id, verdict: "fails", field, word }` naming the first claim
 // carrying a word its material does not recover. `material` maps a Strand id
-// (`L<n>`) to its served text; a claim reads its own Strand's, a waypoint the
-// Strands of every Claim of its Leg (kogaki#1861), and either falls back to the
-// Leg's `materials` where those name none. `renderings` is the record's entries.
+// (`L<n>`) to its served text; a claim reads its own Strand's, and falls back to the
+// Leg's `materials` where it names none. `renderings` is the record's entries.
 export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) {
   const textOf = (ids) =>
     ids
@@ -294,9 +293,6 @@ export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) 
       if (!e.error) introducedSoFar.push(e.term);
     }
     const legMaterial = textOf(Array.isArray(s.materials) ? s.materials : []);
-    const claimStrands = (Array.isArray(s.claims) ? s.claims : [])
-      .map((g) => g && g.strand)
-      .filter((x) => typeof x === "string");
     const allowedFor = (texts) => {
       const own = texts.length ? texts : legMaterial;
       const rendered = renderings.filter((r) => own.some((t) => wholeWordMatch(r.term, t))).map((r) => r.as);
@@ -307,11 +303,6 @@ export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) 
         `claims[${j}].proposition`,
         g && g.proposition,
         textOf(g && typeof g.strand === "string" ? [g.strand] : []),
-      ]),
-      ...(Array.isArray(s.waypoints) ? s.waypoints : []).map((w, j) => [
-        `waypoints[${j}].point`,
-        w && w.point,
-        textOf(claimStrands),
       ]),
     ];
     let entry = { leg_id: s.leg_id, verdict: "holds" };

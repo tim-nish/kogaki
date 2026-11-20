@@ -73,33 +73,23 @@ export function readerStateText(map) {
 
 // One Leg as the record carries it: its fields in the schema's order (kogaki#1768: a Leg binds no Move, so no field
 // written for a Leg Move's binding is carried). A Leg of a Brief composed from a structure carries its `relation` and
-// `text` and no `waypoints` (kogaki#1775); a Leg that predates it keeps its waypoints, each `point` and `case`.
+// `text` (kogaki#1775).
 export function legRecord(s) {
   const out = { leg_id: s.leg_id };
   if (typeof s.relation === "string") out.relation = s.relation;
   if (typeof s.text === "string") out.text = s.text;
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
-  if (Array.isArray(s.waypoints)) {
-    out.waypoints = s.waypoints.map((w) => ({
-      point: String(w.point)
-        .replace(/\s*\n\s*/g, " ")
-        .trim(),
-      case: w.case,
-    }));
-  }
   if (s.opens_section !== undefined) out.opens_section = s.opens_section;
   if (s.reaches_target === true) out.reaches_target = true;
   return out;
 }
 
-// The record's Legs back to the in-memory shape every reader of a Leg reads. A Leg carrying `text` is read as it stands
-// (kogaki#1775); a Leg that predates it is read with an empty `waypoints` where it carries none.
+// The record's Legs back to the in-memory shape every reader of a Leg reads (kogaki#1775).
 export function briefLegs(record) {
   const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
   return path.map((r) => ({
     ...r,
     claims: Array.isArray(r.claims) ? r.claims : [],
-    ...(typeof r.text === "string" ? {} : { waypoints: Array.isArray(r.waypoints) ? r.waypoints : [] }),
   }));
 }
 

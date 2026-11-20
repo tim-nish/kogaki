@@ -387,10 +387,17 @@ const flat = writeBrief(
     LEGS.map((l) => ({ ...l, relation: undefined })),
   ),
 );
-const wp = writeBrief("waypoints", briefOf(STRUCTURE, [{ ...LEGS[0], waypoints: [{ point: "a point." }] }, LEGS[1]]));
+// A stored Brief whose first Leg carries a key the Leg schema does not declare (kogaki#1885).
+const wpRecord = parseYaml(briefOf(STRUCTURE, LEGS), "brief.yaml");
+wpRecord.reader_path[0].waypoints = [{ point: "a point." }];
+const wp = writeBrief("waypoints", stringifyYaml(wpRecord));
 for (const [name, args, want] of [
   ["no-structure", ["--brief", flat, "--leg", "s1", "--move", MOVE, "--library", library], "carries no `structure`"],
-  ["leg-waypoints", ["--brief", wp, "--leg", "s1", "--move", MOVE, "--library", library], "waypoints"],
+  [
+    "leg-waypoints",
+    ["--brief", wp, "--leg", "s1", "--move", MOVE, "--library", library],
+    "`waypoints`, which is not a Leg field",
+  ],
   ["unknown-leg", ["--brief", brief, "--leg", "s9", "--move", MOVE, "--library", library], '"s9"'],
   ["unknown-move", ["--brief", brief, "--leg", "s1", "--move", "nope", "--library", library], '"nope"'],
 ]) {

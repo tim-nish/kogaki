@@ -64,14 +64,13 @@
     "A Leg is one stretch of the Reader Path: the one relation or higher-order relation of the Brief's",
     "RelationalStructure it serves, stated by that relation's `holds` (kogaki#1775, owner decision",
     "2026-11-10). The Legs are derived by the runner, one per relation and higher-order relation the apex",
-    "reaches, with no Call: the Brief carries no Waypoint, no Round and no Move, and the paragraphs a Leg",
-    "takes and their Waypoints are the ParagraphPlan's.",
+    "reaches, with no Call: the Brief carries no Round and no Move.",
     "",
     "The Leg's shape is the field table below. Every field written for a Leg Move's",
     "binding is retired and refused by name: `move`, `no_move_fits`, `materials`,",
     "`purpose`, `rationale`, `depends_on`, `re-activate`, `introduces`, `journeys`,",
     "`entailed`, `entailment_reasoning`, `bridges`, `names`, `budget`, `figure` and",
-    "`figure_roles`; and on a Leg of a Brief that carries a `structure`, `waypoints`."
+    "`figure_roles`."
   ],
   "fields": {
     "leg_id": {
@@ -100,13 +99,6 @@
       "min_length": 1,
       "description": "What this Leg ASSERTS, one entry per Strand it serves: in a Brief that carries a `structure`, a higher-order relation's `from`, an ordinary relation's Roles' claims, and for the apex the claims its `relates` reaches (kogaki#1775). A claim is a PROPOSITION ABOUT THE WORLD and names no reader. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below.",
       "see": "claim"
-    },
-    "waypoints": {
-      "required": false,
-      "type": "array of waypoint",
-      "min_length": 1,
-      "description": "ONLY ON A LEG OF A BRIEF THAT CARRIES NO `structure`, which predates kogaki#1768, and refused naming the field on a Leg of a Brief that carries one (kogaki#1775): the Brief ends at Legs, and only the ParagraphPlan writes Waypoints. There, the points the Leg's paragraphs make, as an ORDERED list, each a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326). See `waypoint` below.",
-      "see": "waypoint"
     },
     "opens_section": {
       "required": false,
@@ -258,56 +250,6 @@
         "required": true,
         "type": "string",
         "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Leg names it."
-      }
-    }
-  },
-  "waypoint": {
-    "definition": [
-      "A WAYPOINT IS A POINT ITS PARAGRAPH MAKES (kogaki#1326, owner decision",
-      "2026-10-10). The Leg's waypoints say, in order, what the Leg's paragraphs",
-      "establish.",
-      "",
-      "A POINT, NEVER AN EFFECT AND NEVER A SENTENCE TO COPY. `point` is the",
-      "proposition the paragraph makes, in one sentence. It names what the",
-      "paragraph establishes -- never how the reader is to feel, what they are",
-      "\"handed\", or when they \"receive\" something. The point is not quoted: its",
-      "wording is the writer's.",
-      "",
-      "ONLY ON A LEG OF A BRIEF WITH NO `structure` (kogaki#1775). A Brief /brief",
-      "composes from a structure ends at Legs, and a Leg of it carrying `waypoints` is",
-      "refused naming the field; the waypoints below are a Brief's that predates",
-      "kogaki#1768, and the Move-Extraction Playground's and the Mapping Playground's one Leg.",
-      "",
-      "NO MOVE INFORMATION REACHES THE BRIEF. The paragraph Move each waypoint is",
-      "planned with is bound AFTER the Brief, by the ParagraphPlan stage",
-      "(`/paragraph-plan`, kogaki#1375), which keeps which Move it bound in its run",
-      "directory.",
-      "",
-      "IT RECORDS WHOSE CASE ITS PARAGRAPH TELLS (kogaki#1732, owner ruling",
-      "2026-11-07). `case` records whether its paragraph tells the proposition's own",
-      "case or a case apart, in material the reader already holds. The waypoint",
-      "after an `apart` one carries that structure onto the subject.",
-      "",
-      "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses an",
-      "empty list, a waypoint with an empty `point`, a waypoint with no `case` or",
-      "a `case` other than `own` and `apart`, a Leg whose last waypoint is `apart`,",
-      "and a waypoint carrying the retired `effect`, `move`, `segments`, `carries`",
-      "or `serves` (kogaki#1861) -- each naming the Leg and the waypoint."
-    ],
-    "fields": {
-      "point": {
-        "required": true,
-        "type": "string",
-        "description": "The proposition this paragraph makes, in the article's subject, in one sentence -- what the paragraph establishes. Never how the reader is to feel or what they are handed, and never a sentence for the writer to copy: its wording is the writer's."
-      },
-      "case": {
-        "required": true,
-        "type": "string",
-        "values": [
-          "own",
-          "apart"
-        ],
-        "description": "Whose case this paragraph tells. `own`: the proposition's own case, in the subject's domain. `apart`: a case apart from the proposition's domain, in material the reader already holds -- chosen from the Persona's prior knowledge and this Leg's claims. The waypoint after an `apart` one carries that case's structure onto the subject, so a Leg never ends on `apart`. It records what you decided when you wrote the waypoint; it adds no paragraph."
       }
     }
   },

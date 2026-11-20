@@ -184,10 +184,8 @@ fields; nothing in the copy is judged.
 | `description` | `description` — copied, with no machine role; over 200 characters is refused naming the length |
 
 The `answers` (Q1 to Q3), `what_it_does`, `presupposes`, `notes` and the header fields
-fields become no Move field. Of the stages after the Extraction, only the
-Move-Extraction Playground's Leg Brief composer reads them: it hands each paragraph's
-`what_it_does` and Segment `content` to its Leg call
-(`src/move-extraction-playground/leg-brief.mjs`; its reader-start call is retired, kogaki#1699). `technique` is retired (kogaki#1412):
+fields become no Move field, and no stage after the Extraction reads them
+(kogaki#1885). `technique` is retired (kogaki#1412):
 `segments` is the Move's whole structure, and a Move record carrying
 `technique` is refused by name.
 

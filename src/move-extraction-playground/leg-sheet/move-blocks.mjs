@@ -1,5 +1,5 @@
-// move-extraction-playground/leg-sheet/move-blocks — a bound Move's record, description, constraints, states and
-// breaks, its source, the review block and the library line. Cut from src/move-extraction-playground/leg-sheet.mjs
+// move-extraction-playground/leg-sheet/move-blocks — a Move's record, description, constraints, states and
+// breaks. Cut from src/move-extraction-playground/leg-sheet.mjs
 // along its headed sections (kogaki#1800); the design and its rulings are stated at the entry's
 // header and in the Issues each block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
@@ -9,16 +9,7 @@ import { parseYaml } from "../../yaml.mjs";
 import { MOVE_RECORD_EXT } from "../../compose.mjs";
 import { esc, read } from "./frame.mjs";
 
-// Original paragraph n's point: its Leg's `text` in the Brief (kogaki#1784).
-export function legPoint(r, n) {
-  const legs = (r.briefRecord && r.briefRecord.reader_path) || [];
-  const id = (r.legIds || [])[n - 1];
-  const leg = id ? legs.find((l) => l && l.leg_id === id) : null;
-  return (leg && leg.text) || "(no point in the Brief)";
-}
-
-// A Move's record, read from the plan's moves directory or, for the run's own Moves withheld
-// from it (kogaki#1521), the ingest's; null where none is readable.
+// A Move's record, read from the run's moves directory or the ingest's; null where none is readable.
 function moveRecord(r, move) {
   const dirs = [join(r.runDir, "moves"), r.stage("ingest").moves_dir].filter(Boolean);
   const mt = move
@@ -102,27 +93,4 @@ export function moveBreaks(r, move) {
       ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>`
       : `<p class="muted">(none)</p>`
   }</div>`;
-}
-
-// WHERE A BOUND MOVE CAME FROM (kogaki#1521): `library` or `this run`, read from the run record's
-// `library.ids`; null for a run with no library, where every Move is the run's own.
-export function moveSource(run, move) {
-  const ids = run && run.library && run.library.ids;
-  if (!ids || !move) return null;
-  return (ids.library || []).includes(move) ? "library" : (ids.run || []).includes(move) ? "this run" : null;
-}
-export function sourceBadge(run, move) {
-  const src = moveSource(run, move);
-  return src ? ` <span class="badge source">${esc(src)}</span>` : "";
-}
-
-// THE LIBRARY LINE (kogaki#1521): the library the plan bound from and whether the run's own
-// Moves were withheld, read from the run record's own `library`.
-export function libraryLine(run) {
-  const l = run && run.library;
-  if (!l) return "Moves from this run only";
-  const n = (xs) => (Array.isArray(xs) ? xs.length : "?");
-  return l.withhold_own
-    ? `Moves from the library ${l.dir} (${n(l.ids && l.ids.library)}); this run's own withheld`
-    : `Moves from the library ${l.dir} (${n(l.ids && l.ids.library)}) beside this run's own (${n(l.ids && l.ids.run)})`;
 }

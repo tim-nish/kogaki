@@ -199,8 +199,8 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 // for is one a reader of the prose alone can write. `claims` IS THE `claim `
 // LINES (`claimLines`, src/draft.mjs), read off the outline by `outlineClaims`.
 // `concession` and `opens_section` left together (owner 2026-09-17,
-// kogaki#1132) — their item rows were removed, so nothing compared them;
-// `waypoints` joined at kogaki#1311 and left at kogaki#1859. `opens_section` is on the refused list
+// kogaki#1132) — their item rows were removed, so nothing compared them.
+// `opens_section` is on the refused list
 // because it IS a Brief Leg field; `concession` is refused by the closed set.
 const RECONSTRUCTIBLE_FIELDS = [
   {

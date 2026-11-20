@@ -24,10 +24,11 @@ import { readBrief, renderPacket, sectionsOf, sectionOfLeg,
 // The stated absence prompts/draft/write-leg.prompt renders for a Persona with no prior knowledge (kogaki#1855).
 const READER_OWN_WORLD_ABSENT = "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 import * as compose from "./src/compose.mjs";
-import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
-const { validateLegs, legRecord } = compose;
+import { recordOf, briefOfRecord, PATH_1260, fixtureLeg, structureOf } from "./checks/fixtures/brief-compose/fixtures.mjs";
+const { legRecord } = compose;
+const validateLegs = (legs) => compose.validateLegs(legs, { structure: structureOf(legs) }); // each fixture Leg names a relation of it (kogaki#1885)
 const fails = [];
-const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
+const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
 
 // (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282), RETIRED AT THE LEG
 // (kogaki#1768): a Leg binds no Move, introduces no term and re-activates nothing, so a Leg
@@ -35,10 +36,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // renders the stated absence under "What crosses into this Leg", and `depends_on` and the
 // retired crossing headings reach no Packet.
 {
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
+  const legOf = fixtureLeg;
   const path = (s2extra = {}) => [legOf("s1", { opens_section: "A Section" }), legOf("s2", s2extra), legOf("s3", { reaches_target: true })];
   const carrying = validateLegs(path({ "re-activate": ["s1 term pipeline"] }));
   if (!carrying.error || !/leg 2 \(s2\): carries `re-activate`, which is retired/.test(carrying.error) || !carrying.error.includes("kogaki#1768")) {
@@ -73,10 +71,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // three Write rules verbatim, and carries the Move block header naming
 // attribute-only use (kogaki#1247, owner ruling 2026-10-02/04).
 {
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
+  const legOf = fixtureLeg;
   const legs = [legOf("s1")];
   const brief = briefOfRecord(recordOf(legs), "o.yaml");
   if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(o) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
@@ -105,7 +100,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
         for (const rule of rules) {
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
         }
-        // THE PLAN BLOCK REPLACED THE WAYPOINTS BLOCK (kogaki#1859): it says its wording is not kept.
+        // THE PLAN BLOCK (kogaki#1859): it says its wording is not kept.
         if (!packet.includes("## The plan of this paragraph\n") || !packet.includes("\nNone of its wording is kept.\n")) fails.push("(o) the Packet's plan block does not say none of its wording is kept");
       }
     }
@@ -118,7 +113,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 {
   const leg = {
     leg_id: "s1", move: "open_the_claim", body: "claim (strand L1): claim of s1",
-    waypoints: [{ point: "the paragraph establishes what s1 claims", case: "own" }],
+    text: "The paragraph establishes what s1 claims.",
     journeys: [{ strand: "L1", use: "an example to retell", resolvedText: "The served Journey's own prose, verbatim." }],
   };
   const brief = {
@@ -140,7 +135,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   // resolution) refuses the SAME WAY an absent block does anywhere else in
   // the Packet — never a hole the model fills by invention.
   const legUnresolved = { leg_id: "s2", move: "open_the_claim", body: "claim (strand L1): claim of s2",
-    waypoints: [{ point: "the paragraph establishes what s2 claims", case: "own" }],
+    text: "The paragraph establishes what s2 claims.",
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
   const r2 = renderPacket({ brief: { ...brief, legs: [legUnresolved] }, leg: planned(legUnresolved),
@@ -329,10 +324,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   writeFileSync(personaNoKnowledge, "id: fixture\nlanguage: English\npersona:\n  reader: >-\n    A fixture reader.\nregister: |\n  **Register C.** Persona C's rule, verbatim.\n");
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
+  const legOf = fixtureLeg;
   const briefOf = (legs, keys = {}) => briefOfRecord(recordOf(legs, {
     strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64),
       journey_cite: "coding::journey/first-strand@" + "0".repeat(64) }],

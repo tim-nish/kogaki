@@ -4,8 +4,8 @@
 #   (a) a Brief carrying `obligations`, `closure`, `discharges`, `reader_start` or
 #       `reader_target` is refused naming the key (kogaki#1699); (b) so is a Leg
 #       carrying a reader state, by `validateLegs` and the Brief reader.
-#   (c) the GROUNDED input carries the structure and each Waypoint's point and
-#       carries, and no Move contract (kogaki#1768).
+#   (c) the Move-fit input and the GROUNDED judge are exported no more
+#       (kogaki#1768, kogaki#1775).
 #   (g)/(h) the marked Leg is the last, and no Leg carries `introduces` (kogaki#1768);
 #   (k) the mark reaches the Packet; (r) no `kind` on a ParagraphPlan `introduces`
 #   entry; (u) `names` retired from the Leg (kogaki#1768). Cases (f), (i), (j),
@@ -17,12 +17,13 @@ node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
 import { readBrief, renderPacket, sectionsOf, sectionOfLeg, readerTargetCase } from "./src/draft.mjs";
 import * as compose from "./src/compose.mjs";
-import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
-const { validateLegs, readerTargetLegRefusal, legRecord } = compose;
+import { recordOf, briefOfRecord, PATH_1260, fixtureLeg, structureOf } from "./checks/fixtures/brief-compose/fixtures.mjs";
+const { readerTargetLegRefusal, legRecord } = compose;
+const validateLegs = (legs) => compose.validateLegs(legs, { structure: structureOf(legs) }); // each fixture Leg names a relation of it (kogaki#1885)
 const fails = [];
 const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
 const CLOSING_LEG_LINE = "This Leg follows the Reader target: introduce nothing, raise nothing, and move only what the reader asks, expects or trusts.";
-const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
+const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
 
 // (a) a retired record key is refused by name (kogaki#1699).
 {
@@ -107,10 +108,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // read back by readBrief, and rendered under `## This Leg` on the marked Leg, the last since
 // kogaki#1768, and on no Leg before it; the closing-Leg line reaches no Packet of a Brief.
 {
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
+  const legOf = fixtureLeg;
   const marked = legRecord(legOf("s2", { reaches_target: true }));
   const plain = legRecord(legOf("s1"));
   if (marked.reaches_target !== true) fails.push(`(k) legRecord wrote no reaches_target key on the marked Leg: ${JSON.stringify(marked)}`);

@@ -9,7 +9,7 @@
 # per Segment. Nothing of a ParagraphPlan paragraph is printed.
 #
 # WHAT THIS COVERS, over a Packet rendered by `renderPacket` (src/draft.mjs)
-# from a fixture Brief record of one Leg, its `text` and no Brief Waypoint
+# from a fixture Brief record of one Leg and its `text`
 # (kogaki#1775), and from the fixture Brief of checks/fixtures/paragraph-plan/stage.mjs, whose Legs
 # name relations of its `structure`, beside a ParagraphPlan file of the form kogaki#1876 writes:
 #   (a) THE PACKET CARRIES NO POINT: the rendered Packet holds no `*Serves:*`,
@@ -72,8 +72,8 @@
 #       Leg and the key.
 #   (o) A KEY OUTSIDE THE SET IS REFUSED: a plan Leg carrying `cast` is
 #       refused at resolve naming `cast`.
-#   RETIRED at kogaki#1865: the cases of the paragraph's schema, a Waypoint's
-#   `manner` and `cast`, and the Mapping Record's (p), with the fields.
+#   RETIRED at kogaki#1865: the cases of the paragraph's schema, `manner`
+#   and `cast`, and the Mapping Record's (p), with the fields.
 #   RETIRED at kogaki#1876: case (b), with the plan file's `points`.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the plan
@@ -101,7 +101,7 @@ const { treeWith, removeTrees } = await import(pathToFileURL(join(repo, "checks"
 const STAGE = await import(pathToFileURL(join(repo, "checks", "fixtures", "paragraph-plan", "stage.mjs")).href);
 
 const C1 = "the installer copies the kit into the consumer's tree.";
-// The Leg says its relation's `holds` as its `text` and carries no Brief Waypoint (kogaki#1775).
+// The Leg says its relation's `holds` as its `text` (kogaki#1775).
 const LEG_TEXT = "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.";
 const leg = { leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] };
 // The Leg as loadBrief hands it to the renderer: its Segments beside it, where the plan carries them.
