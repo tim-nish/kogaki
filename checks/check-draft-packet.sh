@@ -20,10 +20,14 @@
 #       `- Argument <k>. <sentence>` and the CentralClaim as
 #       `- CentralClaim. <sentence>`, each sentence `legSentences` gives, and
 #       carries no parts list; with `segments` on the Leg it lists one part per
-#       Segment, `Argument <k>`, `CentralClaim` or `Neither`, and after it every
-#       Edge whose Sense is not null with the earlier parts it names, and no
-#       Edge whose Sense is null (kogaki#1865); with no `structure` it says the
-#       claims are the whole plan and lists no Argument;
+#       Segment, `Argument <k>`, `CentralClaim` or `Neither`, and after it, for
+#       each Edge and each earlier part the Edge points to, `To part <n>:` and
+#       the text src/sme/senses.json holds for the Edge's Sense and for its
+#       Hypophora, then `Pointed to by` and the later parts whose Edges point to
+#       it (kogaki#1865, kogaki#1901); a plan
+#       naming a Sense the Senses file does not hold is refused naming the
+#       Sense; with no `structure` it says the claims are the whole plan and
+#       lists no Argument;
 #   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the Write block of
 #       the Packet rendered from `audiences/dev-to-zenn.md` -- from `## Write`
 #       to the next `## ` heading -- carries the Audience's Referents rule, so
@@ -64,8 +68,8 @@
 #       `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that line.
 #   (l) THE WRITER'S TEXT LISTS THE PLAN'S SEGMENTS (kogaki#1865): a plan file
 #       written by `paragraphPlanRecord` renders, through `resolve`, a Packet
-#       listing one part per Segment of the Leg with every non-null-sense
-#       Edge; the same file with a Leg's `paragraphs` written back is refused
+#       listing one part per Segment of the Leg with the Senses file's texts
+#       and no Sense name; the same file with a Leg's `paragraphs` written back is refused
 #       naming `paragraphs`.
 #   (m) A LEG CARRIES `leg_id` AND `segments` ALONE (kogaki#1876): a plan Leg
 #       carrying `move`, `fit` or `points` is refused at resolve naming the
@@ -152,10 +156,10 @@ else {
 
 // (b) and (l): plan files of the stage fixture's Brief, rendered through `resolve`.
 const SEGS = [{ bind: 1, edges: [] }, { bind: null, edges: [{ sense: "Conjunction", to: [1] }] },
-  { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }, { sense: "Cause", to: [2] }] },
+  { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }, { sense: "Cause.Result", to: [2] }] },
   { bind: 3, edges: [{ sense: null, to: [3], hypophora: true }] }];
-const WANT_PARTS = ["1. Argument 1.", "2. Neither. Sense Conjunction, to part 1.",
-  "3. Argument 2. Sense Contrast, to part 1, part 2. Sense Cause, to part 2.", "4. CentralClaim."];
+const T = { C: "both bear the same relation to some other situation in the text, or contribute to it together.", X: "at least two differences between the two are brought out.", R: "the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.", H: "the sentence pointed to raises a question, and this sentence gives its answer." }, SENSE_NAMES = /\b(Sense|Conjunction|Contrast|Cause|Result|Hypophora|hypophora|null)\b/;
+const WANT_PARTS = ["1. Argument 1. Pointed to by part 2, part 3.", `2. Neither. To part 1: ${T.C} Pointed to by part 3.`, `3. Argument 2. To part 1: ${T.X} To part 2: ${T.X} To part 2: ${T.R} Pointed to by part 4.`, `4. CentralClaim. To part 3: ${T.H}`];
 const sRoot = mkdtempSync(join(tmpdir(), "draft-packet-plan-"));
 const sDir = join(sRoot, "theses", "paragraph-plan-brief");
 mkdirSync(sDir, { recursive: true });
@@ -176,10 +180,10 @@ const sResolve = (planText) => {
   const one = sResolve(sPlan());
   if (one.packet === null) fails.push(`(l) resolve did not render the Packet: ${one.said}`);
   else {
-    // (l) the Writer's text lists one part per Segment with every non-null-sense Edge.
+    // (l) the Writer's text lists one part per Segment with the Senses file's texts and no Sense name.
     const lines = (planBlock(one.packet) || "").split("\n");
     for (const want of WANT_PARTS) if (!lines.includes(want)) fails.push(`(l) the Packet does not list the part ${JSON.stringify(want)}`);
-    if (lines.some((x) => /null|hypophora/.test(x))) fails.push("(l) the Packet hands on an Edge whose Sense is null");
+    if (lines.some((x) => /^\d+\. /.test(x) && SENSE_NAMES.test(x))) fails.push("(l) a part's line of the Packet names a Sense");
   }
   const withKey = (text) => sResolve(sPlan().replace(/^( +)segments:/m, `$1${text}\n$1segments:`));
   const back = withKey("paragraphs: []");
@@ -228,12 +232,12 @@ const sResolve = (planText) => {
   if (parted.error) fails.push(`(c) the Packet with segments did not render: ${parted.error}`);
   else {
     const lines = (planBlock(parted.packet) || "").split("\n");
-    const parts = WANT_PARTS;
     const at = lines.indexOf("### The parts of the paragraph, in order");
     if (at === -1) fails.push("(c) a Leg with segments renders no parts list");
-    for (const want of [...said, ...parts]) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
-    if (at !== -1 && lines.indexOf(parts[0]) < at) fails.push("(c) the parts do not stand under the parts heading");
+    for (const want of [...said, ...WANT_PARTS]) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
+    if (at !== -1 && lines.indexOf(WANT_PARTS[0]) < at) fails.push("(c) the parts do not stand under the parts heading");
   }
+  const unheld = renderLeg({ relation: "lost", segments: [SEGS[0], { bind: 2, edges: [{ sense: "Cause", to: [1] }] }] }); if (!unheld.error || !unheld.error.includes('the Sense "Cause"')) fails.push(`(c) a plan naming the Sense Cause, which src/sme/senses.json does not hold, was not refused naming it: ${unheld.error || "rendered"}`);
   if (!r.error) {
     const lines = (planBlock(r.packet) || "").split("\n");
     if (!lines.includes("The claims below are the whole plan of this paragraph.")) fails.push("(c) a Brief with no structure does not say the claims are the whole plan");
@@ -434,5 +438,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; a plan Leg carrying move, fit or points is refused by name at resolve (kogaki#1876); the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with every Edge whose Sense is not null where the Leg carries segments (kogaki#1865), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
+console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; a plan Leg carrying move, fit or points is refused by name at resolve (kogaki#1876); the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with the Senses file's text toward each part an Edge points to, Hypophora's text and the later parts that point to it, and no Sense name, where the Leg carries segments, and a plan naming a Sense the file does not hold is refused naming it (kogaki#1865, kogaki#1901), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
 JS

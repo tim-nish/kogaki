@@ -1725,8 +1725,17 @@ and the Leg names a `relation`, it then lists the Leg's Arguments and its
 CentralClaim, each as the one sentence `legSentences` gives
 (`src/structure-mapping-playground/move-structure.mjs`). Where the Leg carries
 `segments` (the short Trial under `--move-edges`, §4.20), it lists one part per
-Segment: `Argument <k>`, `CentralClaim` or `Neither`, and the Segment's Sense
-with the earlier parts it names. Otherwise it says the claims below are the
+Segment: `Argument <k>`, `CentralClaim` or `Neither`. After it, for each Edge
+and each earlier part the Edge points to, the line carries `To part <n>:` and
+the text `src/sme/senses.json` holds for the Edge's Sense, its part word's text
+after `Here`, and, where the Edge carries Hypophora, that file's `hypophora`
+text toward the same part. An Edge that points to two parts is written once for
+each, since each text holds on its own. The line then ends with `Pointed to by`
+and the later parts whose Edges point to it. No Sense name, no Move name and no
+Move id stands in the line, and a plan naming a Sense the file does not hold
+yields no Packet, the refusal naming the Sense (kogaki#1901). The plan file is
+unchanged: each Edge stands once, on the Segment it starts from, and the
+pointed-to parts are read from it. Otherwise it says the claims below are the
 whole plan. No Point, no `*Serves:*` tail, no join, no cast and no operation
 line renders, and a Mapping Record no longer changes any line. Since
 kogaki#1876 the ParagraphPlan file holds no Point. `checks/check-draft-packet.sh`
