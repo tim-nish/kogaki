@@ -24,13 +24,13 @@
   },
   "paragraph_plan_name_senses": {
     "id": "paragraph_plan_name_senses",
-    "note": "A Leg's Senses (kogaki#1849, kogaki#1865): one of the five readings of a Leg's sentences, its Arguments and its CentralClaim, made by `/paragraph-plan` for every Leg and by the Structure-Mapping Playground's `leg-senses.mjs`. Validated by `nameRefusal` of src/paragraph-plan/senses.mjs. An answer refused is asked again once; a reading refused twice stops the Leg. A changed wording is a second row and a second run, never an edit of this row.",
+    "note": "A Leg's Senses (kogaki#1849, kogaki#1865): one of the five readings of a Leg's sentences, its Arguments and its CentralClaim, made by `/paragraph-plan` for every Leg and by the Structure-Mapping Playground's `leg-senses.mjs`. Validated by `nameRefusal` of src/sme/edges.mjs. An answer refused is asked again once; a reading refused twice stops the Leg. A changed wording is a second row and a second run, never an edit of this row.",
     "governing": "specs/spec-draft-pipeline/SPEC.md, the ParagraphPlan stage and A Leg's Senses; kogaki#1849, kogaki#1865",
     "refusal_reach": {
       "shape": "part",
       "pairs": "part",
       "senses": "part"
     },
-    "prompt_file": "paragraph-plan/name-senses"
+    "prompt_file": "sme/name-senses"
   }
 }

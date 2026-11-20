@@ -1,5 +1,5 @@
 // The Leg-Planning Playground's own records, read and refused (kogaki#1764): the claims file and the file
-// `/paragraph-plan` reads. The structure and the Legs are read by `src/compose/structure.mjs` (kogaki#1768).
+// `/paragraph-plan` reads. The structure is read by `src/sme/structure.mjs` and the Legs by `src/compose/structure.mjs` (kogaki#1768).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.

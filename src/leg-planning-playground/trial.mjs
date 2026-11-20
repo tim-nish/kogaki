@@ -26,7 +26,8 @@ import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../structure-mapping-playground/sme.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
-import { mintStructure, validateReadSet, withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
+import { mintStructure, validateReadSet } from "../sme/structure.mjs";
+import { withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
 import { renderLppSheet } from "../brief-plan-playground/sheet.mjs";
 
 export const LPP_TABLE = "src/leg-planning-playground/workflow.json";

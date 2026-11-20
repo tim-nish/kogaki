@@ -29,7 +29,7 @@ import { validateLegs } from "./src/compose.mjs";
 import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
-import { mintStructure, structureLegs, pathReachRefusal } from "./src/compose/structure.mjs";
+import { structureLegs, pathReachRefusal } from "./src/compose/structure.mjs"; import { mintStructure } from "./src/sme/structure.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");

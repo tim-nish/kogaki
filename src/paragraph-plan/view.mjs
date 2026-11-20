@@ -9,7 +9,7 @@ import { paragraphPlanPathFor, readParagraphPlanBeside } from "../compose.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { readReaderPathJob } from "../workflow/detached-job.mjs";
 import { readAdoptedBrief } from "./brief.mjs";
-import { legSentences } from "./senses.mjs";
+import { legSentences } from "../sme/arguments.mjs";
 import { START_FILE } from "./stage.mjs";
 import { unitIdFor } from "./units.mjs";
 

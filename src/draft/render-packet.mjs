@@ -21,7 +21,7 @@ import {
   personaPriorKnowledge,
 } from "./journeys.mjs";
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
-import { legSentences } from "../structure-mapping-playground/move-structure.mjs";
+import { legSentences } from "../sme/arguments.mjs";
 import {
   REALIZATION_LANGUAGES,
   langOf,

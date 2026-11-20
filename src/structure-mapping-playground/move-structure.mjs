@@ -9,7 +9,8 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readAdoptedBrief } from "../paragraph-plan/brief.mjs";
-import { legSentences, bindTargetsOf } from "../paragraph-plan/senses.mjs";
+import { legSentences } from "../sme/arguments.mjs";
+import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -297,7 +298,7 @@ export function pairedWith(id, moveStructure, pairing) {
 }
 
 // ---------------------------------------------------------------------------
-// THE SENTENCES are production's (kogaki#1865): `legSentences` of src/paragraph-plan/senses.mjs.
+// THE SENTENCES are the Engine's (kogaki#1865): `legSentences` of src/sme/arguments.mjs.
 export { legSentences };
 
 // ---------------------------------------------------------------------------

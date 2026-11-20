@@ -699,7 +699,7 @@ It carries `hypophora: true` where the earlier Segment puts a question that
 this Segment answers. A `sense` is a name of the list of Senses (§4.20.3),
 written with its part, or one of Kogaki's own, `MetaDiscourse` and
 `FrameSetting`, whose meanings stand in the `own` of
-`src/paragraph-plan/senses.json` (kogaki#1881). It is null only beside
+`src/sme/senses.json` (kogaki#1881). It is null only beside
 `hypophora: true`. The first Segment
 carries no Edge, and every later Segment carries at least one.
 `validateMoveRecord` refuses a record that carries the two fields on some of
@@ -2369,7 +2369,7 @@ the same Brief, handed that run, plans only the Legs it did not finish
 naming a relation of it; a Brief with no `structure`, or a Leg naming a
 relation it does not hold, is refused at `start` with nothing started. A Leg's
 sentences are its Arguments in the order its relation lists them, then its
-CentralClaim, as `legSentences` (`src/paragraph-plan/senses.mjs`) gives them. A
+CentralClaim, as `legSentences` (`src/sme/arguments.mjs`) gives them. A
 Move library in which every Move file's Segments carry `bind` and `edges`; a
 file without them is refused at `start`, naming it. The setting
 `paragraph_plan.leg_edge_candidates` of `kogaki.settings.json`. No program of
@@ -2432,8 +2432,8 @@ key it carries, and is made again by `/paragraph-plan`.
 
 The reading is the one the Structure-Mapping Playground made first (§4.20.4).
 Five calls of the row `paragraph_plan_name_senses`
-(`prompts/paragraph-plan/name-senses.prompt`), each handed the Leg's numbered
-sentences and the list of Senses (`src/paragraph-plan/senses.json`), name
+(`prompts/sme/name-senses.prompt`), each handed the Leg's numbered
+sentences and the list of Senses (`src/sme/senses.json`), name
 for each pair of sentences every Sense that holds. An answer is checked by
 `nameRefusal`; one refused is asked again once, and a reading refused twice
 stops the Leg. `countPairs` counts the five answers, and the first
@@ -2444,7 +2444,7 @@ candidates. Each call is a Call Record under the Leg's unit,
 #### 4.19.2 Choosing the Move and fitting it (kogaki#1865)
 
 The choice is made by code, with no model call (`chooseMove`,
-`src/paragraph-plan/senses.mjs`).
+`src/paragraph-plan/move-choice.mjs`).
 
 - A Move file is a candidate for a Leg when it has no more Bind targets than the
   Leg has sentences.
@@ -3040,7 +3040,7 @@ Under it each Segment's `bind` and `edges` are read from the Move file that
 `--move` names, as `loadMoveContracts` reads it. Before any call the Trial is
 refused naming the Move where its Segments carry no `bind` and `edges`, and
 where the number of its Bind targets, `bindTargetsOf` of
-`src/paragraph-plan/senses.mjs`, is not the number of the Leg's Arguments and
+`src/paragraph-plan/move-choice.mjs`, is not the number of the Leg's Arguments and
 CentralClaim, naming both numbers. `move-reading` and `pairing` then make no
 model call: the move structure is the number of Bind targets and each
 Segment's `bind`, and Bind target `k` is given entry `k` of the Leg's
@@ -3068,12 +3068,12 @@ Leg that record names is not the Trial's. `trial.json` records the folder under
 `Segments` table directly: one row per pair of the Leg's sentences in the order
 of `counts.json`, naming each sentence by its kind, number and id with its
 sentence; every answer in the stored order with its meaning from
-`src/paragraph-plan/senses.json`, the sentence playing its part where it
+`src/sme/senses.json`, the sentence playing its part where it
 has one, `named N of 5`, and `not a candidate` where it is not kept; and each
 Edge of the Move, read from its Move file (kogaki#1880), that joins two
 Segments bound to that pair, with its Segment, its
 Sense and `among the candidates, named N of 5` or `not among the candidates`,
-as `compareMove` of `src/paragraph-plan/senses.mjs` decides for the filling the
+as `compareMove` of `src/paragraph-plan/move-choice.mjs` decides for the filling the
 pairing in order gives. An Edge with nothing bound at one end is not shown.
 With no flag the section holds the one sentence "No reading of the Leg's Senses
 was given to this Trial." and the usage line of `leg-senses.mjs read`.
@@ -3127,7 +3127,7 @@ one Segment, a paragraph whose sentence count is not the Move's Segment count,
 and an `--out` outside the Playground's runs or already holding a run.
 
 **The readings.** The 22 Senses, each with its meaning and its part words, are
-the `senses` of `src/paragraph-plan/senses.json`. Five calls of the
+the `senses` of `src/sme/senses.json`. Five calls of the
 Playground row `smp_rank_senses`, each handed the numbered sentences and that
 list, give per pair the three Senses that fit best, best first, each with
 `played_by` and `holds`; an answer is refused naming the place, and a reading
@@ -3188,7 +3188,7 @@ two sentences; it decides nothing.
 which Segment carries the CentralClaim, and a Segment may have nothing bound).
 The Move's Segments are read from its Move file under `moves/`, each with
 `bind` and `edges` as kogaki#1871 writes them, and handed to `compareMove` of
-`src/paragraph-plan/senses.mjs` unchanged (kogaki#1880). A `bind` names a Bind
+`src/paragraph-plan/move-choice.mjs` unchanged (kogaki#1880). A `bind` names a Bind
 target of the Move, or is null for a Segment with nothing bound, and an Edge
 pointing to several Segments is one Edge per Segment it points to. A *filling*
 gives each bound Segment a different one of the Leg's sentences, an Argument
@@ -3391,7 +3391,7 @@ higher-order relation the apex reaches, each Leg's text its relation's
    Strand's served rendering; it composes no Thesis and raises no gate.
 2. `read_structure` reads every settled Strand's claim into ONE
    RelationalStructure (`validateReadSet` with `thesis: false`,
-   `src/compose/structure.mjs`): Roles, relations each stated by one claim,
+   `src/sme/structure.mjs`): Roles, relations each stated by one claim,
    each naming exactly two Roles, and higher-order relations each relating
    exactly two relations or higher-order relations (kogaki#1874). A settled
    Strand carrying no served claim refuses the state by name.

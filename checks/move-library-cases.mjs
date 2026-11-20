@@ -7,8 +7,8 @@ const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveRecord } = await imp("src/compose/moves.mjs");
-const { loadSenses, loadOwnSenses, sensesText } = await imp("src/paragraph-plan/senses.mjs");
-const SENSES_FILE = JSON.parse(readFileSync(join(REPO, "src/paragraph-plan/senses.json"), "utf8"));
+const { loadSenses, loadOwnSenses, sensesText } = await imp("src/sme/edges.mjs");
+const SENSES_FILE = JSON.parse(readFileSync(join(REPO, "src/sme/senses.json"), "utf8"));
 const SENSES = [
   ...SENSES_FILE.senses.flatMap((s) => (s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense])),
   ...SENSES_FILE.own.map((s) => s.sense),

@@ -25,7 +25,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { composeBrief, composeThesisCandidates } from "./src/brief.mjs";
 import { classifyHomes, thesisGateOptions, thesisGate } from "./src/brief/candidates.mjs";
-import { componentsOf, mintStructure, partitionComponents, validateApex, withApex, withReach } from "./src/compose/structure.mjs";
+import { componentsOf, partitionComponents, validateApex, withApex, withReach } from "./src/compose/structure.mjs"; import { mintStructure } from "./src/sme/structure.mjs";
 import { unreachedCoverage, withThesis } from "./src/brief/candidates.mjs";
 import { GATE_WORK, STATE_WORK, briefThesisWords, homeCollisionReading, thesisBoundRefusal } from "./src/brief/renderers.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";

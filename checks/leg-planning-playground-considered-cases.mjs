@@ -10,7 +10,7 @@ const ok = (cond, msg) => {
   if (!cond) fails.push(msg);
 };
 const load = (p) => import(pathToFileURL(join(resolve("."), p)).href);
-const { mintStructure, validateReadSet } = await load("src/compose/structure.mjs");
+const { mintStructure, validateReadSet } = await load("src/sme/structure.mjs");
 const { renderBriefSheet } = await load("src/brief-plan-playground/sheet.mjs");
 
 const CLAIMS = [

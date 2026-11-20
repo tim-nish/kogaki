@@ -24,7 +24,7 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { readParagraphPlanBeside, validateMoveRecord } = await imp("src/compose.mjs");
 const P = await imp("src/paragraph-plan.mjs");
-const S = await imp("src/paragraph-plan/senses.mjs");
+const S = { ...(await imp("src/sme/edges.mjs")), ...(await imp("src/sme/arguments.mjs")) };
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
 const names = S.senseNames(S.loadSenses());

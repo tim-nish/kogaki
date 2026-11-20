@@ -91,7 +91,7 @@
       "conditional": false,
       "renders_gate_declaration": false,
       "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1764, kogaki#1766, kogaki#1768",
-      "prompt_file": "brief/read-structure"
+      "prompt_file": "sme/read-structure"
     },
     {
       "id": "apex",

@@ -23,16 +23,9 @@ import { MOVE_RECORD_EXT } from "../compose/render.mjs";
 import { retriedCall } from "./short.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
 import { renderSensesSheet } from "./senses-sheet.mjs";
-import {
-  SENSES_FILE,
-  READINGS,
-  loadSenses,
-  senseNames,
-  sensesText,
-  canonicalAnswer,
-} from "../paragraph-plan/senses.mjs";
+import { SENSES_FILE, READINGS, loadSenses, senseNames, sensesText, canonicalAnswer } from "../sme/edges.mjs";
 
-// The list of Senses and its names are production's (kogaki#1865), read from src/paragraph-plan/senses.mjs.
+// The list of Senses and its names are production's (kogaki#1865), read from src/sme/edges.mjs.
 export { SENSES_FILE, READINGS, loadSenses, senseNames, sensesText, canonicalAnswer };
 
 export const RANK_ROW = "smp_rank_senses";

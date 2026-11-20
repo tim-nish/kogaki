@@ -12,17 +12,8 @@
 import { judgePrompt, refusalReach } from "../workflow/judge.mjs";
 import { bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { writeCallRecord, tableRecord } from "../workflow/call-record.mjs";
-import {
-  NAME_ROW,
-  READINGS,
-  chooseMove,
-  countPairs,
-  fittedSegments,
-  loadSenses,
-  nameRefusal,
-  senseNames,
-  sensesText,
-} from "./senses.mjs";
+import { NAME_ROW, chooseMove, fittedSegments } from "./move-choice.mjs";
+import { READINGS, countPairs, loadSenses, nameRefusal, senseNames, sensesText } from "../sme/edges.mjs";
 import { FLOW, PARAGRAPH_PLAN_TABLE } from "./stage.mjs";
 
 export const READING = "reading";
