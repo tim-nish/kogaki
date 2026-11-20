@@ -1,7 +1,11 @@
 # Read back the plan of one paragraph
 
-Below is the plan a writer is handed for one paragraph.
-You do not write the paragraph.
+{{> draft/packet}}
+
+## Read back
+
+Everything above is what a writer is handed for one paragraph.
+This call does not write the paragraph.
 For each part of the plan you answer two things.
 
 The first is the readback.
@@ -18,6 +22,3 @@ Where the readback is null, the sample is null.
 Answer as exactly this JSON record and nothing else:
 { "parts": [ { "part": <number>, "readback": <text or null>, "sample": <one sentence or null> } ] }
 The record holds one entry for each part, in order.
-
------ THE PLAN -----
-{{plan}}

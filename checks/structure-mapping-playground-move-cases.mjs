@@ -764,6 +764,18 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`),
     `(l) the readback stage did not make one call, write readback.json and show one row per Segment: ${JSON.stringify(trec.readback)} ${lRows.length}`,
   );
+  const between = (text, close) => {
+    const ls = String(text || "").split("\n");
+    return ls.slice(1, ls.indexOf(close)).join("\n");
+  };
+  const rPrompt = (ti.seen.find((x) => x.stage === "readback") || {}).prompt;
+  const wPrompt = (ti.seen.find((x) => x.stage === "writer") || {}).prompt;
+  ok(
+    between(rPrompt, "## Read back") !== "" &&
+      between(rPrompt, "## Read back") === between(wPrompt, "## Write") &&
+      !String(rPrompt).split("\n").includes("----- THE PLAN -----"),
+    "(l) the Readback's input between its title and its closing section is not the Writer's between its title and its own",
+  );
   const other = {
     parts: READBACK.parts.map((p) =>
       p.readback ? { ...p, readback: "Another reading.", sample: "Another sentence." } : p,

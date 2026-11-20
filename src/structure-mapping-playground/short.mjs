@@ -484,15 +484,15 @@ function writeStage({ dir, env, cli, leg, audiencePath, paragraphPath, plan = {}
   return { packet: relFromRepo(packetPath) };
 }
 
-// THE `readback` STAGE (kogaki#1882): one call with the Writer's settings over the Writer's plan block. A refused answer
-// is recorded and does not stop the Trial; `writeStage` is handed nothing of it.
+// THE `readback` STAGE (kogaki#1882, kogaki#1904): one call with the Writer's settings over the Packet's passage, rendered
+// with the Writer's values. A refused answer is recorded and does not stop the Trial; `writeStage` is handed nothing of it.
 function readbackStage({ dir, env, cli, leg, audiencePath, plan, record }) {
   const p = shortPacket({ leg, audiencePath, ...plan });
   if (p.error) return { stopped: p.error };
   const cut = RB.planBlock(p.packet);
   if (cut.error) return { stopped: cut.error };
   const lines = RB.partLines(cut.block);
-  const prompt = RB.readbackPrompt(cut.block);
+  const prompt = RB.readbackPrompt(p.values);
   const w = writerSettings();
   const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: prompt });
   const said = /** @type {{ stopped?: string, text?: string }} */ (call);
@@ -503,7 +503,7 @@ function readbackStage({ dir, env, cli, leg, audiencePath, plan, record }) {
     cli,
     call,
     prompt,
-    input: { plan: cut.block },
+    input: { leg, audience: relFromRepo(audiencePath) },
     row: { id: RB.READBACK_STAGE, ...writerRowOf(w), prompt_file: RB.READBACK_PROMPT },
     tables: [DRAFT_TABLE],
     answer: said.stopped ? undefined : String(said.text),

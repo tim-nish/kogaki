@@ -174,7 +174,7 @@ function legRecordRefusal(raw, at) {
 // renders nothing here, and so does every Leg of a Brief composed before
 // the mark existed: the empty string is a filled slot, and the absence is
 // deliberate — the earlier Legs owe nothing on this ground, so no line tells
-// them so. Its two sentences stand in prompts/draft/write-leg.prompt under these cases (kogaki#1855).
+// them so. Its two sentences stand in prompts/draft/_packet.prompt under these cases (kogaki#1855).
 export function readerTargetCase(legs, legId) {
   const list = Array.isArray(legs) ? legs : [];
   const targetIdx = list.findIndex((s) => s && s.reaches_target === true);

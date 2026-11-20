@@ -1704,8 +1704,14 @@ is added to it.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
 anchors → **the plan block** → the Leg's fields → the §4.13 ledger →
-every previously realized Leg's prose in recorded order → the write
-instruction.
+every previously realized Leg's prose in recorded order → how the prose
+reads (the language, the reader's own world and the register) → the write
+instruction. **Every block but the write instruction stands in one shared
+passage**, `prompts/draft/_packet.prompt` (kogaki#1904): the Writer's prompt
+file names it and adds the write instruction alone, and the Readback's prompt
+file (§ the short Trial) names the same passage and adds its own closing
+section, so the two calls read the same text up to what each is asked to put
+out.
 
 **No Obligation row renders** (kogaki#1584, owner decision 2026-10-25): the
 Obligations ledger is retired at both scales (§5.2, kogaki#1701), and the
@@ -1819,8 +1825,9 @@ absence must refuse rather than render.
 
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
-`prompts/draft/write-leg.prompt`, read at generation like `report-format.json` and
-`terrain-workflow.json`. **Template content is operational text only** — rules that
+`prompts/draft/write-leg.prompt` and the shared passage it names,
+`prompts/draft/_packet.prompt` (kogaki#1904), read at generation like
+`report-format.json` and `terrain-workflow.json`. **Template content is operational text only** — rules that
 change model behaviour at generation, kept minimal, a rule entering only with
 demonstrated runtime effect.
 
@@ -3105,11 +3112,16 @@ before `write`. A *Readback* is what the Model says, in its own words, that the
 plan tells the Writer to do in one part; a part the plan tells nothing has
 none. A *Sample* is the one sentence the Model writes for that part alone,
 following its Readback; a part with no Readback has none. The stage builds the
-Writer's input with `shortPacket` as `write` does, cuts out its plan block,
-from the line "## The plan of this paragraph" up to the line before the next
-line that begins with "## ", and stops the Trial naming that heading where the
-block is not found. It makes one call with the Writer's model and settings,
-`writerSettings`, over `prompts/structure-mapping-playground/read-back-parts.prompt`.
+Writer's input with `shortPacket` as `write` does, finds the part lines of its
+plan block, from the line "## The plan of this paragraph" up to the line before
+the next line that begins with "## ", and stops the Trial naming that heading
+where the block is not found. It makes one call with the Writer's model and
+settings, `writerSettings`, over
+`prompts/structure-mapping-playground/read-back-parts.prompt`, which names the
+Packet's shared passage and is rendered with the values `shortPacket` rendered
+the Writer's input with (kogaki#1904): the Readback call is handed every block
+the Writer is handed, and differs from the Writer's input only in its closing
+section, `## Read back` in place of `## Write`.
 `readbackRefusal` of `src/structure-mapping-playground/readback.mjs` refuses an
 answer that is not the record `{ parts }`, a `parts` list that is not one entry
 per part in order, a `readback` or `sample` that is neither one non-empty text

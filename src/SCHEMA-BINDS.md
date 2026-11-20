@@ -56,10 +56,10 @@ it does not read, and empty where the stage does not read the schema at all.
 - `review_path_unit` is src/brief-workflow.json `review_path_unit`.
 - `defined_terms_unit` is src/brief-workflow.json `defined_terms_unit`.
 - `renderings_unit` is src/brief-workflow.json `renderings_unit`.
-- `packet:plan` is prompts/draft/write-leg.prompt value `plan`.
-- `packet:claims` is prompts/draft/write-leg.prompt value `claims`.
-- `packet:section_placement` is prompts/draft/write-leg.prompt value `section_placement`.
-- `packet:reader_target_line` is prompts/draft/write-leg.prompt value `reader_target_line`.
+- `packet:plan` is prompts/draft/_packet.prompt value `plan`.
+- `packet:claims` is prompts/draft/_packet.prompt value `claims`.
+- `packet:section_placement` is prompts/draft/_packet.prompt value `section_placement`.
+- `packet:reader_target_line` is prompts/draft/_packet.prompt value `reader_target_line`.
 - `review:claims` is src/review-items.json item `claims`.
 - `review:introduces` is src/review-items.json item `introduces`.
 - `review:already-knows` is src/review-items.json item `already-knows`.

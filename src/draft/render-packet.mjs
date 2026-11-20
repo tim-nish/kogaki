@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
 import { parseTermsYaml, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { sha256, readerTargetCase } from "./brief-reader.mjs";
-import { renderPromptFile } from "../prompt-file.mjs";
+import { renderPromptFile, promptFilePath } from "../prompt-file.mjs";
 import {
   resolveLegJourneys,
   packetPersonaPath,
@@ -109,13 +109,8 @@ export function templateCriteriaFailures(template, criteria = JSON.parse(readFil
 }
 
 export const WRITER_PROMPT = "draft/write-leg";
-const WRITER_PROMPT_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "prompts",
-  `${WRITER_PROMPT}.prompt`,
-);
+// The shared passage holding the Packet's blocks, which the Writer's and the Readback's prompt files name (kogaki#1904).
+export const PACKET_PASSAGE = "draft/_packet";
 
 export function renderPacket({
   brief,
@@ -126,7 +121,9 @@ export function renderPacket({
   language: languageOverride = null,
   languageBlock = null,
 }) {
-  const unbounded = templateCriteriaFailures(readFileSync(WRITER_PROMPT_PATH, "utf8"));
+  const unbounded = [WRITER_PROMPT, PACKET_PASSAGE].flatMap((name) =>
+    templateCriteriaFailures(readFileSync(promptFilePath(name), "utf8")).map((f) => `prompts/${name}.prompt ${f}`),
+  );
   if (unbounded.length) {
     return {
       error:
@@ -240,7 +237,7 @@ export function renderPacket({
         `it refuses by NAME rather than rendering an empty slot (the Leg Packet).`,
     };
   }
-  return { packet: renderPromptFile(WRITER_PROMPT, values) };
+  return { packet: renderPromptFile(WRITER_PROMPT, values), values };
 }
 
 // THE PACKET RENDER, FACTORED SO THE HARNESS CAN DRIVE IT (kogaki#811,

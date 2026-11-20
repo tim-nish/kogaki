@@ -30,8 +30,8 @@
 #       rendering the row through `judgePrompt` (a row carrying `prompt_file`
 #       is read through `withPromptText`, kogaki#1855, kogaki#1862);
 #   (c) src/draft-workflow.json's `binds` and the review items' `binds` name
-#       known fields and holds, and prompts/draft/write-leg.prompt uses a value
-#       under each name `binds` declares (kogaki#1855);
+#       known fields and holds, and prompts/draft/_packet.prompt or else
+#       prompts/draft/write-leg.prompt uses a value under each name (kogaki#1904);
 #   (d) src/SCHEMA-BINDS.md is byte-for-byte `renderView()` of the declarations.
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION: (f1) a judge row reading the Move
@@ -75,9 +75,9 @@ const TABLES = Object.freeze([
   "src/move-extraction-playground/extraction-workflow.json",
 ]);
 const BINDS_SCHEMA = "src/binds-schema.json";
-const [DRAFT_TABLE, WRITER_PROMPT] = ["src/draft-workflow.json", "prompts/draft/write-leg.prompt"];
-const REVIEW_ITEMS = "src/review-items.json";
-const VIEW = "src/SCHEMA-BINDS.md";
+const [DRAFT_TABLE, WRITER_PROMPT, PACKET_PROMPT] = ["src/draft-workflow.json", "prompts/draft/write-leg.prompt", "prompts/draft/_packet.prompt"];
+const [REVIEW_ITEMS, VIEW] = ["src/review-items.json", "src/SCHEMA-BINDS.md"];
+const slotFile = (slot) => [PACKET_PROMPT, WRITER_PROMPT].find((f) => usesValue(readFileSync(join(REPO, f), "utf8"), slot)); // the passage first, then the Writer's file
 // A row declaring this schema file renders the Leg schema verbatim, so it owes `binds.leg`.
 const SCHEMA_FILE_OWES = Object.freeze({ "src/leg-schema.json": "leg" });
 
@@ -266,11 +266,11 @@ function declaredOnlyFailures({ fields = schemaFields(), holds = Object.keys(rea
       }
     }
   };
-  const text = readFileSync(join(REPO, WRITER_PROMPT), "utf8");
+  const files = `${PACKET_PROMPT} or ${WRITER_PROMPT}`;
   const pb = packetBinds();
   if (!pb) fails.push(`${DRAFT_TABLE}: it declares no \`binds\``);
   for (const [slot, binds] of Object.entries(pb || {})) {
-    if (!usesValue(text, slot)) fails.push(`${DRAFT_TABLE}: \`binds\` names \`${slot}\`, for which ${WRITER_PROMPT} uses no value`);
+    if (!slotFile(slot)) fails.push(`${DRAFT_TABLE}: \`binds\` names \`${slot}\`, for which neither ${files} uses a value`);
     one(`${DRAFT_TABLE}: \`binds.${slot}\``, binds);
   }
   for (const it of readJson(REVIEW_ITEMS).items) {
@@ -307,7 +307,7 @@ function renderView(fields = schemaFields(), decl = readJson(BINDS_SCHEMA)) {
     }
   }
   for (const [slot, binds] of Object.entries(packetBinds() || {})) {
-    stages.push({ label: `packet:${slot}`, where: `${WRITER_PROMPT} value \`${slot}\``, binds, unread: {} });
+    stages.push({ label: `packet:${slot}`, where: `${slotFile(slot) || WRITER_PROMPT} value \`${slot}\``, binds, unread: {} });
   }
   for (const it of readJson(REVIEW_ITEMS).items) {
     if (it.binds) stages.push({ label: `review:${it.id}`, where: `${REVIEW_ITEMS} item \`${it.id}\``, binds: it.binds, unread: {} });

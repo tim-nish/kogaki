@@ -96,12 +96,12 @@ export function personaPriorKnowledgeLine(persona) {
 }
 
 // THE AUDIENCE'S `register` (kogaki#1251 item 1, kogaki#1261, kogaki#1370):
-// the Write block's reader-dependent rules, rendered into the Leg Packet's
+// the Packet's reader-dependent rules, rendered into the Leg Packet's
 // `{{register}}` slot as the file writes them. Read separately from
 // `readerPersona` because its one reader is the Packet, not Reader start's
 // authoring, and an Audience without the register still serves Reader start. A
 // missing register refuses by name: the Packet is the writer's entire input, and
-// a Write block with no register is a hole the writer fills by invention.
+// a Packet with no register is a hole the writer fills by invention.
 export function readerProse(path) {
   const a = audienceRecord(path);
   if (a.error) {
@@ -111,7 +111,7 @@ export function readerProse(path) {
   if (register === null) {
     return {
       error:
-        `the Audience file ${path} declares no \`register\` — the Packet's Write block renders the Audience's register from it (kogaki#1261, kogaki#1370). ` +
+        `the Audience file ${path} declares no \`register\` — the Packet renders the Audience's register from it (kogaki#1261, kogaki#1370). ` +
         "Repair the Audience file under its own issue.",
     };
   }
@@ -122,7 +122,7 @@ export function readerProse(path) {
 // written in, declared once on the Audience so that no stage infers it from
 // the terms an earlier stage happened to write. Its readers are the two Brief
 // composers, which are told it in their input, and the Packet, which renders
-// it as one line of the Write block. A missing key refuses by name: a composer
+// it as one line. A missing key refuses by name: a composer
 // handed no language answers in whichever one its input leans toward.
 export function audienceLanguage(path) {
   const a = audienceRecord(path);
@@ -133,7 +133,7 @@ export function audienceLanguage(path) {
   if (language === null || /\n/.test(language)) {
     return {
       error:
-        `the Audience file ${path} declares no one-line \`language\` — the Brief composers write in it and the Packet's Write block renders it (kogaki#1417). ` +
+        `the Audience file ${path} declares no one-line \`language\` — the Brief composers write in it and the Packet renders it (kogaki#1417). ` +
         "Repair the Audience file under its own issue.",
     };
   }
