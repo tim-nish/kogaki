@@ -12,7 +12,7 @@
 #       one correspondence call, one table, one paragraph record under that Move, an Analogy Mapping of `none`, one binding and
 #       one `Base:` line.
 
-#   (b) `--mapper sme_map_roles --compose` records five calls and `structure.author: mapper`.
+#   (b) `--mapper` is refused by name, naming `--structure <file>`, with nothing written: the Mapper's structure reading left.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
 
 #   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null under `case: apart`, one
@@ -73,7 +73,7 @@
 #       higher-order relation relating three relations and a relation naming three Roles are refused (kogaki#1874).
 #   (t) a proposition file with text below its two lines is refused naming that text, a line above them is refused naming that
 #       line, a second `proposition:` line is refused, a `claim:` line is refused naming
-#       `proposition`, `--strand` is refused naming `--proposition`, and the Mapper's recorded stdin carries no rendering (kogaki#1685).
+#       `proposition`, and `--strand` is refused naming `--proposition` (kogaki#1685).
 
 #   (u) the `smp_correspondence` row: its stdin carries the structure, the prior-knowledge line and the bound base Move's
 #       `segments`, and no kinds; the inference Move's call carries its own `segments` and `prior_tables`, the base Move's table
@@ -150,7 +150,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt, answer }) + "\\n");
     writeSync(1, answer); process.exit(0);
   };
-  if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "reading");
   const nth = (stage, file) => {
     const answers = JSON.parse(readFileSync(file, "utf8"));
     let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === stage).length; } catch {}
@@ -243,8 +242,8 @@ ok(!existsSync(join(a.o, "waypoints")) && !a.seen.some((x) => x.prompt.includes(
   "(a) the composed route wrote a `waypoints` folder or made a call with the row `paragraph_plan_unit` (kogaki#1883)");
 ok(rec.proposition && rec.proposition.cite === CITE && rec.proposition.proposition === PROPOSITION && rec.proposition.sha256 === sha(proposition)
   && !Object.hasOwn(rec, "strand"), `(a) trial.json's proposition is not the file's cite, sentence and sha256, or a strand key remains: ${JSON.stringify(rec.proposition)}`);
-ok(rec.structure && rec.structure.author === "owner" && rec.structure.sha256 === sha(structure) && rec.mapper === "owner-authored",
-  "(a) trial.json's structure and mapper are not the owner-authored ones");
+ok(rec.structure && rec.structure.author === "owner" && rec.structure.sha256 === sha(structure) && !Object.hasOwn(rec, "mapper"),
+  "(a) trial.json's structure is not the owner-authored one, or a mapper key remains");
 ok(rec.rbs && rec.rbs.variant === "composed" && !Object.hasOwn(rec.rbs, "placeholder") && fileOk(rec.rbs), `(a) trial.json's rbs is not the composed table's file: ${JSON.stringify(rec.rbs)}`);
 const rbs = existsSync(join(a.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a.o, "rbs.yaml"), "utf8"), "rbs") : {};
 const TABLES = [{ move: MOVE, ...GARDEN }, { move: INFER, ...OWN }];
@@ -302,19 +301,16 @@ ok(packet !== null && !packet.includes("*Serves:*") && !packet.includes("*Cast:*
   && packet.includes("\nThe claims below are the whole plan of this paragraph.\n"),
   "(e) the Packet carries a Serves or a Cast line, or does not say the claims are the whole plan");
 
-// (b) the Mapper route
-writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
-const b = run("mapped", ["--mapper", "sme_map_roles", "--compose"], { SMP_MAPPER_ANSWER: join(root, "answer.json") });
-const bCalls = ["reading", "bind", "grounding", "write"].flatMap((st) => b.calls(st));
-ok(b.res.status === 0 && stagesOf(b.rec) === `reading:done,${STAGES}` && bCalls.length === 5
-  && b.rec.structure.author === "mapper" && b.rec.mapper.variant === "sme_map_roles",
-  `(b) the --mapper run did not record five calls with structure.author: mapper: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
+// (b) `--mapper` left with the Mapper's structure reading
+const b = run("mapper-flag", ["--structure", structure, "--mapper", "sme_map_roles", "--compose"]);
+ok(b.res.status !== 0 && b.res.stderr.includes("`--mapper`") && b.res.stderr.includes("`--structure <file>`") && !existsSync(b.o),
+  `(b) --mapper was not refused naming --structure: ${b.res.status} ${b.res.stderr}`);
 
 // (c) `--rbs` is retired, and a Trial's route is exactly one of `--compose` and `--rbs-file`
 const c = run("retired-rbs", ["--structure", structure, "--rbs", "rbs_base"]);
 ok(c.res.status !== 0 && c.res.stderr.includes("`--rbs`") && c.res.stderr.includes("`--compose`") && c.res.stderr.includes("`--rbs-file`") && !existsSync(c.o),
   `(c) --rbs was not refused naming --compose and --rbs-file: ${c.res.status} ${c.res.stderr}`);
-const c2 = run("no-route", ["--mapper", "sme_map_roles"]);
+const c2 = run("no-route", ["--structure", structure]);
 ok(c2.res.status !== 0 && c2.res.stderr.includes("neither `--compose` nor `--rbs-file`") && !existsSync(c2.o),
   `(c) a run with neither --compose nor --rbs-file was not refused naming both: ${c2.res.status} ${c2.res.stderr}`);
 
@@ -734,9 +730,6 @@ ok(t5.res.status !== 0 && t5.res.stderr.includes("more than one `proposition:` l
 const t3 = run("strand-flag", ["--strand", proposition, "--structure", structure, "--compose"]);
 ok(t3.res.status !== 0 && t3.res.stderr.includes("`--strand`") && t3.res.stderr.includes("`--proposition <file>`") && !existsSync(t3.o),
   `(t) --strand was not refused naming --proposition: ${t3.res.status} ${t3.res.stderr}`);
-const smeStdin = b.calls("reading").map((x) => x.stdin).join("\n");
-ok(smeStdin.includes(`"proposition": ${JSON.stringify(PROPOSITION)}`) && !smeStdin.includes('"rendering"') && !smeStdin.includes("`rendering`"),
-  `(t) the Mapper's recorded stdin does not carry the proposition alone: ${smeStdin.slice(0, 400)}`);
 
 // (u) the smp_correspondence row: under the bound base Move's Segments, validated as the owner's file is, under one retry
 const uIn = a.calls("grounding").length ? inputOf(a.calls("grounding")[0].stdin, "structure") : null;

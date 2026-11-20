@@ -19,8 +19,7 @@ import { REPO, relFromRepo, readRowTable } from "../workflow/run-record.mjs";
 import { installRecorder, stageEnv, declaredCommand } from "../move-extraction-playground/leg-run.mjs";
 import { callDir, CALL_FILES, cliRecord } from "../workflow/call-record.mjs";
 import { loadMoveContracts } from "../compose.mjs";
-import { retriedCall } from "./short.mjs";
-import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
+import { retriedCall, PLAYGROUND_TABLE, TRIALS_DIR } from "./short.mjs";
 import { readBriefLeg } from "./move-structure.mjs";
 import { JOIN_ROW, joinRefusal } from "./move-senses.mjs";
 import {

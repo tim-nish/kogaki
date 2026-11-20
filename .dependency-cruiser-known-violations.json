@@ -85,51 +85,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/structure-mapping-playground/trial.mjs",
-    "to": "src/move-extraction-playground/extract.mjs",
-    "unresolvedTo": "../move-extraction-playground/extract.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/structure-mapping-playground/trial.mjs",
-    "to": "src/move-extraction-playground/leg-run.mjs",
-    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "src/workflow/replay.mjs",
     "to": "src/structure-mapping-playground/short.mjs",
     "unresolvedTo": "../structure-mapping-playground/short.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/workflow/replay.mjs",
-    "to": "src/structure-mapping-playground/sme.mjs",
-    "unresolvedTo": "../structure-mapping-playground/sme.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -544,20 +502,6 @@
     "from": "src/workflow/replay.mjs",
     "to": "src/structure-mapping-playground/short.mjs",
     "unresolvedTo": "../structure-mapping-playground/short.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "shared-home-reaches-a-lane"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/workflow/replay.mjs",
-    "to": "src/structure-mapping-playground/sme.mjs",
-    "unresolvedTo": "../structure-mapping-playground/sme.mjs",
     "dependencyTypes": [
       "local",
       "import"
