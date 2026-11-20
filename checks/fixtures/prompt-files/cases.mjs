@@ -179,7 +179,6 @@ const TABLE_FOLDERS = {
   "src/terrain-workflow.json": "terrain",
   "src/structure-mapping-playground/playground-workflow.json": "structure-mapping-playground",
   "src/move-extraction-playground/extraction-workflow.json": "move-extraction-playground",
-  "src/leg-planning-playground/workflow.json": "leg-planning-playground",
 };
 const TABLE_ROWS = {
   "src/brief-workflow.json": [
@@ -196,7 +195,6 @@ const TABLE_ROWS = {
   "src/paragraph-plan-workflow.json": ["paragraph_plan_name_senses"],
   "src/terrain-workflow.json": ["J2_subdivision", "thesis_candidates", "J3_neighborhood"],
   "src/structure-mapping-playground/playground-workflow.json": [
-    "sme_map_roles",
     "smp_bind_move",
     "smp_correspondence",
     "smp_read_move",
@@ -209,7 +207,6 @@ const TABLE_ROWS = {
     "content_bound_unit",
     "constraints_unit",
   ],
-  "src/leg-planning-playground/workflow.json": ["sme_read_set"],
 };
 export const ROWS = Object.entries(TABLE_ROWS).flatMap(([table, ids]) =>
   ids.map((id) => ({ table, id, file: `${TABLE_FOLDERS[table]}/${id.toLowerCase().replace(/_/g, "-")}` })),

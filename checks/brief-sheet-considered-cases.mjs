@@ -1,4 +1,4 @@
-// Case (m) of checks/check-leg-planning-playground.sh (kogaki#1817): the connections the Brief's structure read weighed, refused by
+// Case (m) of checks/check-brief-sheet.sh (kogaki#1817): the connections the Brief's structure read weighed, refused by
 // `validateReadSet` under `considered: true` and rendered by the Brief sheet. Run from the repository root.
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -131,4 +131,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log(`check-leg-planning-playground (m): ok, ${cases} case(s)`);
+console.log(`check-brief-sheet (m): ok, ${cases} case(s)`);

@@ -2,18 +2,6 @@
   "version": "1",
   "governing_text": "specs/spec-draft-pipeline/SPEC.md, The Structure-Mapping Playground",
   "licensed_by": "kogaki#1664",
-  "sme_map_roles": {
-    "id": "sme_map_roles",
-    "note": "The Mapper's structure reading (kogaki#1665, kogaki#1721): one call reads the proposition into a RelationalStructure for the Persona. A second variant is a second row and a second Trial, never an edit of this one.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The Mapper's structure reading; kogaki#1665; kogaki#1720",
-    "refusal_reach": {
-      "shape": "part",
-      "strand": "part",
-      "attributes": "part",
-      "context": "part"
-    },
-    "prompt_file": "structure-mapping-playground/sme-map-roles"
-  },
   "smp_bind_move": {
     "id": "smp_bind_move",
     "note": "The short Trial's `bind` stage (kogaki#1700, kogaki#1719): one model call binds the Move of the Base Paragraph to the structure, declares whether that paragraph tells the proposition's own case or a case apart, and binds the Move of the Inference Paragraph where the case is apart, before any base is named. Under the Mapper's one-retry bound.",

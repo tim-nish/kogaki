@@ -141,7 +141,7 @@ const programTexts = await P.programTexts(imp);
   }
 }
 
-// (f) A TABLE WHOSE ROW CARRIES ITS INSTRUCTION IS REFUSED WHEN READ (kogaki#1862), naming the row and the key; the six
+// (f) A TABLE WHOSE ROW CARRIES ITS INSTRUCTION IS REFUSED WHEN READ (kogaki#1862), naming the row and the key; the five
 // tables as they stand are read clean.
 const { instructionKeyRefusal } = await imp("src/workflow/run-record.mjs");
 for (const table of [...new Set(C.ROWS.map((r) => r.table))]) {

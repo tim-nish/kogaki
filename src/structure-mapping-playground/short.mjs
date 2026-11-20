@@ -26,10 +26,8 @@ import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf, firstPoint } from "./structure.mjs";
 import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf } from "./rbs.mjs";
-import { mapperRow, MAPPER_CALLS } from "./sme.mjs";
 import { writeCallRecord, callsRoot, cliRecord, tableRecord } from "../workflow/call-record.mjs";
 import { EXTRACTION_TABLE } from "../move-extraction-playground/extract.mjs";
-import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import {
@@ -45,6 +43,14 @@ import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 import * as RB from "./readback.mjs";
 
+export const PLAYGROUND_TABLE = "src/structure-mapping-playground/playground-workflow.json";
+export const TRIALS_DIR = join("runs", "structure-mapping-playground");
+export const TRIAL_FILE = "trial.json";
+export const READING_FILE = "reading.md";
+// The call bound of one row: the first refusal is put back verbatim with the answer, and a second ends the stage.
+export const MAPPER_CALLS = 2;
+// `--mapper` left with the Mapper's structure reading, and is refused by name.
+export const RETIRED_MAPPER_FLAG = "mapper";
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
 export const RBS_COMPOSED = "composed";
@@ -53,7 +59,7 @@ export const PACKET_FILE = "packet.md";
 export const ANALOGY_FILE = "analogy.yaml";
 export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
-export const SHORT_STAGES = ["reading", "bind", "grounding", "write"];
+export const SHORT_STAGES = ["bind", "grounding", "write"];
 // The Brief-Leg route (kogaki#1830): a Leg of an adopted Brief under a named Move.
 export const MOVE_STAGES = ["move-reading", "pairing", "grounding", "write"];
 export const MOVE_ROUTE_FLAGS = ["brief", "leg", "move"];
@@ -77,7 +83,7 @@ const APART = "apart";
 export const CASES = [OWN, APART];
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const USAGE =
-  "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
+  "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> --structure <file> " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
   "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-edges] [--leg-senses <folder>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
@@ -560,8 +566,7 @@ function readStructure(file, proposition) {
 
 export function runShortTrial({
   proposition: propositionFile,
-  structure: givenStructure = null,
-  mapper = null,
+  structure: givenStructure,
   out,
   compose = false,
   rbsFile = null,
@@ -580,16 +585,10 @@ export function runShortTrial({
     );
   const table = readTable();
   const proposition = readProposition(propositionFile);
-  let given = null;
-  if (mapper) {
-    const m = mapperRow(table, mapper);
-    if (m.error) fail(`${m.error}. Nothing was started.`);
-  } else {
-    const s = readStructure(givenStructure, proposition);
-    if (s.error) fail(`${s.error}. Nothing was started.`);
-    given = s.structure;
-  }
-  const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);
+  const s = readStructure(givenStructure, proposition);
+  if (s.error) fail(`${s.error}. Nothing was started.`);
+  const given = s.structure;
+  const structureFile = resolve(givenStructure);
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
   const persona = readerPersona(audiencePath);
   if (persona.error) fail(`${persona.error}. Nothing was started.`);
@@ -622,10 +621,7 @@ export function runShortTrial({
       path: relFromRepo(resolve(propositionFile)),
       sha256: sha256(propositionFile),
     },
-    structure: mapper
-      ? { path: relFromRepo(structureFile), sha256: null, author: "mapper" }
-      : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
-    mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
+    structure: { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     rbs: { variant: rbsFile ? RBS_OWNER : RBS_COMPOSED, path: null, sha256: null },
     bind: { move: null, case: null, binding_rationale: null, path: null, sha256: null },
     analogy: { path: null, sha256: null },
@@ -667,42 +663,6 @@ export function runShortTrial({
     return r.stopped ? null : (value ?? {});
   };
   save();
-  if (mapper) {
-    stage("reading", (d, env) => {
-      const job = join(d, "job");
-      const c = spawnSync(
-        process.execPath,
-        [
-          "src/structure-mapping-playground/trial.mjs",
-          "map",
-          "--strand",
-          resolve(propositionFile),
-          "--mapper",
-          mapper,
-          "--out",
-          job,
-          "--structure-out",
-          structureFile,
-          "--audience",
-          audiencePath,
-        ],
-        { cwd: REPO, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-      );
-      const prompt = join(job, "prompt.md");
-      if (existsSync(prompt)) record.mapper.prompt_sha256 = sha256(prompt);
-      if (c.status !== 0 || !existsSync(structureFile)) {
-        const said = `${c.stdout || ""}\n${c.stderr || ""}`
-          .split("\n")
-          .map((l) => l.trim())
-          .filter(Boolean);
-        return {
-          stopped: `\`map\` exited ${c.status === null ? "on a signal" : c.status}: ${said.slice(-3).join(" ") || "(no output)"}`,
-        };
-      }
-      record.structure.sha256 = sha256(structureFile);
-      return {};
-    });
-  }
   let structure = null;
   let contracts = null;
   const writeRbs = (t) => {
@@ -1203,20 +1163,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       fail(
         `neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves and Correspondence column, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`,
       );
-    if (str("structure") && str("mapper"))
+    if (Object.hasOwn(args, RETIRED_MAPPER_FLAG))
       fail(
-        `\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`,
+        `\`--${RETIRED_MAPPER_FLAG}\` left with the Mapper's structure reading: a Trial's structure is the owner's file, \`--structure <file>\`. Nothing was started. ${USAGE}`,
       );
     if (Object.hasOwn(args, "strand"))
       fail(
         `\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`,
       );
-    for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"])
-      if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
+    for (const k of ["proposition", "structure", "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
     const r = runShortTrial({
       proposition: str("proposition"),
       structure: str("structure"),
-      mapper: str("mapper"),
       out: str("out"),
       compose: args.compose === true,
       rbsFile: str("rbs-file"),

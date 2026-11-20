@@ -20,8 +20,7 @@ import { installRecorder, stageEnv, declaredCommand } from "../move-extraction-p
 import { callDir, CALL_FILES, cliRecord } from "../workflow/call-record.mjs";
 import { legParagraphs, sentencesOf } from "../move-extraction-playground/extract.mjs";
 import { MOVE_RECORD_EXT } from "../compose/render.mjs";
-import { retriedCall } from "./short.mjs";
-import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
+import { retriedCall, PLAYGROUND_TABLE, TRIALS_DIR } from "./short.mjs";
 import { renderSensesSheet } from "./senses-sheet.mjs";
 import { SENSES_FILE, READINGS, loadSenses, senseNames, sensesText, canonicalAnswer } from "../sme/edges.mjs";
 

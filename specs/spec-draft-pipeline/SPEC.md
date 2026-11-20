@@ -2496,8 +2496,7 @@ and the repairs of a Leg of a plan run made by the older code, is removed with
 that code (§4.19): `node src/paragraph-plan-playground/sheet.mjs leg` prints the
 usage line and exits with status 2, and a run directory the older code wrote is
 not rewritten and not deleted. It is a playground: it may import production
-files and the Trial sheet's helpers, and the Leg-Planning Playground's sheet
-imports its Round blocks and the Move's Corpus passage reader.
+files and the Trial sheet's helpers.
 
 **The Candidate sheet.** `node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run
 directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]` renders
@@ -2543,6 +2542,14 @@ then. `src/paragraph-plan-analogy.mjs` and its check are removed with the
 older plan code. A plan file carrying `analogy` is refused by name (§4.19).
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
+
+**THE COMMAND OF THIS SECTION AND THE MAPPER'S STRUCTURE READING LEFT
+(2026-11-20).** `src/structure-mapping-playground/trial.mjs`, the flag
+`--mapper` and the row `sme_map_roles` are removed. What stands of this
+section is what the short Trial of §4.20.2 reads: the terms, the proposition
+file, and the owner-authored structure file with the validator's rules for
+it. The command line in the first paragraph, **What a Trial records** and the
+whole of §4.20.1 are kept as the record of what the Playground did before.
 
 **What it is.** The owner ruled on 2026-11-03 that an article's work is to
 transform a WriterBasedStrand into a ReaderBasedStrand through Moves, without
@@ -2643,6 +2650,9 @@ a table in both places, and a record `table.yaml` carries its `move` and
 
 #### 4.20.1 The Mapper's structure reading (kogaki#1665)
 
+**REMOVED (2026-11-20).** No command runs this reading. The text below is
+kept as the record of it.
+
 **What it is.** Structure reading by the Mapper rather than the owner is one
 model call. A Trial runs it with `--mapper <variant>` in place of
 `--structure`: `node src/structure-mapping-playground/trial.mjs run --strand <file>
@@ -2694,11 +2704,12 @@ found by trial and error, and the Draft is read rather than judged, so a cycle
 that costs an hour to reach a reading fails before it finds anything. The
 shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
 sheet. A **short Trial** is `node src/structure-mapping-playground/short.mjs run
---proposition <file> (--structure <file> | --mapper sme_map_<variant>) --out
+--proposition <file> --structure <file> --out
 <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>)
 [--audience <file>] [--library <dir>]`, over the proposition file of §4.20;
-`--strand` is refused naming `--proposition`. It runs in one process with no
-await loop.
+`--strand` is refused naming `--proposition`, and `--mapper` is refused naming
+`--structure <file>`, since the Mapper's structure reading left (2026-11-20).
+It runs in one process with no await loop.
 
 **What the RBS is stays open.** The owner also ruled on 2026-11-04 that what
 the ReaderBasedStrand is remains an open design discussion, held against the
@@ -2726,9 +2737,9 @@ runs two stages, `extract` and `ingest`, and exits 0 when both finish. It takes 
 `--provenance`, `--passage`, `--audience` and `--resume`, and its sheet holds three cards, the
 Extraction, the Move and the run record, under a line of run conditions (kogaki#1885).
 
-**The stages** (kogaki#1700, kogaki#1721), in order: `reading` (with
-`--mapper` only: the Mapper's structure reading of §4.20.1 under its one-retry
-bound), `bind`, `grounding` and `write` (kogaki#1883). The order is the
+**The stages** (kogaki#1700, kogaki#1721), in order: `bind`, `grounding` and
+`write` (kogaki#1883). The stage `reading`, which ran the Mapper's structure
+reading of §4.20.1, left with it (2026-11-20). The order is the
 owner's of 2026-11-06: a Move is bound to the structure, and the
 Correspondence column is filled under that Move's Segments.
 Choosing a base and judging its distance from the target are abstractions of
@@ -2763,8 +2774,8 @@ key. The validator applies these rules to every table, each field named under
   `correspondences[<i>].expression`.
 - Given the structure, a `role` naming no Role of it is refused naming the
   id, and a Role with other than one correspondence is refused naming the
-  Role. The `bind` stage passes the structure, so an owner's file read before
-  `--mapper` has written one is checked against these two rules there.
+  Role. The structure is the owner's file, read before any stage, so an
+  owner's table is checked against these two rules when it is read.
 
 **The base** (kogaki#1671, kogaki#1693). The table carries `base`,
 `{ domain }`. `domain` names the reader's situation in one phrase.
@@ -3231,6 +3242,12 @@ instructions.
 
 ### 4.21 The Leg-Planning Playground (kogaki#1764)
 
+**THE PLAYGROUND LEFT (2026-11-20).** `src/leg-planning-playground/`, its row
+`sme_read_set` and its sheet are removed. What stands of this section is what
+§4.22 takes from it, namely the ids minted by the runner, the apex that alone
+carries no `from` and reach computed from the apex, and the Brief sheet of
+§4.21.1. The rest is kept as the record of the Trial.
+
 **SUPERSEDED IN PART BY §4.22 (kogaki#1775, owner design 2026-11-10).** A Trial's stages are `structure`, `legs` and `paragraph-plan`: the Legs are derived from the structure with no Call, one per relation and higher-order relation the apex reaches, each carrying its relation's `holds` as `text`. The text below is kept as the record of the Trial before.
 
 **What it is.** The owner asked on 2026-11-10 for a mechanism that reads what
@@ -3355,6 +3372,13 @@ rule with its own list (`LPP_HEADINGS`), in this order:
 5. With `--brief`, `The Brief's Legs`: that Brief's Legs
    beside the Trial's, by Leg number, read only.
 
+**Out of the Playground.** Rebuilding the Brief, which §4.22 does in the Playground's order; grounding, the base choice
+and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
+sections, `introduces`, `opens_section` and renderings, which are the
+Brief's; and fetching a Strand.
+
+#### 4.21.1 The Brief sheet (kogaki#1776, kogaki#1788)
+
 **The Brief sheet, and its owner act** (kogaki#1776, kogaki#1788). The Brief
 sheet is one page over one adopted Brief file, rendered with no model call;
 the owner names it the BriefPlanPlayground. Its one owner act is
@@ -3369,13 +3393,9 @@ written. The sheet renders four parts in order: `Thesis`, `Claims`,
 structure: the graph first, then the `Roles`, `Relations` and
 `Higher-order relations` tables, each under its own heading.
 
-**Out of the Playground.** Rebuilding the Brief, which §4.22 does in the Playground's order; grounding, the base choice
-and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
-sections, `introduces`, `opens_section` and renderings, which are the
-Brief's; and fetching a Strand.
-
-**Its check.** `checks/check-leg-planning-playground.sh`, registered as `leg-planning-playground`,
-drives the Trial through one fake model binary.
+**Its check.** `checks/check-brief-sheet.sh`, registered as `brief-sheet`,
+renders the sheet with no model call, and checks the structure a Brief is
+read into and the Legs derived from it.
 
 ### 4.22 The structure-first Brief (kogaki#1768)
 
