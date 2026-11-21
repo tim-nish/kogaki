@@ -361,9 +361,9 @@ function moveSegmentsSection(record, route) {
   );
 }
 
-// UNDER `--move-edges` (kogaki#1880, kogaki#1913): the move structure is a count of Bind targets, and per Segment its
-// operation and relation, its Bind target beside the Argument or CentralClaim the Harness gave it and its Edges, as the
-// Move file holds them, under the Move's description; no Unmatched table.
+// UNDER `--move-edges` (kogaki#1880, kogaki#1913, kogaki#1921): the move structure is a count of Bind targets, and per
+// Segment its Bind target beside the Argument or CentralClaim the Harness gave it and its Edges, under the Move's
+// description; no Unmatched table.
 function edgesStructureSection(ms) {
   if (!ms) return none("The Move's Bind targets were not read.");
   return `<p>${esc(ms.binds)} Bind targets</p>`;
@@ -380,20 +380,15 @@ function edgesSegmentsSection(record, route) {
   if (c.error) return `<p class="stop">${esc(c.error)}</p>`;
   const read = readMoveRecord(move, library);
   const given = new Map(pairing.binds.map((p) => [p.bind, p]));
-  const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   const rows = segments.map((sg, i) => {
     const g = sg.bind === null ? null : given.get(sg.bind);
     const bind = g ? `${esc(sg.bind)} → ${esc(g.kind)} ${esc(g.leg)}` : "none";
     const edges = sg.edges.map((e) => esc(edgeText(e))).join("<br>");
-    const words = c.segments[i];
-    return (
-      `<tr><td>${i + 1}</td><td>${field(words, "operation")}</td><td>${field(words, "relation")}</td>` +
-      `<td>${bind}</td><td>${edges || "none"}</td></tr>`
-    );
+    return `<tr><td>${i + 1}</td><td>${bind}</td><td>${edges || "none"}</td></tr>`;
   });
   return (
     `<p>${esc(read.record.description || "")}</p>` +
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>bind</th><th>Edges</th></tr></thead><tbody>` +
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>Edges</th></tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>"
   );
