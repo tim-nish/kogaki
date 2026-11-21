@@ -69,9 +69,7 @@ const moveFile = (id, n) =>
       takes: [],
       leaves: [],
       breaks: ["breaks if the point is dropped."],
-      segments: Array.from({ length: n }, (_, k) =>
-        k ? { operation: "goes on from the step before.", relation: "follows." } : { operation: "opens." },
-      ),
+      segments: Array.from({ length: n }, () => ({})),
     }),
   );
 moveFile("m3", 3);

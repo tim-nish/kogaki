@@ -218,19 +218,16 @@ export function promptPart(named) {
     .join("");
 }
 
-// A Move file's Segments, read off its YAML record (kogaki#1413); none where the file is
+// The number of Segments a Move file's YAML record carries (kogaki#1413); none where the file is
 // absent or unreadable.
-function moveSegments(moveText) {
-  if (!moveText) return [];
+export function segmentCount(moveText) {
+  if (!moveText) return 0;
   try {
     const rec = parseYaml(moveText);
-    return rec && Array.isArray(rec.segments) ? rec.segments.map((s) => String((s && s.operation) || "").trim()) : [];
+    return rec && Array.isArray(rec.segments) ? rec.segments.length : 0;
   } catch {
-    return [];
+    return 0;
   }
-}
-export function segmentCount(moveText) {
-  return moveSegments(moveText).length;
 }
 
 // THE PER-PARAGRAPH ANCHOR IDS a written-paragraph cell links to, and every per-paragraph row

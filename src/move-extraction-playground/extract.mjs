@@ -44,16 +44,15 @@
 //   The Extraction
 //       passages/FORMAT.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
-import { stringifyYaml, parseYaml } from "../yaml.mjs";
+import { stringifyYaml } from "../yaml.mjs";
 import { methodWordRefusal } from "../compose/leg-schema.mjs";
 import { MOVE_CONSTRAINT_KINDS, moveConstraintsRefusal } from "../move-validate.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
-import { enterRun, RUNS_ROOT } from "../runs.mjs";
 import { renderPromptFile } from "../prompt-file.mjs";
 import {
   startDetachedJobSupervisor,
@@ -95,7 +94,7 @@ export const DESCRIPTION_MAX = 200;
 const ANSWER_KEYS = ["q1", "q2", "q3"];
 // `obligation` and `obligation_triggers` are retired from the Extraction (kogaki#1698) and from the
 // Move (kogaki#1701): `leaves` names what a paragraph leaves for later, so an answer carrying either
-// is refused by name, and `rejudge --retire-obligation` cuts both from a library record.
+// is refused by name.
 export const RETIRED_OBLIGATION_KEYS = ["obligation", "obligation_triggers"];
 // `content_bound` is the content-bound call's verdict per Segment, written by the Harness too
 // (kogaki#1614).
@@ -105,11 +104,10 @@ export const OBLIGATION_WORDS_MAX = 12;
 // kogaki#1604: the match is the instructing mood, `must` or `should` before the dash.
 export const WORDING =
   /\b(?:must|should)\b[^—]*?\b(?:(?:open|begin|end|close) (?:with|on)|in (?:one|a single) sentence)\b/i;
-// A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
-// tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
-// was `does` until kogaki#1510; `manner` is empty unless the Segment's technique is one
-// `operation` and `relation` together cannot name (kogaki#1510).
-const SEGMENT_KEYS = ["content", "operation", "relation", "manner"];
+// A Segment is its content clause and its `manner`, and `breaks` is a list of prose tests
+// (kogaki#1414): no label set is offered to the model or read back from it. `manner` is empty
+// unless the paragraph shows a local technique at that Segment (kogaki#1510, kogaki#1926).
+const SEGMENT_KEYS = ["content", "manner"];
 // The library's id form: the ingest's own `MOVE_ID` (tools/move_ingest.py).
 const MOVE_ID = /^[a-z0-9_]+$/;
 const FLOW = { lane: "brief", label: "Extractor" };
@@ -205,10 +203,8 @@ function extractionRecordSkeleton(input) {
     subject_nouns: ["<a noun, or omit for none>"],
     answers: { q1: "<one sentence>", q2: "<one sentence>", q3: "<one sentence>" },
     what_it_does: "<one sentence>",
-    segments: p.sentences.map((_, i) => ({
+    segments: p.sentences.map(() => ({
       content: "<one clause, about this paragraph's own content>",
-      operation: "<the step's operation in one clause, subject-free, never its effect on the reader>",
-      relation: i === 0 ? "" : "<in prose, how it relates to the Segment before it>",
       manner: "",
     })),
     takes: [
@@ -277,34 +273,18 @@ export function contentBoundUnitPrompt(row, input) {
   }
 }
 
-// THE CONSTRAINTS CALL'S INPUT (kogaki#1698): the four kinds with their definitions, the
-// Segments' `operation` and `relation`, and the record's `takes` and `leaves` to be judged. Read
-// off an admitted Move record (`rejudge --constraints`), the lists are null, to be derived, and
-// the record's `obligation` rides beside the Segments.
+// THE CONSTRAINTS CALL'S INPUT (kogaki#1698, kogaki#1926): the four kinds with their definitions,
+// each Segment's `content` clause, and the record's `takes` and `leaves` to be judged.
 export function constraintsUnitInput(record) {
   return {
     kinds: { ...MOVE_CONSTRAINT_KINDS },
-    segments: record.segments.map((s) => ({ operation: s.operation.trim(), relation: s.relation.trim() })),
+    segments: record.segments.map((s) => ({ content: s.content.trim() })),
     takes: record.takes.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim() })),
     leaves: record.leaves.map((x) => ({
       kind: String(x.kind).trim(),
       what: x.what.trim(),
       segment: Number(x.segment),
     })),
-    obligation: null,
-  };
-}
-
-export function constraintsMoveInput(record) {
-  return {
-    kinds: { ...MOVE_CONSTRAINT_KINDS },
-    segments: record.segments.map((s) => ({
-      operation: String((s && s.operation) || "").trim(),
-      relation: String((s && s.relation) || "").trim(),
-    })),
-    takes: null,
-    leaves: null,
-    obligation: Array.isArray(record.obligation) ? record.obligation : null,
   };
 }
 
@@ -344,22 +324,13 @@ const wordsOf = (s) =>
       .toLowerCase()
       .match(/[\p{L}\p{N}_]+/gu) || [],
   );
-// A `manner` RESTATES the `operation` when it adds no word of its own: every word of it longer
-// than three letters is already in the operation (kogaki#1510). Short words -- "a", "the",
-// "its", "one" -- are the clause's grammar and decide nothing.
-export function mannerRestatesOperation(manner, operation) {
-  const own = [...wordsOf(manner)].filter((w) => w.length > 3);
-  const op = wordsOf(operation);
-  return !own.length || own.every((w) => op.has(w));
-}
 function nounIn(nouns, text) {
   const ws = wordsOf(text);
   const lower = String(text).toLowerCase();
   return nouns.find((n) => (/\s/.test(n) ? lower.includes(n) : ws.has(n)));
 }
-// THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- `operation`,
-// `relation`, `manner`, each `breaks` test and each item of `obligation`
-// (kogaki#1576) -- names none of `subject_nouns` and no word in the original's language;
+// THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- `manner` and each
+// `breaks` test -- names none of `subject_nouns` and no word in the original's language;
 // `content` is the one field bound to the source. A word in another script is a run of letters outside the Latin script, or of
 // CJK or full-width punctuation, such as 「なぜなら」; dashes and quotes stay common punctuation.
 const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+/u;
@@ -452,7 +423,7 @@ export function validateExtractionUnit(record, input) {
     }
   }
 
-  // Section 3: one Segment per sentence, both clauses on every one.
+  // Section 3: one Segment per sentence, a `content` clause on every one.
   const n = p.sentences.length;
   const segmentsOk = Array.isArray(r.segments) && r.segments.length === n;
   if (!segmentsOk) {
@@ -468,8 +439,8 @@ export function validateExtractionUnit(record, input) {
         errors.push(e);
         continue;
       }
-      for (const k of ["content", "operation"]) {
-        const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
+      {
+        const e2 = lineRefusal(s.content, `${atS}: the \`content\` clause`);
         if (e2) errors.push(e2);
       }
       // The clause's opening verb states what it is about (FORMAT "The paragraph unit", rule 7).
@@ -480,39 +451,18 @@ export function validateExtractionUnit(record, input) {
         );
         if (e2) errors.push(e2);
       }
-      // Segment 1 carries no `relation` (FORMAT "The paragraph unit", rule 5, kogaki#1510):
-      // nothing downstream read the one it carried to the previous paragraph.
-      {
-        const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: i === 0 });
-        if (e2) errors.push(e2);
-      }
-      if (i === 0 && typeof s.relation === "string" && s.relation.trim()) {
-        errors.push(`${atS}: carries a \`relation\` — Segment 1 carries none; leave it empty`);
-      }
       {
         const e2 = lineRefusal(s.manner, `${atS}: the \`manner\` clause`, { empty: true });
         if (e2) errors.push(e2);
       }
       for (const k of SEGMENT_KEYS) {
-        if (typeof s[k] === "string" && /—\s*(operation|relation|manner):/.test(s[k])) {
-          errors.push(
-            `${atS}: the \`${k}\` clause carries \`— operation:\`, \`— relation:\` or \`— manner:\`; the clauses are separate fields`,
-          );
+        if (typeof s[k] === "string" && /—\s*manner:/.test(s[k])) {
+          errors.push(`${atS}: the \`${k}\` clause carries \`— manner:\`; the clauses are separate fields`);
         }
       }
-      for (const k of ["operation", "relation", "manner"]) {
-        const e2 = generalRefusal(nouns, s[k], `${atS}: the \`${k}\` clause`);
+      {
+        const e2 = generalRefusal(nouns, s.manner, `${atS}: the \`manner\` clause`);
         if (e2) errors.push(e2);
-      }
-      if (
-        typeof s.manner === "string" &&
-        s.manner.trim() &&
-        typeof s.operation === "string" &&
-        mannerRestatesOperation(s.manner, s.operation)
-      ) {
-        errors.push(
-          `${atS}: the \`manner\` clause restates the \`operation\` — it names a local realisation the operation cannot, or it is empty`,
-        );
       }
     }
   }
@@ -647,19 +597,17 @@ export function withContentBound(record, verdicts) {
   return { ...record, content_bound: verdicts.map((v) => ({ bound: v.bound, why: v.why.trim() })) };
 }
 
-// THE CONSTRAINTS VERDICTS (kogaki#1698): `{ takes, leaves, unnamed }`. Where the input gives the
-// lists, `takes` and `leaves` repeat them entry for entry, each with `{ supported, why }`, and
-// `unnamed` lists each question, term, base or principle a Segment leaves that no entry names;
-// where the input's lists are null, `takes` and `leaves` are the lists derived, every entry
-// supported, and `unnamed` is empty. Only the shape is refused here, spending this call's own
-// Rounds; an unsupported entry or an unnamed one is the Extractor's refusal (`constraintsRefusal`).
+// THE CONSTRAINTS VERDICTS (kogaki#1698): `{ takes, leaves, unnamed }`. `takes` and `leaves`
+// repeat the input's lists entry for entry, each with `{ supported, why }`, and `unnamed` lists
+// each question, term, base or principle a Segment leaves that no entry names. Only the shape is
+// refused here, spending this call's own Rounds; an unsupported entry or an unnamed one is the
+// Extractor's refusal (`constraintsRefusal`).
 const VERDICT_KEYS = ["supported", "why"];
 export function constraintsAnswerRefusal(answer, input) {
   if (!isMap(answer)) return "the answer is not a map";
   const top = keysRefusal(answer, ["takes", "leaves", "unnamed"], "the answer");
   if (top) return top;
   const n = input.segments.length;
-  const derive = input.takes === null;
   const errors = [];
   const lists = {};
   for (const field of ["takes", "leaves"]) {
@@ -685,35 +633,29 @@ export function constraintsAnswerRefusal(answer, input) {
         errors.push(
           `${atE}.why is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`,
         );
-      if (derive && x.supported === false)
-        errors.push(`${atE} is judged unsupported in a list you derived — derive only entries the Segments support`);
       lists[field].push(Object.fromEntries(base.map((k) => [k, x[k]])));
     }
   }
   if (errors.length) return errors.join("\n");
   const shape = moveConstraintsRefusal(lists, n, "the answer");
   if (shape) return shape;
-  if (!derive) {
-    for (const field of ["takes", "leaves"]) {
-      const given = input[field];
-      const got = lists[field];
-      const same =
-        got.length === given.length &&
-        got.every(
-          (x, i) =>
-            String(x.kind).trim() === given[i].kind &&
-            x.what.trim() === given[i].what &&
-            (field === "takes" || Number(x.segment) === given[i].segment),
-        );
-      if (!same)
-        errors.push(
-          `\`${field}\` does not repeat the input's ${given.length} entr(ies) in order — judge each given entry, adding and changing none`,
-        );
-    }
+  for (const field of ["takes", "leaves"]) {
+    const given = input[field];
+    const got = lists[field];
+    const same =
+      got.length === given.length &&
+      got.every(
+        (x, i) =>
+          String(x.kind).trim() === given[i].kind &&
+          x.what.trim() === given[i].what &&
+          (field === "takes" || Number(x.segment) === given[i].segment),
+      );
+    if (!same)
+      errors.push(
+        `\`${field}\` does not repeat the input's ${given.length} entr(ies) in order — judge each given entry, adding and changing none`,
+      );
   }
   if (!Array.isArray(answer.unnamed)) errors.push("`unnamed` is not a list");
-  else if (derive && answer.unnamed.length)
-    errors.push("`unnamed` is not empty in a list you derived — name every such thing in `leaves`");
   else {
     for (const [i, x] of answer.unnamed.entries()) {
       const atE = `\`unnamed\` entry ${i + 1}`;
@@ -806,8 +748,6 @@ export function extractionRecord(record, input, runRel) {
     segments: record.segments.map((s, i) => ({
       opening: openingWords(p.sentences[i]),
       content: s.content.trim(),
-      operation: s.operation.trim(),
-      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}),
       ...(s.manner.trim() ? { manner: s.manner.trim() } : {}),
     })),
     why_this_order: record.why_this_order.trim(),
@@ -849,8 +789,7 @@ export function extractionMarkdown(rec) {
   };
   const segs = (r.segments || []).map(
     (s, i) =>
-      `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)} — operation: ${line(s.operation)}` +
-      (line(s.relation) ? ` — relation: ${line(s.relation)}` : "") +
+      `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)}` +
       (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""),
   );
   const splits = (r.split_notes || []).flatMap((n) => [
@@ -975,8 +914,7 @@ export function lastRefusal(job) {
   );
 }
 
-// THE JUDGE AND THE JOB BOUNDS, read once per run from the workflow table (kogaki#1618: the
-// Extractor and the library re-judge read the same row, so neither can drift from the other).
+// THE JUDGE AND THE JOB BOUNDS, read once per run from the workflow table (kogaki#1618).
 function judgeSetup(table) {
   return {
     callLimitS: positiveSetting(table.job, "call_limit_s"),
@@ -1167,8 +1105,8 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       let refusal = contentBoundRefusal(verdicts, ex.u.candidate, input);
       let refusedBy = "content-bound";
       // THE CONSTRAINTS, JUDGED AGAINST THE SEGMENTS (kogaki#1698): over a record whose clauses are
-      // bound, a call over its `takes` and `leaves` beside the Segments' `operation` and
-      // `relation`; an unsupported entry, or a thing a Segment leaves that no entry names, refuses
+      // bound, a call over its `takes` and `leaves` beside the Segments' `content` clauses
+      // (kogaki#1926); an unsupported entry, or a thing a Segment leaves that no entry names, refuses
       // the Extraction as an unbound clause does, in `constraints/` (`constraints-<k>/` from round 2).
       if (!refusal) {
         const tdir = join(dir, k === 1 ? "constraints" : `constraints-${k}`);
@@ -1250,117 +1188,6 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   return { written, runDir };
 }
 
-// DERIVE A LIBRARY'S CONSTRAINTS (kogaki#1698). Every `*.yaml` record in `library` carrying
-// `segments` is put through the constraints call over its `segments` and `obligation`, with no
-// list given, so the answer is the derived `takes` and `leaves`. With `write`, the two keys'
-// top-level blocks are cut from the file's text and the new ones appended, so every other field
-// stays byte-identical; with `retireState` too, the retired `before`, `after` and `after_segment`
-// blocks are cut as well (kogaki#1699), and with `retireObligation` the retired `obligation` and
-// `obligation_triggers` blocks (kogaki#1701); without `write` no record is changed. The calls are
-// recorded in `rejudge-<timestamp>` under the `move-extraction-playground` runs lane of `runsRoot` (kogaki#1754),
-// one subdirectory per record, and `constraints.json` lists the records. Returns `{ derived, written, skipped, runDir }`, or with `stopped`.
-const RECORD_BLOCK = (key) => new RegExp(`^${key}:[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*|)\\n)*`, "m");
-export const RETIRED_STATE_KEYS = ["before", "after", "after_segment"];
-export function spliceConstraints(text, { takes, leaves }, { retireState = false, retireObligation = false } = {}) {
-  let out = text;
-  const cut = [
-    "takes",
-    "leaves",
-    ...(retireState ? RETIRED_STATE_KEYS : []),
-    ...(retireObligation ? RETIRED_OBLIGATION_KEYS : []),
-  ];
-  for (const key of cut) out = out.replace(RECORD_BLOCK(key), "");
-  out = out.replace(/\s*$/, "\n");
-  return `${out}${stringifyYaml({ takes, leaves }, { width: 100 }).replace(/\s*$/, "\n")}`;
-}
-
-export function runConstraintsRejudge(
-  library,
-  { write = false, retireState = false, retireObligation = false, runsRoot = RUNS_ROOT } = {},
-) {
-  const dir = resolve(library);
-  let names;
-  try {
-    names = readdirSync(dir)
-      .filter((f) => f.endsWith(".yaml"))
-      .sort();
-  } catch (e) {
-    fail(`the library at ${dir} cannot be read (${e.message})`);
-  }
-  if (!names.length) fail(`the library at ${dir} carries no .yaml record — there is nothing to re-judge`);
-  const table = readRowTable(EXTRACTION_TABLE);
-  const row =
-    table.constraints_unit ||
-    fail(
-      "src/move-extraction-playground/extraction-workflow.json declares no constraints_unit row. Nothing was started.",
-    );
-  const setup = judgeSetup(table);
-  const runDir = enterRun("move-extraction-playground", `rejudge-${new Date().toISOString().replace(/[:.]/g, "-")}`, {
-    root: resolve(runsRoot),
-  });
-  const derived = [];
-  const written = [];
-  const skipped = [];
-  const report = (extra = {}) => {
-    writeJson(join(runDir, "constraints.json"), {
-      library: dir,
-      write,
-      retire_state: retireState,
-      retire_obligation: retireObligation,
-      derived,
-      written,
-      skipped,
-    });
-    return { derived, written, skipped, runDir, ...extra };
-  };
-  for (const name of names) {
-    const file = join(dir, name);
-    const text = readFileSync(file, "utf8");
-    let record;
-    try {
-      record = parseYaml(text, file);
-    } catch (e) {
-      return report({ stopped: `the re-judge stopped at ${name}: ${e.message}` });
-    }
-    if (!record || !Array.isArray(record.segments) || !record.segments.length) {
-      skipped.push(name);
-      continue;
-    }
-    const id = typeof record.id === "string" && record.id ? record.id : basename(name, ".yaml");
-    const jobDir = join(runDir, id);
-    mkdirSync(jobDir, { recursive: true });
-    const input = constraintsMoveInput(record);
-    const prompt = constraintsUnitPrompt(row, input);
-    writeFileSync(join(jobDir, "prompt.md"), prompt);
-    const tb = runUnit(jobDir, setup, {
-      id: `${id}-constraints`,
-      prompt,
-      recordArray: false,
-      validator: {
-        module: "src/move-extraction-playground/extract.mjs",
-        export: "validateConstraintsUnit",
-        inputs: { input, at: `move ${id}` },
-      },
-      label: { move: id },
-    });
-    if (tb.failed) {
-      return report({
-        stopped:
-          `the re-judge stopped at ${name}: the constraints job ended ${tb.job.state} after ${tb.u.rounds || 1} round(s) — ` +
-          `${String(lastRefusal(tb.job)).split("\n").join(" ")}`,
-      });
-    }
-    const lists = constraintLists(tb.u.candidate);
-    writeJson(join(jobDir, "answer.json"), lists);
-    derived.push(name);
-    if (write) {
-      writeFileSync(file, spliceConstraints(text, lists, { retireState, retireObligation }));
-      written.push(name);
-    }
-  }
-  return report();
-}
-
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
@@ -1383,43 +1210,6 @@ function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
-  if (args._cmd === "rejudge") {
-    // `--state` is deleted (kogaki#1699); `--retire-state` and `--retire-obligation` (kogaki#1701) ride `--write` alone.
-    const retireState = args["retire-state"] === true;
-    const retireObligation = args["retire-obligation"] === true;
-    if (
-      typeof args.library !== "string" ||
-      args.constraints !== true ||
-      args.state !== undefined ||
-      (args["runs-root"] !== undefined && typeof args["runs-root"] !== "string") ||
-      ((retireState || retireObligation) && args.write !== true)
-    ) {
-      fail(
-        "usage: node src/move-extraction-playground/extract.mjs rejudge --constraints --library <directory of Move records> [--runs-root <dir>] [--write [--retire-state] [--retire-obligation]]",
-      );
-    }
-    const r = runConstraintsRejudge(args.library, {
-      write: args.write === true,
-      retireState,
-      retireObligation,
-      runsRoot: typeof args["runs-root"] === "string" ? args["runs-root"] : RUNS_ROOT,
-    });
-    const removed = [...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
-    for (const f of r.written)
-      console.log(
-        `Move rewritten with takes and leaves${removed.length ? `, ${removed.join(", ")} removed` : ""}: ${f}`,
-      );
-    for (const f of r.skipped) console.log(`Move left as it was (no segments): ${f}`);
-    console.log(
-      `Moves derived: ${r.derived.length}; ${args.write === true ? `written: ${r.written.length}` : "no record was changed (no --write)"}`,
-    );
-    console.log(`run directory: ${r.runDir}`);
-    if (r.stopped) {
-      console.log(r.stopped);
-      process.exitCode = 1;
-    }
-    process.exit();
-  }
   if (
     args._cmd !== "run" ||
     !Array.isArray(args.leg) ||

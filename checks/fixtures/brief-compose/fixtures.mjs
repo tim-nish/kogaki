@@ -1,14 +1,12 @@
 // Shared fixtures of the Brief composition members (kogaki#1460): the record
 // builder, the fixture Brief reader, the Reader start text, the kogaki#1260
-// path and the kogaki#1276 Move library. Moved verbatim from
-// checks/check-brief-compose.sh; the Move library is now written on first use.
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+// path and the kogaki#1276 Candidates. Moved from checks/check-brief-compose.sh.
+import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { composeBrief } from "../../../src/brief.mjs";
 import { legRecord, briefRecordText } from "../../../src/compose.mjs";
-import { stringifyYaml } from "../../../src/yaml.mjs";
 import { readBrief } from "../../../src/draft.mjs";
 
 // A FIXTURE BRIEF IS A RECORD (kogaki#1328): its Legs written by `legRecord`,
@@ -67,53 +65,7 @@ export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   return legs;
 };
 
-// ---- kogaki#1276 fixtures: a Move library whose segments and breaks are
-// distinctive, and Candidates whose Legs bind it. Every Move carries its
-// `segments` -- the Adapter refuses one without them (kogaki#1412).
-export const FIT_MOVE = {
-  m_open: {
-    breaks: ["breaks if the uncovered case is never named."],
-    segments: [
-      { operation: "states the claim." },
-      { operation: "names the one case it does not cover.", relation: "limits the claim it follows." },
-    ],
-  },
-  m_turn: {
-    breaks: ["breaks if only one party acts."],
-    segments: [
-      { operation: "states the first party's claim." },
-      { operation: "answers the claim in kind.", relation: "answers the opening." },
-    ],
-  },
-};
-export const segmentText = (f) => f.segments.map((x) => x.operation);
-let fitMoves = null;
-// The library's directory, written once per process; `moves/` is read from
-// the repository root, the working directory every member runs in.
-export function fitMoveLibrary() {
-  if (fitMoves) return fitMoves;
-  fitMoves = mkdtempSync(join(tmpdir(), "kogaki-1276-moves-"));
-  // A Move record is YAML read by the Brief's own reader (kogaki#1413), so the
-  // fixture is written by its writer, with `before` and `after` maps.
-  for (const [id, f] of Object.entries(FIT_MOVE)) {
-    const rec = {
-      id,
-      description: `the fixture Move ${id}.`,
-      before: { knowledge: `before ${id}.` },
-      after: { knowledge: `after ${id}.` },
-      breaks: f.breaks,
-      segments: f.segments,
-      takes: [],
-      leaves: [],
-    };
-    writeFileSync(join(fitMoves, `${id}.yaml`), stringifyYaml(rec));
-  }
-  // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
-  // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback to the
-  // repository's own, so this temporary library carries its own copy.
-  writeFileSync(join(fitMoves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  return fitMoves;
-}
+// ---- kogaki#1276 fixtures: Candidates whose Legs bind no Move (kogaki#1768).
 export const START_1276 = "knowledge: before\nquestion: holds: none";
 // A Leg binds no Move (kogaki#1768): the fixture Leg carries its id, relation, text and claims.
 export const leg1276 = (legId, extra) => fixtureLeg(legId, extra);

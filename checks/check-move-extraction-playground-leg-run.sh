@@ -58,7 +58,7 @@ const map = join(root, "PROVENANCE.md");
 writeFileSync(map, mapText(mapRows));
 
 // ---- the one fake model binary, answering the Extractor's calls ----
-// PSR_REFUSE_P1=1: paragraph 1's first answer lacks an `operation`, so it is asked once more.
+// PSR_REFUSE_P1=1: paragraph 1's first answer lacks a `content` clause, so it is asked once more.
 // PSR_BROKEN=<n>: paragraph n's every answer lacks `notes`, so the Extractor stops there.
 // Any other call is logged as stage "other" -- (a) asserts none is made.
 // Every answer is preceded by a stream line longer than a pipe's buffer, as a live stream-json
@@ -93,14 +93,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
       segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-        operation: "states one consequence of an act the reader did not ask for.",
-        relation: i === 0 ? "" : "widens the step before it",
         manner: p.number === 2 && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
       takes: [], leaves: [], why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       description: "Names an act, then names who pays for it (paragraph " + p.number + ").", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
-    if (first && !retried && process.env.PSR_REFUSE_P1) delete record.segments[0].operation;
+    if (first && !retried && process.env.PSR_REFUSE_P1) delete record.segments[0].content;
     if (String(p.number) === process.env.PSR_BROKEN) delete record.notes;
     return out(record, "extract");
   }

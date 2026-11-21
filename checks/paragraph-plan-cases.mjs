@@ -32,10 +32,7 @@ const names = S.senseNames(S.loadSenses());
 const F = await imp("checks/fixtures/paragraph-plan/stage.mjs");
 const { STRUCTURE, LEGS, move, seg, Z_FEWER, A_MORE, WIDE } = F;
 const { newBrief, library, runStage, MOVES } = F.makeFixture(root);
-const MOVES_UNEDGED = library("moves-unedged", [
-  Z_FEWER,
-  move("plain", [{ operation: "opens." }, { operation: "closes.", relation: "ends." }]),
-]);
+const MOVES_UNEDGED = library("moves-unedged", [Z_FEWER, move("plain", [{}, {}])]);
 
 // (a) and (b) A RUN TO THE END.
 const a = runStage("ok");
@@ -235,7 +232,7 @@ ok(
   `(i) the view shows no Segment row: ${viewText}`,
 );
 
-// (j) A MOVE RECORD WITH `bind` AND `edges` CARRIES NO OPERATION AND NO RELATION (kogaki#1922).
+// (j) A MOVE RECORD CARRIES NO OPERATION AND NO RELATION (kogaki#1926).
 const bare = move("bare", [
   { bind: 1, edges: [] },
   { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
@@ -247,10 +244,10 @@ ok(
   vm.error && /Segment 1 carries `operation`/.test(vm.error),
   `(j) a Move whose Segment carries bind, edges and operation was admitted: ${vm.error}`,
 );
-const vo = validateMoveRecord(move("old", [{ operation: "opens." }, { operation: "closes." }]), MOVES);
+const vo = validateMoveRecord(move("old", [{}, { relation: "ends." }]), MOVES);
 ok(
-  vo.error && /relation/.test(vo.error),
-  `(j) a Move with no bind and edges was admitted without its relation: ${vo.error}`,
+  vo.error && /Segment 2 carries `relation`/.test(vo.error),
+  `(j) a Move with no bind and edges was admitted with a relation: ${vo.error}`,
 );
 
 // (k) THE SKILL NAMES ONLY WHAT THE HARNESS HAS: every `node <module> <subcommand>` it names is handled, and it

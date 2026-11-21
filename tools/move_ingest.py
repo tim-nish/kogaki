@@ -4,7 +4,7 @@
 This command and its package `move_ingest_modules/` (kogaki#1463) own what
 §6.9 makes MECHANICAL: parsing records under §6.9.0's grammar, validating each
 through the Adapter's contract (`validate_move`, kogaki#1418), rendering a
-saved file, the near-duplicate check and regenerating moves/INDEX.md. An
+saved file and regenerating moves/INDEX.md. An
 Extraction is untrusted input, refused rather than repaired.
 
 It owns NOTHING §6.9 makes JUDGMENT: `save_accepted()` is called with the ids
@@ -26,8 +26,7 @@ from move_ingest_modules.library import (
     Proposal, merge_into, read_proposals, save_accepted, write_index,
 )
 from move_ingest_modules.passage import (
-    _cell, build_passage_prompt, near_duplicates, read_saved_segments,
-    render_passage_screen, spawn_model,
+    _cell, build_passage_prompt, render_passage_screen, spawn_model,
 )
 from move_ingest_modules.extraction import (
     check_extraction_split_note, check_segments,
@@ -115,18 +114,13 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
         except Refusal as refusal:
             proposal = Proposal(proposal.line_no, refusal=refusal)
 
-    duplicates = []
-    if proposal.admitted:
-        duplicates = near_duplicates(proposal.mapping.get("segments"),
-                                      read_saved_segments(moves_dir))
-
     screen_path = os.path.join(out_dir, "PassageScreen.md")
     with open(screen_path, "w", encoding="utf-8") as handle:
-        handle.write(render_passage_screen(proposal, duplicates))
+        handle.write(render_passage_screen(proposal))
 
     result = {
         "raw": raw_path, "screen": screen_path, "proposal": proposal,
-        "duplicates": duplicates, "written": None,
+        "written": None,
     }
 
     if select is None:
@@ -253,9 +247,8 @@ def main_passage(argv):
     parser = argparse.ArgumentParser(
         prog="move_ingest.py passage",
         description="The Passage-to-Move path (kogaki#1175): a Passage in, one "
-        "Move authored against specs/move-extraction-contract.md, checked "
-        "against moves/INDEX.md for a near-duplicate, offered at one selection "
-        "screen. Nothing is written to moves/ before --select accept.",
+        "Move authored against specs/move-extraction-contract.md, offered at "
+        "one selection screen. Nothing is written to moves/ before --select accept.",
     )
     parser.add_argument("passage", nargs="?", help="the Passage text file")
     parser.add_argument(

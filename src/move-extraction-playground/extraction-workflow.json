@@ -28,8 +28,6 @@
         "breaks": "content",
         "segments": "content",
         "description": "content",
-        "segments.operation": "content",
-        "segments.relation": "content",
         "segments.manner": "content",
         "takes": "content",
         "leaves": "content"
@@ -53,13 +51,13 @@
   },
   "content_bound_unit": {
     "id": "content_bound_unit",
-    "note": "The second call per paragraph, before the constraints call (kogaki#1614, the owner's reading of 2026-10-26). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes, and its input is the paragraph's sentences, each Segment's `content` clause beside its sentence, and `subject_nouns` as the allowed vocabulary, and nothing of the general fields: no `operation`, `relation`, `manner`, `breaks` or earlier paragraph. `validateContentBoundUnit` reads the answer back; a Segment judged unbound refuses the Extraction, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. The verdicts are written onto the record as `content_bound`, one entry per Segment. No schema file is rendered: nothing of FORMAT is this call's input.",
+    "note": "The second call per paragraph, before the constraints call (kogaki#1614, the owner's reading of 2026-10-26). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes, and its input is the paragraph's sentences, each Segment's `content` clause beside its sentence, and `subject_nouns` as the allowed vocabulary, and nothing of the general fields: no `manner`, `breaks` or earlier paragraph. `validateContentBoundUnit` reads the answer back; a Segment judged unbound refuses the Extraction, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. The verdicts are written onto the record as `content_bound`, one entry per Segment. No schema file is rendered: nothing of FORMAT is this call's input.",
     "governing": "passages/FORMAT.md, \"The paragraph unit\", rule 7 (the `content` clause is the one field bound to the source); kogaki#1614",
     "prompt_file": "move-extraction-playground/content-bound-unit"
   },
   "constraints_unit": {
     "id": "constraints_unit",
-    "note": "The third call per paragraph, in the place the obligation call held (kogaki#1698, owner ruling 2026-11-06: the constraints a Move carries are one key with two sides, `takes` and `leaves`, over four closed kinds, read by judgment). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes the content-bound call, and its input is the four kinds with their definitions (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs), the record's `segments`, each `operation` and `relation`, and the record's `takes` and `leaves`: no Passage, no sentence, no `content` clause, no `subject_nouns`. `validateConstraintsUnit` reads the answer's shape back; an entry judged unsupported, or a thing a Segment leaves that no entry names, refuses the Extraction naming the entry or the Segment, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. `extract.mjs rejudge --constraints --library <dir>` runs the same call over an admitted library's records with the two lists null and the record's `obligation` beside its Segments, so the answer is the derived lists, and with `--write` writes them onto each record, changing no other field; `--retire-state` beside `--write` also deletes the retired `before`, `after` and `after_segment` from each record it writes (kogaki#1699). No schema file is rendered: nothing of FORMAT is this call's input.",
+    "note": "The third call per paragraph, in the place the obligation call held (kogaki#1698, owner ruling 2026-11-06: the constraints a Move carries are one key with two sides, `takes` and `leaves`, over four closed kinds, read by judgment). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes the content-bound call, and its input is the four kinds with their definitions (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs), each Segment's `content` clause (kogaki#1926), and the record's `takes` and `leaves`: no Passage, no sentence, no `subject_nouns`. `validateConstraintsUnit` reads the answer's shape back; an entry judged unsupported, or a thing a Segment leaves that no entry names, refuses the Extraction naming the entry or the Segment, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. No schema file is rendered: nothing of FORMAT is this call's input.",
     "governing": "kogaki#1698, owner ruling 2026-11-06",
     "prompt_file": "move-extraction-playground/constraints-unit"
   }

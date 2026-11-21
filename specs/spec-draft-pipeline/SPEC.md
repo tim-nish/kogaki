@@ -588,9 +588,7 @@ stay OPTIONAL roles of the record for one reader alone: the ParagraphPlan stage
 (§4.19) still binds and judges a paragraph Move by its `before` and `after`,
 and a Move's library cannot hold two schemas, so refusing them would leave
 every admitted Move unbindable there. The ParagraphPlan's Issue moves that
-stage to `takes` and `leaves`, and then the three are refused by name;
-`rejudge --constraints --write --retire-state` deletes them from each record it
-writes, and is run over `moves/` once that Issue lands, not before.
+stage to `takes` and `leaves`, and then the three are refused by name.
 
 **`takes` and `leaves` (kogaki#1698, owner ruling 2026-11-06).** A Move's
 constraints are one key with two sides: `takes`, what the Move's first Segment
@@ -617,13 +615,7 @@ Obligation schema and no reader-state schema behind them, only constraints the
 model reads. At extraction the constraints call (`constraints_unit`) judges
 each `takes` entry against Segment 1 and each `leaves` entry against the
 Segment it names, and refuses the Extraction for an unsupported entry or a
-question, term, base or principle a Segment leaves that no entry names;
-`src/move-extraction-playground/extract.mjs rejudge --constraints --library moves --write`
-derives both lists for an admitted library from each record's `segments`,
-`before` and `after`. Each re-judge records its calls in `rejudge-<timestamp>`
-under the `move-extraction-playground` runs lane (`runs/move-extraction-playground/`, or the `--runs-root
-<dir>` it is given), which is pruned to its three newest runs like every other
-lane (`src/runs.json`, kogaki#1754); nothing is written beside the library.
+question, term, base or principle a Segment leaves that no entry names.
 The Brief and the ParagraphPlan read `takes` and `leaves`
 (kogaki#1699, kogaki#1701). The Move's `obligation` and `obligation_triggers`
 are retired, and §5.2 is where their retirement is stated.
@@ -755,9 +747,9 @@ because a role's *reader* is prose this file states and the JSON does not:
 | role | field (current schema) | read by |
 |---|---|---|
 | `identity` | `id` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
-| `state-before` | `before` | nothing downstream since the ParagraphPlan binds by `takes` (kogaki#1701); kept until `--retire-state` |
-| `state-after` | `after` | nothing downstream since the ParagraphPlan judges by `leaves` (kogaki#1701); kept until `--retire-state` |
-| `state-after-segments` | `after_segment` | nothing downstream since the state-bound re-judge was retired (kogaki#1699); kept until `--retire-state` |
+| `state-before` | `before` | nothing downstream since the ParagraphPlan binds by `takes` (kogaki#1701); optional, carried by no Move file |
+| `state-after` | `after` | nothing downstream since the ParagraphPlan judges by `leaves` (kogaki#1701); optional, carried by no Move file |
+| `state-after-segments` | `after_segment` | nothing downstream since the state-bound re-judge was retired (kogaki#1699); optional, carried by no Move file |
 | `takes` | `takes` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699); the ParagraphPlan's binding and its TAKEN axis (§4.19, kogaki#1701) |
 | `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699); the ParagraphPlan's LEAVE line (§4.19, kogaki#1701, kogaki#1853) |
 | `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment (§4.12.2) |
@@ -3819,8 +3811,7 @@ unit of its scale is its Move's `leaves`, taken up by a later Move's `takes`
 no `obligation` and no `obligation_triggers`** (kogaki#1701): `obligation` was
 the authored source of the slot a Move raised, and `obligation_triggers` the
 retired obligation call's verdict per trigger (kogaki#1618); a record carrying
-either is refused naming the field, and `src/move-extraction-playground/extract.mjs rejudge
---constraints --write --retire-obligation` cuts both from an admitted library.
+either is refused naming the field.
 Every rule this section carried is deleted with the ledger: the record shape,
 the one source, the capacity, the SubItem order, the Section rule and the
 ParagraphPlan's discharges.
@@ -4429,11 +4420,7 @@ floor in particular is a judgment about register that no grammar decides.
 ## 6.9 Move INGESTION — how a Move enters the library
 
 **No reader state enters a Move** (kogaki#1699): the Extraction's reader
-table and the state-bound call (`state_bound_unit`, `rejudge --state`) are
-retired, and `extract.mjs rejudge --constraints --write --retire-state`
-deletes `before`, `after` and `after_segment` from each record it writes, run
-once by the owner over `moves/` when the ParagraphPlan's Issue moves that stage
-off `before` and `after` (§4.2), not before.
+table and the state-bound call (`state_bound_unit`) are retired.
 
 Input is a **free-form file the owner writes**, conventionally carrying a
 `.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown
