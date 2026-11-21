@@ -28,7 +28,8 @@ export function legSentences(structure, relationId) {
 }
 
 // THE ROWS OF A LEG'S STRUCTURE, read from the Brief with no model call: everything the Leg's relation reaches, as
-// Roles, then Relations, then HigherOrderRelations, each list in the Brief's order. A sentence keeps its braces.
+// Roles, then Relations, then HigherOrderRelations, each list in the Brief's order. A sentence keeps its braces, and a
+// HigherOrderRelation's row carries the kind `Relation` (specs/spec-draft-pipeline/SPEC.md, the plan block).
 export function legRows(structure, relationId) {
   const relation = new Map(structure.relations.map((r) => [r.id, r]));
   const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
@@ -52,8 +53,6 @@ export function legRows(structure, relationId) {
   return [
     ...structure.roles.filter((r) => reached.has(r.id)).map((r) => row(r, "Role", [], r.context)),
     ...structure.relations.filter((r) => reached.has(r.id)).map((r) => row(r, "Relation", r.between, r.holds)),
-    ...structure.higher_order
-      .filter((h) => reached.has(h.id))
-      .map((h) => row(h, "HigherOrderRelation", h.relates, h.holds)),
+    ...structure.higher_order.filter((h) => reached.has(h.id)).map((h) => row(h, "Relation", h.relates, h.holds)),
   ];
 }
