@@ -59,7 +59,7 @@ segments:
       gathers the preceding steps into the conclusion they jointly support
     bind: 3
     edges:
-      - sense: Level-of-detail.Detail
+      - sense: Level-of-detail.General
         to: [3, 2]
 takes:
   - kind: apply

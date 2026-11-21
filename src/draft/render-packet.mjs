@@ -31,8 +31,9 @@ import {
 // Leg's `relation` in the Brief's `structure`, then the symbols of its CentralClaim and of its Arguments, and one part
 // per Segment where the Leg carries `segments` -- each `{ bind, edges }`, `bind` naming entry k of `legSentences`. A
 // part carries `bound`, the symbol of that entry, `stands`, the Senses file's texts toward each part its Edges point
-// to, and `pointed`, the later parts whose Edges point to it; no Sense name is handed on. `{ error }` names a Sense
-// the Senses file does not hold. Null where the Brief carries no `structure` or the Leg names no relation.
+// to, each ending in its rationale, and `pointed`, the later parts whose Edges point to it; no Sense name is handed
+// on. `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
+// names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
   const whole = {
@@ -45,7 +46,7 @@ export function planValues(structure, leg) {
   const label = (s) => `{${s.id}}`;
   const segs = leg.segments || [];
   const names = senseNames([...loadSenses(), ...loadOwnSenses()]);
-  const hypophora = loadHypophora().meaning;
+  const hypophora = loadHypophora();
   const unknown = segs
     .flatMap((g) => g.edges || [])
     .find((e) => e.sense !== null && e.sense !== undefined && !names.has(e.sense));
@@ -55,8 +56,8 @@ export function planValues(structure, leg) {
     e.to.flatMap((to) => {
       const n = e.sense === null || e.sense === undefined ? null : names.get(e.sense);
       return [
-        ...(n ? [{ to, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}) }] : []),
-        ...(e.hypophora ? [{ to, meaning: hypophora }] : []),
+        ...(n ? [{ to, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}), rationale: n.rationale }] : []),
+        ...(e.hypophora ? [{ to, meaning: hypophora.meaning, rationale: hypophora.rationale }] : []),
       ];
     });
   const stands = segs.map((g) => (g.edges || []).flatMap(standsOf));

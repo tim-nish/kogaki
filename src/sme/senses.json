@@ -1,16 +1,18 @@
 {
   "version": "1",
   "licensed_by": "kogaki#1847",
-  "note": "`senses` holds the 22 Senses of the Penn Discourse Treebank 3 annotation manual, which a reading is handed, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881). `hypophora` holds the one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense, and a reading is not handed it.",
+  "note": "`senses` holds the 22 Senses of the Penn Discourse Treebank 3 annotation manual, which a reading is handed, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `rationale` says what the two sentences do for the reader; it stands on the Sense, or on each of its parts where the two directions do different things for the reader. `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881). `hypophora` holds the one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense, and a reading is not handed it.",
   "senses": [
     {
       "sense": "Synchronous",
       "meaning": "there is some overlap in time between the events the two describe.",
+      "rationale": "The reader holds two events as happening together, and neither comes first.",
       "parts": []
     },
     {
       "sense": "Asynchronous",
       "meaning": "one event is described as coming before the other.",
+      "rationale": "The reader follows events in the order they happened, and no cause is claimed.",
       "parts": [
         { "part": "Precedence", "plays": "this sentence's event comes first." },
         { "part": "Succession", "plays": "this sentence's event comes after." }
@@ -20,6 +22,7 @@
     {
       "sense": "Cause",
       "meaning": "the situations the two describe are causally tied, and not as a condition.",
+      "rationale": "The reader learns why a situation holds, or what it led to.",
       "parts": [
         { "part": "Reason", "plays": "this sentence gives the reason." },
         { "part": "Result", "plays": "this sentence gives the effect." },
@@ -30,6 +33,7 @@
     {
       "sense": "Cause+Belief",
       "meaning": "evidence is provided to cause the hearer to believe a claim.",
+      "rationale": "The reader is given the ground on which the writer holds a claim. The ground makes the claim believable and does not make it true.",
       "parts": [
         { "part": "Reason", "plays": "this sentence gives the evidence." },
         { "part": "Result", "plays": "this sentence gives the claim." }
@@ -39,6 +43,7 @@
     {
       "sense": "Cause+SpeechAct",
       "meaning": "a reason is provided for the speaker saying something.",
+      "rationale": "The reader is told why the writer says something here. The reason bears on the saying, not on what is said.",
       "parts": [
         { "part": "Reason", "plays": "this sentence gives the reason for saying." },
         { "part": "Result", "plays": "this sentence is what is said." }
@@ -48,74 +53,114 @@
     {
       "sense": "Condition",
       "meaning": "one presents a situation as not yet real which, once real, would lead to the situation the other describes.",
+      "rationale": "The reader sees a situation that is not yet real and what follows once it is, so they can apply it to cases the text does not name.",
       "parts": [{ "part": "Cond", "plays": "this sentence is the condition." }]
     },
     {
       "sense": "Condition+SpeechAct",
       "meaning": "the same, where what follows from the condition is an act of saying.",
+      "rationale": "The reader is told in which case the writer's saying applies.",
       "parts": [{ "part": "Cond", "plays": "this sentence is the condition." }]
     },
     {
       "sense": "Negative-condition",
       "meaning": "one presents a situation as not yet real which, if it does not occur, would lead to the situation the other describes.",
+      "rationale": "The reader sees what follows if something does not happen.",
       "parts": [{ "part": "NegCond", "plays": "this sentence is that situation." }]
     },
-    { "sense": "Negative-condition+SpeechAct", "meaning": "the same, with an act of saying.", "parts": [] },
+    {
+      "sense": "Negative-condition+SpeechAct",
+      "meaning": "the same, with an act of saying.",
+      "rationale": "The reader is told the writer speaks for the case where something does not happen.",
+      "parts": []
+    },
     {
       "sense": "Purpose",
       "meaning": "one presents an action undertaken so that the goal the other conveys is achieved.",
+      "rationale": "The reader is told what an action is for.",
       "parts": [{ "part": "Goal", "plays": "this sentence is the goal." }]
     },
     {
       "sense": "Concession",
       "meaning": "a causal relation expected on the basis of one is cancelled or denied by the situation the other describes.",
+      "rationale": "The reader is led to expect something and is then told it does not hold.",
       "parts": [{ "part": "Denier", "plays": "this sentence denies the expectation." }]
     },
     {
       "sense": "Concession+SpeechAct",
       "meaning": "the act of saying tied to one is cancelled or denied by the other.",
+      "rationale": "The reader is told something that seems to take back what the writer just said.",
       "parts": [{ "part": "Denier", "plays": "this sentence denies." }]
     },
-    { "sense": "Contrast", "meaning": "at least two differences between the two are brought out.", "parts": [] },
-    { "sense": "Similarity", "meaning": "one or more likenesses between the two are brought out.", "parts": [] },
+    {
+      "sense": "Contrast",
+      "meaning": "at least two differences between the two are brought out.",
+      "rationale": "The reader sets two things side by side and sees where they differ.",
+      "parts": []
+    },
+    {
+      "sense": "Similarity",
+      "meaning": "one or more likenesses between the two are brought out.",
+      "rationale": "The reader sets two things side by side and sees where they are alike, so what they know of one carries to the other.",
+      "parts": []
+    },
     {
       "sense": "Conjunction",
       "meaning": "both bear the same relation to some other situation in the text, or contribute to it together.",
+      "rationale": "The reader adds one point to another of equal standing, and neither explains the other.",
       "parts": []
     },
     {
       "sense": "Disjunction",
       "meaning": "the two are presented as alternatives, with either or both holding.",
+      "rationale": "The reader is given alternatives and is not told which holds.",
       "parts": []
     },
     {
       "sense": "Equivalence",
       "meaning": "both describe the same situation, from different perspectives.",
+      "rationale": "The reader gets the same situation a second time in other terms, and nothing new is claimed.",
       "parts": []
     },
     {
       "sense": "Exception",
       "meaning": "one evokes circumstances in which a situation holds, and the other gives cases where it does not.",
+      "rationale": "The reader is given a rule and the cases outside it, so they do not take the rule too far.",
       "parts": [{ "part": "Excpt", "plays": "this sentence gives the exception." }]
     },
     {
       "sense": "Instantiation",
       "meaning": "one describes a situation as holding in a set of circumstances, and the other describes one or more of those circumstances.",
+      "rationale": "The reader gets a general statement and a case of it they can picture, so they can check the statement against the case.",
       "parts": [{ "part": "Instance", "plays": "this sentence gives the instance." }]
     },
     {
       "sense": "Level-of-detail",
       "meaning": "both describe the same situation, in less or more detail.",
-      "parts": [{ "part": "Detail", "plays": "this sentence is the more detailed." }]
+      "parts": [
+        {
+          "part": "Detail",
+          "plays": "this sentence is the more detailed.",
+          "rationale": "The reader already has the short statement, and this sentence shows them how it works."
+        },
+        {
+          "part": "General",
+          "plays": "this sentence is the more general.",
+          "rationale": "The reader has just been shown the situation at length, and this sentence tells them in brief what they were shown, in a form they can keep."
+        }
+      ],
+      "opposite": ["Detail", "General"]
     },
     {
       "sense": "Manner",
       "meaning": "one presents the manner in which the other's situation happened or was done.",
+      "rationale": "The reader is told how something was done, and no reason is claimed.",
       "parts": [{ "part": "Manner", "plays": "this sentence gives the manner." }]
     },
     {
       "sense": "Substitution",
       "meaning": "the two are presented as exclusive alternatives, one being ruled out.",
+      "rationale": "The reader is told one alternative is ruled out and which one stands in its place.",
       "parts": [{ "part": "Subst", "plays": "this sentence is the alternative that is left." }]
     }
   ],
@@ -123,15 +168,18 @@
     {
       "sense": "FrameSetting",
       "meaning": "the sentence pointed to makes no statement, and only turns the reader to one thing this sentence speaks of.",
+      "rationale": "The reader is turned toward a thing before anything is claimed about it.",
       "parts": []
     },
     {
       "sense": "MetaDiscourse",
-      "meaning": "the sentence pointed to says nothing about the subject, and only tells the reader what kind of sentence this sentence is.",
+      "meaning": "the sentence pointed to says nothing about the subject, and only speaks to the reader before this sentence.",
+      "rationale": "The reader is spoken to for a moment and kept with the writer. They learn almost nothing about what comes next.",
       "parts": []
     }
   ],
   "hypophora": {
-    "meaning": "the sentence pointed to raises a question, and this sentence gives its answer."
+    "meaning": "the sentence pointed to raises a question, and this sentence gives its answer.",
+    "rationale": "The reader is given the question first, so the answer arrives as something they were waiting for."
   }
 }
