@@ -7,8 +7,7 @@
 The table holds every thing this paragraph speaks of and how those things are joined.
 A symbol in braces stands for the row that carries it.
 A Role is a thing, and its sentence says what the thing is.
-A Relation joins the Roles in its Arguments column, and its sentence says how.
-A HigherOrderRelation joins the Relations in its Arguments column, and its sentence says how.
+A Relation joins the rows in its Arguments column, and its sentence says how.
 
 | symbol | name | kind | Arguments | sentence |
 |---|---|---|---|---|

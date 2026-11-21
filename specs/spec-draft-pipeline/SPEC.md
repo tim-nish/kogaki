@@ -1743,7 +1743,9 @@ plan of this paragraph". Where the Brief carries a `structure` and the Leg
 names a `relation`, it holds a table with one row for each Role, Relation and
 HigherOrderRelation the Leg's relation reaches, as `legRows` gives them
 (`src/sme/arguments.mjs`): its symbol in braces, its name, its kind, the
-symbols of its Arguments and its sentence with the braces kept. Two lines then
+symbols of its Arguments and its sentence with the braces kept. The kind of a
+HigherOrderRelation's row is `Relation`: the Writer's input names one kind of
+relation, and the Arguments column shows which rows each one joins. Two lines then
 name the symbol of the CentralClaim and the symbols of its Arguments, and a
 passage headed "How the paragraph uses the structure" says that the reader
 already knows every Argument and that the Writer chooses the paragraph's

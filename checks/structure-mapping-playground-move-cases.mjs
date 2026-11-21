@@ -433,7 +433,7 @@ ok(
     "| {r_3} | edit | Role |  | a change the consumer makes. |",
     "| {c_1} | writes | Relation | {r_1}, {r_2} | The {r_1} writes the {r_2}. |",
     "| {c_2} | overwrites | Relation | {r_2}, {r_3} | The {r_2} overwrites any {r_3}. |",
-    "| {h_1} | ownership | HigherOrderRelation | {c_1}, {c_2} | The {r_2} is the {r_1}'s. |",
+    "| {h_1} | ownership | Relation | {c_1}, {c_2} | The {r_2} is the {r_1}'s. |",
     "The CentralClaim of this paragraph is {h_1}.",
     "Its Arguments are {c_1}, {c_2}.",
     "1. {c_1}. Pointed to by part 2.",

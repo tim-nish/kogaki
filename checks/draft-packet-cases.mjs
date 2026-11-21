@@ -53,8 +53,8 @@ const ROWS = [
   "| {writes} | writes | Relation | {kit}, {tree} | The installer writes {kit} into {tree}. |",
   "| {overwrites} | overwrites | Relation | {kit}, {tree} | The next run overwrites {kit} in {tree}. |",
   "| {audits} | audits | Relation | {ledger}, {tree} | {ledger} names each file of {tree}. |",
-  "| {lost} | lost | HigherOrderRelation | {writes}, {overwrites} | An edit to {kit} in {tree} is lost. |",
-  "| {caught} | caught | HigherOrderRelation | {lost}, {audits} | {ledger} shows which edit to {kit} was lost. |",
+  "| {lost} | lost | Relation | {writes}, {overwrites} | An edit to {kit} in {tree} is lost. |",
+  "| {caught} | caught | Relation | {lost}, {audits} | {ledger} shows which edit to {kit} was lost. |",
 ];
 const SEGMENTS = [
   { bind: 1, edges: [] },
