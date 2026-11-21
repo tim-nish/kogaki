@@ -182,8 +182,7 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
         h,
         ["id", "name", "relates", "holds", ...(apex ? [] : ["holds_over_relations", "from"])],
         `higher_order[${i}]`,
-      ) ||
-      idNameRefusal("higher_order", h, i, names);
+      ) || idNameRefusal("higher_order", h, i, names);
     if (b) return shape(b);
   }
   const higherIds = new Set(higher.map((h) => h.id));
