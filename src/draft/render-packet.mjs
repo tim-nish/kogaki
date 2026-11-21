@@ -64,7 +64,9 @@ export function planValues(structure, leg) {
   const stands = segs.map((g) => (g.edges || []).flatMap(standsOf));
   const segments = segs.map((g, i) => {
     const b = Number.isInteger(g.bind) ? sentences[g.bind - 1] : null;
-    const pointed = stands.flatMap((st, k) => (k > i && st.some((x) => x.to.includes(i + 1)) ? [{ number: k + 1 }] : []));
+    const pointed = stands.flatMap((st, k) =>
+      k > i && st.some((x) => x.to.includes(i + 1)) ? [{ number: k + 1 }] : [],
+    );
     return {
       number: i + 1,
       ...(b ? { bound: label(b) } : {}),
