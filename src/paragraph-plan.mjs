@@ -51,14 +51,7 @@ export {
   PARAGRAPH_PLAN_STILL_RUNNING_LINE,
 } from "./paragraph-plan/stage.mjs";
 export { readAdoptedBrief, audiencePathOf } from "./paragraph-plan/brief.mjs";
-export {
-  unitIdFor,
-  planLeg,
-  toldBefore,
-  legRoles,
-  planLegOptions,
-  segmentsForPlanCall,
-} from "./paragraph-plan/units.mjs";
+export { unitIdFor, planLeg, toldBefore, legRoles, planLegOptions } from "./paragraph-plan/units.mjs";
 export { NAME_ROW, chooseMove, compareMove, fittedSegments } from "./paragraph-plan/move-choice.mjs";
 export { READINGS, countPairs } from "./sme/edges.mjs";
 export { ParagraphPlanLegSteps, validateParagraphPlanLeg } from "./paragraph-plan/steps.mjs";

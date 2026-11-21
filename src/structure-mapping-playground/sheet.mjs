@@ -17,7 +17,6 @@ import { CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
 import { moveContract, loadMoveContracts, readMoveRecord } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
 import { callRows, callRecordsOf } from "../workflow/call-record.mjs";
-import { pairedWith } from "./move-structure.mjs";
 import { legSensesSection } from "./leg-senses-section.mjs";
 
 const LEG_SHEET = join(REPO, "src", "move-extraction-playground", "leg-sheet.mjs");
@@ -154,18 +153,16 @@ function bindingTable(record, paragraphs, i, contracts) {
   );
 }
 
+// A bound Move's Segments (kogaki#1922): per Segment its number, its Bind target and its Edges, as the Move file holds them.
 export function segmentsTable(record, entry, number) {
   const c = moveContract(entry.move, resolve(REPO, record.library));
   const segments = c.error ? [] : c.segments;
-  const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
+  const edges = (sg) => (sg.edges || []).map((e) => esc(edgeText(e))).join("<br>");
   return (
     (c.error ? `<p class="stop">${esc(c.error)}</p>` : "") +
-    `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>` +
+    `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>bind</th><th>Edges</th></tr></thead><tbody>` +
     segments
-      .map(
-        (sg, i) =>
-          `<tr><td>${i + 1}</td><td>${field(sg, "operation")}</td><td>${field(sg, "relation")}</td><td>${field(sg, "manner")}</td></tr>`,
-      )
+      .map((sg, i) => `<tr><td>${i + 1}</td><td>${esc(sg.bind ?? "none")}</td><td>${edges(sg) || "none"}</td></tr>`)
       .join("") +
     "</tbody></table>"
   );
@@ -301,69 +298,9 @@ function analogySection(record) {
   );
 }
 
-// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1830): the Move's structure, then per Segment what it states and what each is paired
-// with.
-function moveStructureSection(ms) {
-  if (!ms) return none("The Move was not read.");
-  const list = (xs) => esc((xs || []).join(", "));
-  const table = (caption, head, rows) =>
-    `<table><caption>${caption}</caption><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
-    (rows.length ? rows.join("") : `<tr><td colspan="${head.length}">none</td></tr>`) +
-    "</tbody></table>";
-  return (
-    table(
-      "Roles",
-      ["id", "source", "context", "attributes"],
-      ms.roles.map(
-        (r) =>
-          `<tr><td>${esc(r.id)}</td><td>${esc(r.source)}</td><td>${esc(r.context)}</td><td>${list(r.attributes)}</td></tr>`,
-      ),
-    ) +
-    table(
-      "Relations",
-      ["id", "between", "holds"],
-      ms.relations.map((r) => `<tr><td>${esc(r.id)}</td><td>${list(r.between)}</td><td>${esc(r.holds)}</td></tr>`),
-    ) +
-    table(
-      "Higher-order relations",
-      ["id", "relates", "holds"],
-      ms.higher_order.map((h) => `<tr><td>${esc(h.id)}</td><td>${list(h.relates)}</td><td>${esc(h.holds)}</td></tr>`),
-    )
-  );
-}
-
-function moveSegmentsSection(record, route) {
-  const { move, moveStructure: ms, pairing } = route;
-  const c = moveContract(move, resolve(REPO, record.library));
-  if (c.error) return `<p class="stop">${esc(c.error)}</p>`;
-  if (!ms || !pairing) return none("The Move was not read and paired, so no Segment is shown.");
-  const rows = c.segments.map((sg, i) => {
-    const states = ((ms.segments[i] || {}).states || []).map((id) => {
-      const to = pairedWith(id, ms, pairing);
-      return `${esc(id)} → ${to === "unmatched" ? '<span class="stop">unmatched</span>' : esc(to)}`;
-    });
-    return `<tr><td>${i + 1}</td><td>${esc(sg.operation || "")}</td><td>${states.join("<br>") || "none"}</td></tr>`;
-  });
-  const u = pairing.unmatched || {};
-  const unmatched = [
-    ["Move Roles", u.move_roles],
-    ["Move relations", u.move_relations],
-    ["Leg Roles", u.leg_roles],
-    ["Leg relations", u.leg_relations],
-  ]
-    .map(([k, v]) => `<tr><th>${k}</th><td>${esc((v || []).length ? v.join(", ") : "none")}</td></tr>`)
-    .join("");
-  return (
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>operation</th><th>states → paired with</th></tr></thead><tbody>` +
-    rows.join("") +
-    "</tbody></table>" +
-    `<table><caption>Unmatched</caption><tbody>${unmatched}</tbody></table>`
-  );
-}
-
-// UNDER `--move-edges` (kogaki#1880, kogaki#1913, kogaki#1921): the move structure is a count of Bind targets, and per
-// Segment its Bind target beside the Argument or CentralClaim the Harness gave it and its Edges, under the Move's
-// description; no Unmatched table.
+// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1880, kogaki#1913, kogaki#1921, kogaki#1922): the move structure is a count of Bind
+// targets, and per Segment its Bind target beside the Argument or CentralClaim the Harness gave it and its Edges, under
+// the Move's description.
 function edgesStructureSection(ms) {
   if (!ms) return none("The Move's Bind targets were not read.");
   return `<p>${esc(ms.binds)} Bind targets</p>`;
@@ -467,15 +404,12 @@ export function renderShortSheet({
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>` +
     `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}` +
-    (moveRoute && moveRoute.segments
+    (moveRoute
       ? part("move-structure", "Move structure", edgesStructureSection(moveRoute.moveStructure)) +
-        part("segments", "Segments", edgesSegmentsSection(record, moveRoute))
-      : moveRoute
-        ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
-          part("segments", "Segments", moveSegmentsSection(record, moveRoute))
-        : "") +
-    (moveRoute ? part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) : "") +
-    (moveRoute && moveRoute.segments ? part("readback", "Readback and Sample", readbackSection(record.readback)) : "") +
+        part("segments", "Segments", edgesSegmentsSection(record, moveRoute)) +
+        part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) +
+        part("readback", "Readback and Sample", readbackSection(record.readback))
+      : "") +
     part("packet", "Packet", packetSection(record)) +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
     (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +

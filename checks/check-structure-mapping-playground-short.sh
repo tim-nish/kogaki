@@ -31,7 +31,7 @@
 #       Table per paragraph, each under its own `Base: <domain>` line and captioned `Paragraph <n>` with its Move (kogaki#1709),
 #       headed `Role`, `Abstract`, `Attribute`, `Correspondence` with no `Abstract` cell opening on a Role id (kogaki#1716), the
 #       fixture's attribute word in its Role's `Attribute` cell, and no kind word (kogaki#1693); and each Segments table's rows
-#       carry `#`, operation, relation and manner and no column of texts, on both routes (kogaki#1883).
+#       carry `#`, the Bind target and the Edges and no column of texts, on both routes (kogaki#1883, kogaki#1922).
 
 #   (g) an `expression` or a `role` sharing a word with the `proposition:` is accepted, in a table and in the owner's file, and
 #       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted (kogaki#1707); a null `expression` is
@@ -76,7 +76,7 @@
 #       `proposition`, and `--strand` is refused naming `--proposition` (kogaki#1685).
 
 #   (u) the `smp_correspondence` row: its stdin carries the structure, the prior-knowledge line and the bound base Move's
-#       `segments`, and no kinds; the inference Move's call carries its own `segments` and `prior_tables`, the base Move's table
+#       `segments`, each as its number, `bind` and `edges` (kogaki#1922), and no kinds; the inference Move's call carries its own `segments` and `prior_tables`, the base Move's table
 #       (kogaki#1709); a first answer whose Role names no Role is refused, group `role`, and the second Call's stdin
 #       carries that refusal under the `part` sentence and not the `record` one, the stage record naming the group and reach; each
 #       Call's Call Record is kept, the first's refusal.json naming the refusal and the second's prompt.md the second call's
@@ -507,16 +507,16 @@ ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph<
 ok(!sheet.includes("WBS") && !jSheet.includes("WBS"), "(f) a sheet still carries `WBS`");
 const segs = moveContract(MOVE, resolve(repo, library)).segments;
 const segTables = [...section(jSheet, "segments").matchAll(/<table><caption>Paragraph \d+ [\s\S]*?<\/table>/g)].map((x) => x[0]);
-const SEG_ROW = /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/g;
+const SEG_ROW = /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>((?:[^<]|<br>)*)<\/td><\/tr>/g; const edgeCell = (sg) => sg.edges.map((e) => esc(`${[e.sense, e.hypophora ? "Hypophora" : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`)).join("<br>") || "none";
 const segRows = [...(segTables[0] || "").matchAll(SEG_ROW)];
-ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(sg.operation)
-  && segRows[n][3] === esc(sg.relation || "") && segRows[n][4] === esc(sg.manner || "")),
-  `(f) the Segments table is not one row per Segment with its operation, relation and manner: ${segRows.length} rows for ${segs.length} segments`);
-// No column of texts on either route (kogaki#1883): four headings, and every row four cells.
-const HEAD_ROW = "<thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th></tr></thead>";
+ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(String(sg.bind ?? "none"))
+  && segRows[n][3] === edgeCell(sg)),
+  `(f) the Segments table is not one row per Segment with its Bind target and its Edges (kogaki#1922): ${segRows.length} rows for ${segs.length} segments`);
+// No column of texts on either route (kogaki#1883): three headings, and every row three cells.
+const HEAD_ROW = "<thead><tr><th>#</th><th>bind</th><th>Edges</th></tr></thead>";
 ok([sheet, jSheet].every((h) => { const sg = section(h, "segments"); const rows = (sg.match(/<tr><td>/g) || []).length;
   return rows > 0 && rows === [...sg.matchAll(SEG_ROW)].length && (sg.match(/<thead>/g) || []).length === (sg.match(new RegExp(HEAD_ROW, "g")) || []).length; }),
-  "(f) a Segments table carries a column beyond #, operation, relation and manner (kogaki#1883)");
+  "(f) a Segments table carries a column beyond #, bind and Edges (kogaki#1883, kogaki#1922)");
 ok(!sheet.includes("serves L") && !jSheet.includes("serves L"), "(f) a sheet still carries `serves L`");
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
@@ -733,13 +733,13 @@ ok(t3.res.status !== 0 && t3.res.stderr.includes("`--strand`") && t3.res.stderr.
 
 // (u) the smp_correspondence row: under the bound base Move's Segments, validated as the owner's file is, under one retry
 const uIn = a.calls("grounding").length ? inputOf(a.calls("grounding")[0].stdin, "structure") : null;
-ok(uIn && uIn.persona && uIn.persona.prior_knowledge && uIn.structure && JSON.stringify(uIn.segments.map((x) => x.operation)) === JSON.stringify(segs.map((x) => String(x.operation).trim()))
+ok(uIn && uIn.persona && uIn.persona.prior_knowledge && uIn.structure && JSON.stringify(uIn.segments) === JSON.stringify(segs.map((x, n) => ({ segment: n + 1, bind: x.bind, edges: x.edges })))
   && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "case", "segments"]) && !a.calls("grounding")[0].stdin.includes('"kinds"'),
   "(u) the correspondence call's stdin does not carry the structure, the prior-knowledge line, the case and the base Move's segments, or carries kinds");
 const uIn2 = a.calls("grounding").length === 2 ? inputOf(a.calls("grounding")[1].stdin, "structure") : null;
 const inferSegs = moveContract(INFER, resolve(repo, library)).segments;
 ok(uIn2 && JSON.stringify(Object.keys(uIn2)) === JSON.stringify(["structure", "persona", "case", "segments", "prior_tables"])
-  && JSON.stringify(uIn2.segments.map((x) => x.operation)) === JSON.stringify(inferSegs.map((x) => String(x.operation).trim()))
+  && JSON.stringify(uIn2.segments) === JSON.stringify(inferSegs.map((x, n) => ({ segment: n + 1, bind: x.bind, edges: x.edges })))
   && JSON.stringify(uIn2.prior_tables) === JSON.stringify([TABLES[0]]),
   "(u) the inference Move's correspondence call does not carry its own Move's segments and `prior_tables`, the base Move's table (kogaki#1709)");
 // THE REACH OF A REFUSAL (kogaki#1708): a `role` refusal is `part`, so the second prompt carries the `part` sentence and not

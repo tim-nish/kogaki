@@ -229,8 +229,6 @@ const TABLE_ROWS = {
   "src/structure-mapping-playground/playground-workflow.json": [
     "smp_bind_move",
     "smp_correspondence",
-    "smp_read_move",
-    "smp_pair_roles",
     "smp_rank_senses",
     "smp_join_senses",
   ],

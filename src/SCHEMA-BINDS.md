@@ -12,7 +12,6 @@ it does not read, and empty where the stage does not read the schema at all.
 
 | hold | what it means |
 |---|---|
-| `operation` | Performed, never stated: the output carries out what the field says and never says it. |
 | `structural` | Constrains order or standing, never stated: the field decides where or whether an output part stands, and its wording never reaches the output. |
 | `content` | A part the output may state. |
 | `excluded` | Read for judging, never rendered or stated: the field is a criterion the row's judgment reads, and no output carries it. |

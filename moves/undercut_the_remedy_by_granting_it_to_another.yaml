@@ -22,32 +22,19 @@ breaks:
     add a second hypothetical variation beside the first — the single pressure
     point is diluted and the turn arrives too late to be felt
 segments:
-  - operation: signals that a difficulty arises at this point
-    bind: null
+  - bind: null
     edges: []
-  - operation: >-
-      poses a hypothetical in which another party is better provided for than
-      oneself, and asks how that would feel
-    relation: >-
-      turns the announced difficulty into a concrete question about the case in
-      hand
-    bind: 1
+  - bind: 1
     edges:
       - sense: MetaDiscourse
         to: [1]
-  - operation: answers the question with a single stated reaction
-    relation: supplies the answer to the question just put
-    manner: the reply is voiced as a likely guess rather than asserted outright
+  - manner: the reply is voiced as a likely guess rather than asserted outright
     bind: 2
     edges:
       - sense: Condition.Cond
         to: [2]
         hypophora: true
-  - operation: >-
-      gives the ground for the stated reaction by naming what the weaker party
-      could not do against a stronger one
-    relation: supplies the reason for the answer just given
-    bind: 3
+  - bind: 3
     edges:
       - sense: Cause.Reason
         to: [3]

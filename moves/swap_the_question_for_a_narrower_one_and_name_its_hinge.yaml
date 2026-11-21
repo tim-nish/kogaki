@@ -20,23 +20,13 @@ breaks:
     posed — the narrowed question arrives after the reader's attention has been
     spent on method rather than on the matter
 segments:
-  - operation: announces a shift of vantage point before the shift is made
-    bind: null
+  - bind: null
     edges: []
-  - operation: poses a single narrowly drawn question and leaves it standing
-    relation: >-
-      it is the question for whose sake the announced change of angle was made
-    bind: 1
+  - bind: 1
     edges:
       - sense: MetaDiscourse
         to: [1]
-  - operation: >-
-      names the difference between a contrasting pair of settings as the point
-      on which the answer turns
-    relation: >-
-      it withholds an answer to the question just posed and instead names where
-      that answer will be found
-    bind: 2
+  - bind: 2
     edges:
       - sense: Cause.Reason
         to: [2]

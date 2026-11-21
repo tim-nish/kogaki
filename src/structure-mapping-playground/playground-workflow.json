@@ -25,27 +25,6 @@
     },
     "prompt_file": "structure-mapping-playground/smp-correspondence"
   },
-  "smp_read_move": {
-    "id": "smp_read_move",
-    "note": "The Brief-Leg route's `move-reading` stage (kogaki#1830): one model call reads the named Move into its structure before any Segment is read for what it states. Validated by `validateMoveStructure`. Under the Mapper's one-retry bound.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1830",
-    "refusal_reach": {
-      "shape": "part",
-      "segments": "part",
-      "states": "part"
-    },
-    "prompt_file": "structure-mapping-playground/smp-read-move"
-  },
-  "smp_pair_roles": {
-    "id": "smp_pair_roles",
-    "note": "The Brief-Leg route's `pairing` stage (kogaki#1830): one model call pairs the Move's structure with the Leg's. Validated by `validatePairing`; the Harness then writes what is left `unmatched`. Under the Mapper's one-retry bound.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1830",
-    "refusal_reach": {
-      "shape": "part",
-      "pair": "part"
-    },
-    "prompt_file": "structure-mapping-playground/smp-pair-roles"
-  },
   "smp_rank_senses": {
     "id": "smp_rank_senses",
     "note": "A Move's Senses (kogaki#1847): one of the five ranked readings of the paragraph a Move was taken from. Validated by `rankRefusal` of move-senses.mjs. Under the Mapper's one-retry bound; a reading refused twice stops the run.",
