@@ -1759,8 +1759,10 @@ the symbol its part is about or with `Neither`, and under a plan that Trial
 hands the Writer no claims block. After that opening, for each Edge
 and each earlier part the Edge points to, the line carries `To part <n>:` and
 the text `src/sme/senses.json` holds for the Edge's Sense, its part word's text
-after `Here`, and, where the Edge carries Hypophora, that file's `hypophora`
-text toward the same part. An Edge that points to two parts is written once for
+after `Here`, then the `rationale` of that part or, where the part has none, of
+the Sense, which says what the two sentences do for the reader, and, where the
+Edge carries Hypophora, that file's `hypophora` text and its `rationale`
+toward the same part. An Edge that points to two parts is written once for
 each, since each text holds on its own. The line then ends with `Pointed to by`
 and the later parts whose Edges point to it. No Sense name, no Move name and no
 Move id stands in the line, and a plan naming a Sense the file does not hold
@@ -3199,8 +3201,10 @@ number that is not a whole number from 1 to the number of paragraphs, a Move of
 one Segment, a paragraph whose sentence count is not the Move's Segment count,
 and an `--out` outside the Playground's runs or already holding a run.
 
-**The readings.** The 22 Senses, each with its meaning and its part words, are
-the `senses` of `src/sme/senses.json`. Five calls of the
+**The readings.** The 22 Senses, each with its meaning, its part words and its
+`rationale`, are the `senses` of `src/sme/senses.json`. A `rationale` stands on
+the Sense, or on each of its parts where the two directions do different things
+for the reader, as on Level-of-detail's `Detail` and `General`. Five calls of the
 Playground row `smp_rank_senses`, each handed the numbered sentences and that
 list, give per pair the three Senses that fit best, best first, each with
 `played_by` and `holds`; an answer is refused naming the place, and a reading

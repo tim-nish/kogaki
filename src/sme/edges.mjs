@@ -48,11 +48,20 @@ export function loadHypophora() {
   return readSensesFile().hypophora;
 }
 
-// Every name a reading may answer, in the list's order: `{ name, sense, part, plays, meaning, opposite, order }`.
+// Every name a reading may answer, in the list's order: `{ name, sense, part, plays, meaning, rationale, opposite,
+// order }`. `rationale` is the part's where the part carries one, the Sense's otherwise.
 export function senseNames(senses) {
   const out = [];
   for (const s of senses) {
-    if (!s.parts.length) out.push({ name: s.sense, sense: s.sense, part: null, meaning: s.meaning, order: out.length });
+    if (!s.parts.length)
+      out.push({
+        name: s.sense,
+        sense: s.sense,
+        part: null,
+        meaning: s.meaning,
+        rationale: s.rationale,
+        order: out.length,
+      });
     for (const p of s.parts)
       out.push({
         name: `${s.sense}.${p.part}`,
@@ -60,6 +69,7 @@ export function senseNames(senses) {
         part: p.part,
         plays: p.plays,
         meaning: s.meaning,
+        rationale: p.rationale ?? s.rationale,
         opposite: s.opposite && s.opposite.includes(p.part) ? s.opposite.find((x) => x !== p.part) : null,
         order: out.length,
       });
@@ -67,12 +77,16 @@ export function senseNames(senses) {
   return new Map(out.map((n) => [n.name, n]));
 }
 
-// One line per Sense, as the readings are given the list (kogaki#1847).
+// One line per Sense, as the readings are given the list (kogaki#1847): its names, its meaning, each part word with
+// what the sentence playing it does, and the rationale after the Sense or after the part that carries it.
 export function sensesText(senses) {
+  const after = (r) => (r ? ` ${r}` : "");
   return senses.map((s) => {
     const names = s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`).join(" / ") : s.sense;
-    const parts = s.parts.length ? s.parts.map((p) => `${p.part}: ${p.plays}`).join(" ") : "No part.";
-    return `${names}: ${s.meaning} ${parts}`;
+    const parts = s.parts.length
+      ? s.parts.map((p) => `${p.part}: ${p.plays}${after(p.rationale)}`).join(" ")
+      : "No part.";
+    return `${names}: ${s.meaning} ${parts}${after(s.rationale)}`;
   });
 }
 

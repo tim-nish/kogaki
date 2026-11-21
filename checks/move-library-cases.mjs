@@ -98,17 +98,15 @@ ok(
   `(c10f) a lone Segment with nothing bound is not refused naming Segment 1: ${refusal(LONE)}`,
 );
 
-// (c11) every entry of the file's `own`, as `loadOwnSenses` returns it, carries exactly `sense`, `meaning` and
-// `parts`, its `meaning` one non-empty line (kogaki#1881).
+// (c11) every entry of the file's `own`, as `loadOwnSenses` returns it, carries exactly `sense`, `meaning`,
+// `rationale` and `parts`, its `meaning` and its `rationale` each one non-empty line (kogaki#1881).
 for (const [i, s] of loadOwnSenses().entries())
   ok(
     s !== null &&
       typeof s === "object" &&
-      JSON.stringify(Object.keys(s).sort()) === JSON.stringify(["meaning", "parts", "sense"]) &&
-      typeof s.meaning === "string" &&
-      s.meaning.trim() !== "" &&
-      !s.meaning.includes("\n"),
-    `(c11) \`own\` entry ${i + 1} does not carry exactly \`sense\`, \`meaning\` and \`parts\` with a one-line \`meaning\`: ${JSON.stringify(s)}`,
+      JSON.stringify(Object.keys(s).sort()) === JSON.stringify(["meaning", "parts", "rationale", "sense"]) &&
+      [s.meaning, s.rationale].every((x) => typeof x === "string" && x.trim() !== "" && !x.includes("\n")),
+    `(c11) \`own\` entry ${i + 1} does not carry exactly \`sense\`, \`meaning\`, \`rationale\` and \`parts\` with a one-line \`meaning\` and \`rationale\`: ${JSON.stringify(s)}`,
   );
 
 // (c12) the text a reading is handed holds the 22 Senses of the manual and neither of Kogaki's own (kogaki#1881).

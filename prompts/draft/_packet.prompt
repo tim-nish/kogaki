@@ -54,12 +54,13 @@ It names that earlier part before the colon.
 The text after the colon speaks of two sentences only, this part and the part named before the colon.
 In that text, "this sentence" is this part.
 In that text, "the sentence pointed to" is the part named before the colon.
+The text ends by saying what the two sentences do for the reader.
 Where a line names several earlier parts, each text holds on its own for the part it names.
 It says nothing of how those earlier parts stand to each other.
 A part that later parts point to also does what each of their lines says of the sentence pointed to.
 
 {{#each plan.segments}}
-{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To part {{to}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To part {{to}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}} {{rationale}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
 {{/each}}
 {{/if}}
 {{else}}

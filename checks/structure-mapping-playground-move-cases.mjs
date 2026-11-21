@@ -589,8 +589,8 @@ ok(
     "The CentralClaim of this paragraph is {h_1}.",
     "Its Arguments are {c_1}, {c_2}.",
     "1. {c_1}. Pointed to by part 2.",
-    "2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.",
-    "3. {h_1}. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.",
+    "2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. The reader is led to expect something and is then told it does not hold. Pointed to by part 3.",
+    "3. {h_1}. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect. The reader learns why a situation holds, or what it led to.",
   ].every((l) => tWriter.includes(l)),
   `(i) the writer's stdin does not hold the table of the Leg's structure, the symbols of its CentralClaim and Arguments and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(\| \{|The CentralClaim |Its Arguments |\d+\. )/.test(l)))}`,
 );
@@ -803,7 +803,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     ) &&
       lRows.length === 3 &&
       lRows[1].includes(
-        "<td>2</td><td>Concession.Denier → 1</td><td>2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
+        "<td>2</td><td>Concession.Denier → 1</td><td>2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. The reader is led to expect something and is then told it does not hold. Pointed to by part 3.</td>",
       ) &&
       lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`) &&
       lRows[0].startsWith("<td>1</td><td>none</td>"),
