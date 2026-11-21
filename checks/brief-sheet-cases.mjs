@@ -54,6 +54,7 @@ const STRUCTURE = {
       name: "h1",
       relates: ["p1", "p2"],
       holds: "Because {rules} reads only {walk}, {file} off it is unchecked.",
+      holds_over_relations: "{p1} is why {p2} holds.",
       from: ["c2"],
     },
     { name: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}." },
@@ -138,6 +139,20 @@ const refusals = [
     '"h1" (h_1) does not relate exactly two relations',
   ],
   [
+    "a higher-order relation whose holds_over_relations writes one of its two relations",
+    without((s) => {
+      s.higher_order[0].holds_over_relations = "{p1} is why the other holds.";
+    }),
+    "writes no {p2}",
+  ],
+  [
+    "a higher-order relation whose holds_over_relations writes a Role in braces",
+    without((s) => {
+      s.higher_order[0].holds_over_relations = "{p1} is why {p2} holds of {file}.";
+    }),
+    "writes {file}",
+  ],
+  [
     "a missing attains_thesis",
     without((s) => {
       delete s.attains_thesis;
@@ -220,6 +235,8 @@ ok(
       "h_2",
     ]) &&
     MINTED.relations[0].holds === "{r_1} applies only to what {r_2} visits." &&
+    MINTED.higher_order[0].holds_over_relations === "{c_1} is why {c_2} holds." &&
+    !Object.hasOwn(MINTED.higher_order[1], "holds_over_relations") &&
     !Object.hasOwn(MINTED.higher_order[1], "from"),
   `(c) the runner did not mint r_/c_/h_ ids in order of appearance over the names: ${JSON.stringify(MINTED)}`,
 );
@@ -274,6 +291,7 @@ const S4 = without((s) => {
     name: "h3",
     relates: ["p4", "p3"],
     holds: "{team} keeps {log} of a pass of {rules}.",
+    holds_over_relations: "{p4} outlasts {p3}.",
     from: ["c4"],
   });
 });

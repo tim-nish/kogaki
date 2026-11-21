@@ -39,9 +39,16 @@ const READ = {
       name: "h1",
       relates: ["p1", "p2"],
       holds: "Because {rules} reads only {walk}, {file} is unchecked.",
+      holds_over_relations: "{p1} is why {p2} holds.",
       from: ["c2"],
     },
-    { name: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}.", from: ["c3"] },
+    {
+      name: "h2",
+      relates: ["h1", "p3"],
+      holds: "{team} trusts a pass that never reached {file}.",
+      holds_over_relations: "{p3} overlooks what {h1} says.",
+      from: ["c3"],
+    },
   ],
   considered: [
     { relations: ["p1", "p2"], criterion: ["c2"], verdict: "connected", why: "WHY-H1 the rules read only the walk." },

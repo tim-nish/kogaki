@@ -52,7 +52,7 @@ export function legStructureOf(structure, relationId) {
       .map((x) => pick(x, ["id", "name", "between", "holds"])),
     higher_order: (structure.higher_order || [])
       .filter((x) => r.highers.has(x.id))
-      .map((x) => pick(x, ["id", "name", "relates", "holds"])),
+      .map((x) => pick(x, ["id", "name", "relates", "holds", "holds_over_relations"])),
   };
 }
 

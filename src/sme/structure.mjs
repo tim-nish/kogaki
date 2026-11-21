@@ -58,6 +58,7 @@ export function mintStructure(answer) {
   const related = (n) => ids.relations.get(n) ?? ids.higher_order.get(n) ?? n;
   const holds = (h) =>
     typeof h === "string" ? h.replace(/\{([^}]+)\}/g, (m, n) => (ids.roles.has(n) ? `{${ids.roles.get(n)}}` : m)) : h;
+  const overRelations = (h) => (typeof h === "string" ? h.replace(/\{([^}]+)\}/g, (m, n) => `{${related(n)}}`) : h);
   const minted = (kind, f) =>
     Array.isArray(answer[kind])
       ? answer[kind].map((x, i) => (isMap(x) ? { id: `${ID_PREFIX[kind]}_${i + 1}`, ...f(x) } : x))
@@ -74,6 +75,9 @@ export function mintStructure(answer) {
       ...h,
       ...(Array.isArray(h.relates) ? { relates: h.relates.map(related) } : {}),
       holds: holds(h.holds),
+      ...(Object.hasOwn(h, "holds_over_relations")
+        ? { holds_over_relations: overRelations(h.holds_over_relations) }
+        : {}),
     })),
     ...(Object.hasOwn(answer, "attains_thesis")
       ? { attains_thesis: ids.higher_order.get(answer.attains_thesis) ?? answer.attains_thesis }
@@ -174,7 +178,11 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
         `the apex, higher_order[${i}], carries \`from\` — the apex is the one connection no claim states, and carries no \`from\``,
       );
     const b =
-      keysRefusal(h, ["id", "name", "relates", "holds", ...(apex ? [] : ["from"])], `higher_order[${i}]`) ||
+      keysRefusal(
+        h,
+        ["id", "name", "relates", "holds", ...(apex ? [] : ["holds_over_relations", "from"])],
+        `higher_order[${i}]`,
+      ) ||
       idNameRefusal("higher_order", h, i, names);
     if (b) return shape(b);
   }
@@ -191,6 +199,8 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
       return shape(`${at} relates ${JSON.stringify(stray)}, which names no relation or higher-order relation`);
     if (!isText(h.holds)) return shape(`${at}'s \`holds\` is empty`);
     if (h.id === apexId) continue;
+    const over = overRelationsRefusal(h, new Map([...relations, ...higher].map((x) => [x.id, x.name])));
+    if (over) return shape(`${at}'s \`holds_over_relations\` ${over}`);
     if (!Array.isArray(h.from)) return shape(`${at}'s \`from\` is not a list of claim ids`);
     if (!h.from.length)
       return shape(
@@ -216,6 +226,19 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
     if (text) return shape(text);
   }
   return {};
+}
+
+// A HIGHER-ORDER RELATION'S SENTENCE OVER THE RELATIONS IT RELATES, refused as the words after the field's name, or
+// `null`: one sentence carrying `{<id>}` for each of the two `relates` names and no other braces.
+function overRelationsRefusal(h, nameOf) {
+  if (!isText(h.holds_over_relations)) return "is empty";
+  const written = [...h.holds_over_relations.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
+  const absent = h.relates.find((x) => !written.includes(x));
+  if (absent !== undefined) return `writes no {${nameOf.get(absent)}}, a relation its \`relates\` names`;
+  const stray = written.find((x) => !h.relates.includes(x));
+  if (stray !== undefined)
+    return `writes {${nameOf.get(stray) ?? stray}}, which is neither of the two its \`relates\` names`;
+  return null;
 }
 
 // THE VERDICTS A CONSIDERED ROW CARRIES (kogaki#1817).

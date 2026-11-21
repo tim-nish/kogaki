@@ -53,6 +53,8 @@ export function legRows(structure, relationId) {
   return [
     ...structure.roles.filter((r) => reached.has(r.id)).map((r) => row(r, "Role", [], r.context)),
     ...structure.relations.filter((r) => reached.has(r.id)).map((r) => row(r, "Relation", r.between, r.holds)),
-    ...structure.higher_order.filter((h) => reached.has(h.id)).map((h) => row(h, "Relation", h.relates, h.holds)),
+    ...structure.higher_order
+      .filter((h) => reached.has(h.id))
+      .map((h) => row(h, "Relation", h.relates, h.holds_over_relations ?? h.holds)),
   ];
 }
