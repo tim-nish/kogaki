@@ -7,7 +7,7 @@
     "refusal": "a verdict outside the closed set. The bound Move's `before`, `after`, `segments` and `breaks` are what you judge, never what your record states.",
     "governing": "checks/check-schema-binds.sh, fixture (kogaki#1452)",
     "binds": {
-      "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "operation", "segments.manner": "excluded" }
+      "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "excluded", "segments.manner": "excluded" }
     },
     "binds_unread": {
       "move": ["id", "figure", "continues_from", "description", "evidence", "after_segment", "takes", "leaves"]

@@ -80,23 +80,18 @@ export const move = (id, segments) => ({
   breaks: ["breaks if a step is dropped."],
   segments,
 });
-export const seg = (bind, edges = []) => ({ operation: "does a step.", bind, edges });
+export const seg = (bind, edges = []) => ({ bind, edges });
 export const Z_FEWER = move("z_fewer", [
-  { operation: "opens.", bind: 1, edges: [] },
-  { operation: "joins.", relation: "follows.", bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
-  { operation: "closes.", relation: "ends.", bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
+  { bind: 1, edges: [] },
+  { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
+  { bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
 ]);
 export const A_MORE = move("a_more", [
   seg(1),
-  { ...seg(2, [{ sense: "Conjunction", to: [1] }]), relation: "follows." },
-  { ...seg(3, [{ sense: "Contrast", to: [2] }]), relation: "turns." },
+  seg(2, [{ sense: "Conjunction", to: [1] }]),
+  seg(3, [{ sense: "Contrast", to: [2] }]),
 ]);
-export const WIDE = move("wide", [
-  seg(1),
-  { ...seg(2), relation: "a." },
-  { ...seg(3), relation: "b." },
-  { ...seg(4, [{ sense: "Conjunction", to: [1] }]), relation: "c." },
-]);
+export const WIDE = move("wide", [seg(1), seg(2), seg(3), seg(4, [{ sense: "Conjunction", to: [1] }])]);
 // ---- what depends on the scratch root: Briefs, libraries, the fake model and the stage run ----
 export function makeFixture(root) {
   let briefN = 0;

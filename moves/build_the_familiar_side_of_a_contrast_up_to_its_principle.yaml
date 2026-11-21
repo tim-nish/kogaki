@@ -25,39 +25,21 @@ breaks:
     completed on its own terms, and the reader has no settled baseline to
     measure the other against
 segments:
-  - operation: announces which single case is taken up first for examination
-    bind: null
+  - bind: null
     edges: []
-  - operation: >-
-      names what routinely happens immediately after a transgression occurs
-    relation: >-
-      fills the announced case with the ordinary course of events inside it
-    bind: 1
+  - bind: 1
     edges:
       - sense: FrameSetting
         to: [1]
-  - operation: >-
-      states the standing rule behind that routine and the obligation it places
-      on everyone under it
-    relation: >-
-      supplies the underlying ground for the course of events just described
-    bind: 2
+  - bind: 2
     edges:
       - sense: Conjunction
         to: [2]
-  - operation: states what follows for whoever disregards the standing rule
-    relation: >-
-      attaches to the rule just stated the consequence of its being broken
-    bind: null
+  - bind: null
     edges:
       - sense: Equivalence
         to: [3, 2]
-  - operation: >-
-      restates the preceding steps as one general principle locating the
-      decisive capacity in a single body, and names what that securing achieves
-    relation: >-
-      gathers the preceding steps into the conclusion they jointly support
-    bind: 3
+  - bind: 3
     edges:
       - sense: Level-of-detail.General
         to: [3, 2]

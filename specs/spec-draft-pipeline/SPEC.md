@@ -706,7 +706,10 @@ Every Segment has a Bind target or stands at one end of an Edge, and
 `validateMoveRecord` refuses a Segment with neither, naming it (kogaki#1902).
 `validateMoveRecord` refuses a record that carries the two fields on some of
 its Segments and not on all, and it refuses each value outside this shape,
-naming the Segment and the field. A record that carries neither field is
+naming the Segment and the field. A Segment that carries `bind` and `edges`
+carries neither of the two prose fields a Segment held before them, and
+`validateMoveRecord` refuses one that does, naming the Segment and the field
+(kogaki#1922). A record that carries neither `bind` nor `edges` is
 admitted by `validateMoveRecord`, and `checks/check-move-library.sh` refuses it
 under `moves/`. A Move file whose Edges are not yet written stands under
 `graveyard/moves/`, which no stage reads.
@@ -1753,8 +1756,8 @@ name the symbol of the CentralClaim and the symbols of its Arguments, and a
 passage headed "How the paragraph uses the structure" says that the reader
 already knows every Argument and that the Writer chooses the paragraph's
 words. No Relation's sentence is written with a Role's name in place of its
-braces. Where the Leg carries `segments` (the short Trial under
-`--move-edges`, §4.20), it lists one part per Segment, each line opening with
+braces. Where the Leg carries `segments` (the short Trial's Brief-Leg
+route, §4.20), it lists one part per Segment, each line opening with
 the symbol its part is about or with `Neither`, and under a plan that Trial
 hands the Writer no claims block. After that opening, for each Edge
 and each earlier part the Edge points to, the line carries `To part <n>:` and
@@ -1769,7 +1772,7 @@ Move id stands in the line, and a plan naming a Sense the file does not hold
 yields no Packet, the refusal naming the Sense (kogaki#1901). The plan file is
 unchanged: each Edge stands once, on the Segment it starts from, and the
 pointed-to parts are read from it. Otherwise it says the claims below are the
-whole plan. No Point, no `*Serves:*` tail, no join, no cast and no operation
+whole plan. No Point, no `*Serves:*` tail, no join and no cast
 line renders, and a Mapping Record no longer changes any line. Since
 kogaki#1876 the ParagraphPlan file holds no Point. `checks/check-draft-packet.sh`
 carries the plan block.
@@ -1825,8 +1828,8 @@ question of register the Audience's `register` already answers.
 
 **The Register governs inside the plan's structure, never over it**
 (kogaki#1493). Every rule the Register carries governs how the sentences read
-inside the structure the Packet's numbered lines and italic lines give — the
-points and operations the Brief and the ParagraphPlan fixed — and adds,
+inside the structure the Packet's numbered lines give — the parts the
+ParagraphPlan fixed (kogaki#1922) — and adds,
 removes or reorders none of them. Where a Register rule and one of those lines
 conflict, the line holds and the rule yields for that sentence. The template
 states this in one paragraph directly before `{{register}}`, outside the
@@ -2416,7 +2419,7 @@ CentralClaim, as `legSentences` (`src/sme/arguments.mjs`) gives them. A
 Move library in which every Move file's Segments carry `bind` and `edges`; a
 file without them is refused at `start`, naming it. The setting
 `paragraph_plan.leg_edge_candidates` of `kogaki.settings.json`. No program of
-the stage reads `operation`, `relation`, `manner`, `takes`, `leaves` or `breaks`
+the stage reads `manner`, `takes`, `leaves` or `breaks`
 from a Move file.
 
 **The plan file.** `paragraph-plan.yaml`, beside the Brief, carries `version`
@@ -2827,7 +2830,9 @@ the Role it stands for.
 call of the row `smp_bind_move` through the run's recorder, under the Mapper's
 bound of two Calls. Its input is the structure record, the Persona's
 prior-knowledge line, and every Move of the library as `{ id, description,
-segments, takes, leaves }`. It chooses one Move for the Base Paragraph whose
+segments, takes, leaves }`, each Segment given as its number, its `bind` and
+its `edges` (kogaki#1922). A library holding a Move whose Segments carry no
+`bind` and `edges` stops the stage, naming the Move. It chooses one Move for the Base Paragraph whose
 Segments can carry the structure's relations and then its higher-order
 relation, in order, and whose `takes` entries the Persona's line meets. It
 declares the Base Paragraph's `case`: `own`, where the paragraph tells the
@@ -2861,7 +2866,8 @@ from the answer's `case` and Moves (kogaki#1719).
 stage is one model call of the row `smp_correspondence` per bound Move, the
 base Move first and then the inference Move where one is bound, each under the
 same bound. Its input is the structure record, the Persona's prior-knowledge
-line, the paragraph's `case` and that Move's `segments`; the inference call
+line, the paragraph's `case` and that Move's `segments`, each given as its
+number, its `bind` and its `edges` (kogaki#1922); the inference call
 adds `prior_tables`, the base Move's table. The base Move's call carries the
 `case` `bind` declared, and the inference Move's call carries `own`: the
 inference table is always grounded in the proposition's own domain
@@ -2965,9 +2971,10 @@ reason, kogaki#1784), `Structure` and `Model calls`, folded. The runner writes t
   the paragraph's place where the run stopped before it.
 - `Segments` is one table per binding, captioned `Paragraph N` with the
   bound Move's id in the caption's `meta` span, with one row per Segment of
-  that Move, read from the record's `library`: `#`, `operation`, `relation`
-  and `manner`, and no column of texts (kogaki#1883). A Segment without `relation` or
-  `manner` has an empty cell.
+  that Move, read from the record's `library`: `#`, `bind` and `Edges`, each
+  Edge as its Sense and the Segments it points to, and no column of texts
+  (kogaki#1883, kogaki#1922). A Segment with nothing bound, or with no Edge,
+  shows `none` in that cell.
 - `Bindings` is one two-column table per binding, in order, captioned
   `Binding N` with N its paragraph's number, one labelled row each
   (kogaki#1682): `Move`, the id; `Bound by`, the record's `bind.author`,
@@ -3077,43 +3084,37 @@ The proposition is the Leg's `text`, and the Leg's structure is read from the
 Brief with no model call: the relation its `relation` names with the Roles of
 its `between`, or, for a higher-order relation, that relation, the relations
 it `relates` and their Roles. Its stages are `move-reading`, `pairing`,
-`grounding` and `write` (kogaki#1883). `move-reading` (`smp_read_move`) reads
-the whole Move into Roles, each marked `source: target` or `source: base`,
-relations and higher-order relations, and only then records, per Segment in
-order, which of them that Segment `states`; nothing is created from one
-Segment. `pairing` (`smp_pair_roles`) pairs each `target` Role and each
-relation of the Move with one of the Leg's, or null, and the Harness writes
-what is left `unmatched`; nothing fills a null. `grounding` fills the Mapping
-Table for the named Move under case `own`, and no Analogy Mapping is written;
-no call is made between `grounding` and `write`. The sheet opens with
-`Move structure` and `Segments`: per Segment its operation, what it states and
-what each is paired with or `unmatched`.
+`grounding`, `readback` and `write` (kogaki#1883, kogaki#1922). `grounding`
+fills the Mapping Table for the named Move under case `own`, and no Analogy
+Mapping is written. The sheet opens with `Move structure` and `Segments`.
 
 **A Move's Bind targets and Edges read from its Move file** (kogaki#1840,
-kogaki#1858, kogaki#1880). The Brief-Leg route takes one more flag,
-`--move-edges`, which takes no value and is given only beside `--brief`,
-`--leg` and `--move`; alone, or with a value, it is refused naming the flag.
-Under it each Segment's `bind` and `edges` are read from the Move file that
+kogaki#1858, kogaki#1880, kogaki#1922). On the Brief-Leg route each Segment's
+`bind` and `edges` are read from the Move file that
 `--move` names, as `loadMoveContracts` reads it. Before any call the Trial is
 refused naming the Move where its Segments carry no `bind` and `edges`, and
 where the number of its Bind targets, `bindTargetsOf` of
 `src/paragraph-plan/move-choice.mjs`, is not the number of the Leg's Arguments and
-CentralClaim, naming both numbers. `move-reading` and `pairing` then make no
+CentralClaim, naming both numbers. `move-reading` and `pairing` make no
 model call: the move structure is the number of Bind targets and each
 Segment's `bind`, and Bind target `k` is given entry `k` of the Leg's
 Arguments in order and then its CentralClaim, as `legSentences` lists them;
 the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed,
-for each Segment, its number, its `bind` and its `edges` in place of its
-`operation`, `relation` and `manner`, and `write` hands the Writer each
+for each Segment, its number, its `bind` and its `edges`, and `write` hands
+the Writer each
 Segment's `bind` and `edges` as the Move file holds them, every Edge of a
-Segment included. As without the flag, no call is made between `grounding`
-and `write` but the readback below (kogaki#1876, kogaki#1882, kogaki#1883). `trial.json`
-records `move_edges: true` and no path of a second file. The sheet's
-`Segments` section then opens with the Move's `description` as one paragraph,
+Segment included. No call is made between `grounding`
+and `write` but the readback below (kogaki#1876, kogaki#1882, kogaki#1883).
+The sheet's
+`Segments` section opens with the Move's `description` as one paragraph,
 over a table of the columns `#`, `bind` and `Edges` (kogaki#1913): per
 Segment its number, its `bind` beside the Argument or CentralClaim it was
-given, and its Edges, each as its Sense and the Segments it points to, with no
-Unmatched table. The sheet shows no `operation` and no `relation` of a Segment.
+given, and its Edges, each as its Sense and the Segments it points to.
+The flag `--move-edges` is accepted beside `--brief`, `--leg` and `--move`
+and changes nothing; alone, or with a value, it is refused naming the flag.
+The call that read a Move into Roles and Relations, and the call that paired
+them with the Leg's, left the route with their two prompt files
+(kogaki#1922).
 The Move's `description` is read for the sheet alone, and no Model is handed
 it. The flag `--move-table`, which took a Move written by hand as
 a second file, is refused by name before anything is started.
@@ -3139,8 +3140,8 @@ pairing in order gives. An Edge with nothing bound at one end is not shown.
 With no flag the section holds the one sentence "No reading of the Leg's Senses
 was given to this Trial." and the usage line of `leg-senses.mjs read`.
 
-**A Readback and a Sample for each Segment** (kogaki#1882). Under
-`--move-edges` the Trial runs one stage more, `readback`, after `grounding` and
+**A Readback and a Sample for each Segment** (kogaki#1882). On the
+Brief-Leg route the Trial runs the stage `readback` after `grounding` and
 before `write`. A *Readback* is what the Model says, in its own words, that the
 plan tells the Writer to do in one part; a part the plan tells nothing has
 none. A *Sample* is the one sentence the Model writes for that part alone,

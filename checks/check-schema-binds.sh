@@ -14,14 +14,14 @@
 # leak reaches the prose.
 #
 # WHAT IT ASSERTS, over the tree:
-#   (a) src/binds-schema.json declares the five holds, one sentence each, and
+#   (a) src/binds-schema.json declares the four holds, one sentence each, and
 #       the field sets it leans on are still named where they are declared;
 #       every row of src/brief-workflow.json and
 #       src/move-extraction-playground/extraction-workflow.json that carries `binds`
 #       declares an entry, or a `binds_unread` name, for every field of each
 #       schema it reads, and a row rendering src/leg-schema.json carries
 #       `binds.leg`; each bound field is named in the text `judgePrompt`
-#       renders for the row; and an `operation`, `structural` or `excluded`
+#       renders for the row; and a `structural` or `excluded`
 #       hold has a sentence of that text naming the field as not stated;
 #   (b) no `judgment_point` carries a sentence another row of the same table
 #       carries with words changed -- such a criterion is written once as a
@@ -103,7 +103,7 @@ function schemaFields(decl = readJson(BINDS_SCHEMA)) {
 function schemaDeclarationFailures(decl = readJson(BINDS_SCHEMA)) {
   const fails = [];
   const holds = Object.keys(decl.holds || {});
-  const want = ["operation", "structural", "content", "excluded", "copied"];
+  const want = ["structural", "content", "excluded", "copied"];
   if (holds.join() !== want.join()) fails.push(`${BINDS_SCHEMA}: \`holds\` is ${JSON.stringify(holds)}, not the closed set ${JSON.stringify(want)}`);
   for (const h of holds) {
     const s = String(decl.holds[h] || "");
@@ -151,7 +151,7 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const namesField = (text, leaf) => text.includes(`\`${leaf}\``) || text.includes(`"${leaf}"`)
   || (/[_-]/.test(leaf) && new RegExp(`(^|[^A-Za-z0-9_-])${escapeRe(leaf)}([^A-Za-z0-9_-]|$)`).test(text));
 const NOT_STATED = /\b(never|not|no|nothing)\b/i;
-const NEGATIVE_HOLDS = new Set(["operation", "structural", "excluded"]);
+const NEGATIVE_HOLDS = new Set(["structural", "excluded"]);
 
 // ---- (1) coverage and holds, over one table ----
 function bindsFailures(path, table, { fields = schemaFields(), holds = Object.keys(readJson(BINDS_SCHEMA).holds) } = {}) {

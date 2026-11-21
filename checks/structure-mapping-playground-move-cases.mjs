@@ -1,15 +1,14 @@
 // The cases of checks/check-structure-mapping-playground-move.sh (kogaki#1830), each stated in that member's `contract` in
 // checks/registry.json, over a fixture Brief and a fixture Move library:
-//   (a) the route's stages and files, case own, no Analogy Mapping, a refused reading retried once;
-//   (b) the sheet's Segments rows, three columns each: `unmatched`, `base` and the Unmatched table;
+//   (a) the route's stages and files, case own, no Analogy Mapping, no call but grounding, the readback and the writer;
+//   (b) the sheet's Segments rows, the three columns `#`, `bind` and `Edges`, above the paragraph;
 //   (c) the flags; (d) the Brief, Leg and Move refused by value with nothing written;
-//   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
 //   (g) the Leg's structure; (h) no call of the row `paragraph_plan_unit` (kogaki#1883), an unchanged production row,
-//   moves/ and theses/;
-//   (i) the route under `--move-edges` (kogaki#1880), the Move's Bind targets and Edges read from its Move file, run to
-//   the end with no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and
-//   `edges`, a Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing
-//   written. Case (k) went with its call (kogaki#1876). (l) the `readback` stage and its debugging file (kogaki#1905).
+//   moves/ and theses/; (i) the same route under `--move-edges`, which changes nothing (kogaki#1880, kogaki#1922), with
+//   no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and `edges`, a
+//   Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing written.
+//   Cases (e) and (f) went with the two calls whose answers they checked (kogaki#1922), and case (k) with its call
+//   (kogaki#1876). (l) the `readback` stage and its debugging file (kogaki#1905).
 import {
   mkdtempSync,
   mkdirSync,
@@ -38,9 +37,7 @@ const ok = (cond, msg) => {
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
-const { validateMoveStructure, validatePairing, unmatchedOf, legStructureOf } = await imp(
-  "src/structure-mapping-playground/move-structure.mjs",
-);
+const { legStructureOf } = await imp("src/structure-mapping-playground/move-structure.mjs");
 const { debugRecord } = await imp("src/structure-mapping-playground/readback.mjs");
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-move-"));
@@ -64,7 +61,8 @@ const snapshot = () => {
 };
 const before = snapshot();
 
-// ---- the Move library: one Move of three Segments, and two Moves of moves/ whose Segments carry `bind` and `edges` ----
+// ---- the Move library: one Move of three Segments in the form the ingest writes, with no `bind` and `edges`, and two
+// Moves of moves/ whose Segments carry them ----
 const MOVE = "m3";
 const EDGED = "grant_the_rule_then_withdraw_its_enforcer";
 const TWO_TARGETS = "swap_the_question_for_a_narrower_one_and_name_its_hinge";
@@ -146,37 +144,7 @@ const writeBrief = (name, text) => {
 };
 const brief = writeBrief("brief", briefOf(STRUCTURE, LEGS));
 
-// ---- the answers: the Move read whole, and its pairing with Leg s1 ----
-const MOVE_STRUCTURE = {
-  roles: [
-    { id: "t1", context: "one who makes a thing.", attributes: [], source: "target" },
-    { id: "t2", context: "the thing made.", attributes: [], source: "target" },
-    { id: "t3", context: "what is done to the thing later.", attributes: [], source: "target" },
-    { id: "b1", context: "a familiar case of making.", attributes: [], source: "base" },
-  ],
-  relations: [
-    { id: "x1", between: ["t1", "t2"], holds: "{t1} makes {t2}." },
-    { id: "x2", between: ["t2", "t3", "b1"], holds: "{t3} is done to {t2} as in {b1}." },
-  ],
-  higher_order: [{ id: "y1", relates: ["x1", "x2"], holds: "{t2} stays {t1}'s." }],
-  segments: [
-    { segment: 1, states: ["t1", "t2", "x1"] },
-    { segment: 2, states: ["t3", "b1", "x2"] },
-    { segment: 3, states: ["y1"] },
-  ],
-};
-const PAIRING = {
-  role_pairs: [
-    { move_role: "t1", leg_role: "r_1" },
-    { move_role: "t2", leg_role: "r_2" },
-    { move_role: "t3", leg_role: null },
-  ],
-  relation_pairs: [
-    { move_relation: "x1", leg_relation: "c_1" },
-    { move_relation: "x2", leg_relation: null },
-    { move_relation: "y1", leg_relation: null },
-  ],
-};
+// ---- the answer of the grounding call ----
 const TABLE = {
   base: { domain: "a kit installed into a repository" },
   correspondences: [
@@ -184,12 +152,6 @@ const TABLE = {
     { role: "r_2", expression: "the copied kit" },
   ],
 };
-const answers = (name, list) => {
-  const f = join(root, `${name}.json`);
-  writeFileSync(f, JSON.stringify(list));
-  return f;
-};
-
 // ---- the one fake model binary, answering each row by the judgment point its prompt names ----
 const judge = join(root, "fake-model.mjs");
 writeFileSync(
@@ -205,14 +167,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
     writeSync(1, answer); process.exit(0);
   };
-  const nth = (stage, file) => {
-    const list = JSON.parse(readFileSync(file, "utf8"));
-    let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === stage).length; } catch {}
-    return list[Math.min(n, list.length - 1)];
-  };
   const row = (id) => prompt.includes("\\\`" + id + "\\\` judgment point");
-  if (row("smp_read_move")) return out(nth("read", process.env.SMP_READ_ANSWERS), "read");
-  if (row("smp_pair_roles")) return out(nth("pair", process.env.SMP_PAIR_ANSWERS), "pair");
   if (row("smp_correspondence")) return out(JSON.parse(process.env.SMP_TABLE), "grounding");
   if (prompt.startsWith("# Read back the plan of one paragraph")) return out(process.env.SMP_READBACK, "readback");
   return out("WRITTEN the installer and the copied kit.", "writer");
@@ -232,8 +187,6 @@ const run = (name, args, extraEnv = {}) => {
       ...process.env,
       KOGAKI_JUDGE_CLI: judge,
       SMP_FIXTURE_DIR: dir,
-      SMP_READ_ANSWERS: answers(`read-${name}`, [MOVE_STRUCTURE]),
-      SMP_PAIR_ANSWERS: answers(`pair-${name}`, [PAIRING]),
       SMP_TABLE: JSON.stringify(TABLE),
       SMP_READBACK: JSON.stringify(READBACK),
       ...extraEnv,
@@ -266,46 +219,35 @@ const READBACK = {
   ],
 };
 const ROUTE = ["--brief", brief, "--leg", "s1", "--move", MOVE, "--library", library];
+const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
+const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
+const EDGES_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", EDGED, "--library", library];
+const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
 
-// (a) the route's stages and files
-const BAD_READ = { ...MOVE_STRUCTURE, segments: MOVE_STRUCTURE.segments.slice(0, 2) };
-const a = run("route", ROUTE, { SMP_READ_ANSWERS: answers("read-retry", [BAD_READ, MOVE_STRUCTURE]) });
+// (a) the route's stages and files, with no flag beside its three
+const a = run("route", EDGES_ROUTE, { SMP_TABLE: JSON.stringify(TABLE_H1) });
 const rec = a.rec || {};
 ok(a.res.status === 0, `(a) the run exited ${a.res.status}: ${a.said}`);
 ok(
   JSON.stringify((rec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
-    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "write:done"]),
-  `(a) the stages are not the route's four, all done (kogaki#1883): ${JSON.stringify(rec.stages)}`,
+    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "readback:done", "write:done"]),
+  `(a) the stages are not move-reading, pairing, grounding, readback and write, all done: ${JSON.stringify(rec.stages)}`,
 );
 ok(
-  JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["read", "read", "pair", "grounding", "writer"]),
-  `(a) the calls are not the refused and retried reading, the pairing, grounding and writer: ${a.seen.map((x) => x.stage)}`,
-);
-ok(
-  a.seen[1] && a.seen[1].prompt.includes("Segments — one entry per Segment"),
-  "(a) the second reading call does not carry the first call's refusal",
+  JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "readback", "writer"]),
+  `(a) the run made a call beside grounding, the readback and the writer (kogaki#1922): ${a.seen.map((x) => x.stage)}`,
 );
 const yamlAt = (f) => (existsSync(join(a.o, f)) ? parseYaml(readFileSync(join(a.o, f), "utf8"), f) : null);
-ok(
-  JSON.stringify(yamlAt("move-structure.yaml")) === JSON.stringify(MOVE_STRUCTURE),
-  "(a) move-structure.yaml is not the reading",
-);
-const pairing = yamlAt("pairing.yaml") || {};
-ok(
-  JSON.stringify(pairing.unmatched) ===
-    JSON.stringify({ move_roles: ["t3"], move_relations: ["x2", "y1"], leg_roles: [], leg_relations: [] }),
-  `(a) pairing.yaml's unmatched is not what the pairing left: ${JSON.stringify(pairing.unmatched)}`,
-);
 const rbs = yamlAt("rbs.yaml") || {};
 ok(
-  Array.isArray(rbs.tables) && rbs.tables.length === 1 && rbs.tables[0].move === MOVE && Array.isArray(rbs.bindings),
+  Array.isArray(rbs.tables) && rbs.tables.length === 1 && rbs.tables[0].move === EDGED && Array.isArray(rbs.bindings),
   `(a) rbs.yaml is not the named Move's one Mapping Table with its paragraph record: ${JSON.stringify(rbs)}`,
 );
 // The Harness writes one paragraph record naming the Move given, and no `waypoints` folder (kogaki#1883).
 const aParagraphs = (rec.bind && rec.bind.paragraphs) || [];
 ok(
   aParagraphs.length === 1 &&
-    aParagraphs[0].move === MOVE &&
+    aParagraphs[0].move === EDGED &&
     JSON.stringify(Object.keys(aParagraphs[0])) === JSON.stringify(["move", "binding_rationale", "leaves"]) &&
     JSON.stringify(rbs.bindings) === JSON.stringify(aParagraphs) &&
     !existsSync(join(a.o, "waypoints")),
@@ -321,11 +263,11 @@ ok(
   "(a) an Analogy Mapping was written",
 );
 ok(
-  rec.bind && rec.bind.move === MOVE && rec.bind.case === "own" && rec.bind.inference_move === null,
+  rec.bind && rec.bind.move === EDGED && rec.bind.case === "own" && rec.bind.inference_move === null,
   `(a) trial.json's bind does not hold the named Move under case own: ${JSON.stringify(rec.bind)}`,
 );
 ok(
-  rec.route === "brief-leg" && rec.brief && rec.brief.leg === "s1" && rec.brief.sha256 === sha(brief),
+  rec.route === "brief-leg" && rec.brief && rec.brief.leg === "s2" && rec.brief.sha256 === sha(tableBrief),
   `(a) trial.json does not name the Brief and its Leg: ${JSON.stringify(rec.brief)}`,
 );
 
@@ -338,19 +280,10 @@ const firstTable = (segs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "";
 const rows = firstTable.split("<tr>").slice(1);
 ok(rows.length === 3, `(b) the Segments table has ${rows.length} rows, and the Move has three Segments`);
 ok(
-  /<th>#<\/th><th>operation<\/th><th>states → paired with<\/th><\/tr>/.test(segs) &&
-    rows.every((r) => (r.match(/<td>/g) || []).length === 3),
-  `(b) a Segments row is not the three columns #, operation and states → paired with (kogaki#1883): ${rows[0]}`,
-);
-ok(
-  rows[1] && /t3 → <span class="stop">unmatched<\/span>/.test(rows[1]) && !/t3/.test(rows[0] || ""),
-  `(b) the Segment stating t3 does not read it unmatched: ${rows[1]}`,
-);
-ok(rows[0] && rows[0].includes("t1 → r_1") && rows[0].includes("x1 → c_1"), `(b) row 1 is not its pairs: ${rows[0]}`);
-ok(rows[1] && rows[1].includes("b1 → base"), `(b) a base Role does not read base: ${rows[1]}`);
-ok(
-  /Unmatched/.test(segs) && /t3/.test(segs.split("Unmatched")[1] || "") && /x2, y1/.test(segs),
-  "(b) the Unmatched table does not list what the pairing left",
+  /<th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(segs) &&
+    rows.every((r) => (r.match(/<td>/g) || []).length === 3) &&
+    !segs.includes("Unmatched"),
+  `(b) a Segments row is not the three columns #, bind and Edges, or an Unmatched table stands (kogaki#1922): ${rows[0]}`,
 );
 ok(
   sheet.indexOf('id="move-structure"') !== -1 &&
@@ -409,98 +342,11 @@ for (const [name, args, want] of [
   );
 }
 
-// (e) the move-reading validator
-const ms = (f) => {
-  const x = structuredClone(MOVE_STRUCTURE);
-  f(x);
-  return x;
-};
-for (const [label, answer, want] of [
-  ["an undeclared key", ms((x) => (x.extra = 1)), "`extra`"],
-  ["a missing key", ms((x) => delete x.higher_order), "no `higher_order`"],
-  ["an empty id", ms((x) => (x.roles[0].id = "")), "roles[0]'s `id` is empty or repeated"],
-  ["a repeated id", ms((x) => (x.relations[0].id = "t1")), "relations[0]'s `id` is empty or repeated"],
-  ["a source outside the two", ms((x) => (x.roles[1].source = "both")), '"t2"\'s `source` "both"'],
-  ["a relation naming no Role", ms((x) => (x.relations[0].between = ["t1", "zz"])), '"zz", which is no Role'],
-  ["a relation with no Role", ms((x) => (x.relations[0].between = [])), "names no Role"],
-  ["segments of the wrong count", ms((x) => x.segments.pop()), "carries 2 entries, and the Move has 3"],
-  ["segments out of order", ms((x) => (x.segments[0].segment = 2)), "Segment 1"],
-  ["a states id naming nothing", ms((x) => x.segments[2].states.push("q9")), '"q9"'],
-  ["an element no Segment states", ms((x) => (x.segments[2].states = [])), '"y1" is stated by no Segment'],
-]) {
-  const r = validateMoveStructure(answer, 3);
-  ok(r && r.text.includes(want), `(e) ${label} was not refused naming ${want}: ${JSON.stringify(r)}`);
-}
-ok(validateMoveStructure(MOVE_STRUCTURE, 3) === null, "(e) the fixture reading is refused");
-ok(
-  validateMoveStructure(
-    ms((x) => x.segments[0].states.splice(0)),
-    3,
-  ) !== null,
-  "(e) a reading leaving t1 unstated passed",
-);
-
-// (f) the pairing validator
-const LEG_S1 = legStructureOf(STRUCTURE, "c_1");
-const pr = (f) => {
-  const x = structuredClone(PAIRING);
-  f(x);
-  return x;
-};
-for (const [label, answer, want] of [
-  ["a missing Role pair", pr((x) => x.role_pairs.pop()), 'no pair for the Role "t3"'],
-  ["a repeated Role pair", pr((x) => x.role_pairs.push({ move_role: "t1", leg_role: null })), '"t1" a second time'],
-  ["a move_role naming nothing", pr((x) => (x.role_pairs[2].move_role = "zz")), '"zz" names no Role of the Move'],
-  ["a leg_role naming nothing", pr((x) => (x.role_pairs[2].leg_role = "r_9")), '"r_9" names no Role of the Leg'],
-  ["a base Role paired", pr((x) => x.role_pairs.push({ move_role: "b1", leg_role: null })), "whose source is `base`"],
-  ["a Leg Role named twice", pr((x) => (x.role_pairs[2].leg_role = "r_1")), "role_pairs[0] already names"],
-  ["a missing relation pair", pr((x) => x.relation_pairs.pop()), 'no pair for the relation "y1"'],
-  [
-    "a leg_relation naming nothing",
-    pr((x) => (x.relation_pairs[1].leg_relation = "c_9")),
-    '"c_9" names no relation of the Leg',
-  ],
-  [
-    "a Leg relation named twice",
-    pr((x) => (x.relation_pairs[2].leg_relation = "c_1")),
-    "relation_pairs[0] already names",
-  ],
-  ["an undeclared key", pr((x) => (x.extra = [])), "`extra`"],
-]) {
-  const r = validatePairing(answer, MOVE_STRUCTURE, LEG_S1);
-  ok(r && r.text.includes(want), `(f) ${label} was not refused naming ${want}: ${JSON.stringify(r)}`);
-}
-ok(validatePairing(PAIRING, MOVE_STRUCTURE, LEG_S1) === null, "(f) the fixture pairing, nulls in it, is refused");
-const LEG_H2 = legStructureOf(STRUCTURE, "h_2");
-const crossed = {
-  role_pairs: [
-    { move_role: "t1", leg_role: "r_1" },
-    { move_role: "t2", leg_role: "r_3" },
-    { move_role: "t3", leg_role: null },
-  ],
-  relation_pairs: [
-    { move_relation: "x1", leg_relation: "c_1" },
-    { move_relation: "x2", leg_relation: null },
-    { move_relation: "y1", leg_relation: null },
-  ],
-};
-const cr = validatePairing(crossed, MOVE_STRUCTURE, LEG_H2);
-ok(
-  cr && cr.text.includes('"t2"') && cr.text.includes('"r_3"'),
-  `(f) a relation pair whose Role the Leg relation does not hold passed: ${JSON.stringify(cr)}`,
-);
-ok(
-  JSON.stringify(unmatchedOf(PAIRING, LEG_H2)) ===
-    JSON.stringify({
-      move_roles: ["t3"],
-      move_relations: ["x2", "y1"],
-      leg_roles: ["r_3"],
-      leg_relations: ["c_2", "h_1", "h_2"],
-    }),
-  "(f) unmatched does not name the Leg elements no pair names",
-);
+// (e) and (f) went with the two calls whose answers they checked (kogaki#1922).
 
 // (g) the Leg's structure
+const LEG_S1 = legStructureOf(STRUCTURE, "c_1");
+const LEG_H2 = legStructureOf(STRUCTURE, "h_2");
 const ids = (s) => [s.roles, s.relations, s.higher_order].map((l) => l.map((x) => x.id).join(",")).join(" | ");
 ok(ids(LEG_S1) === "r_1,r_2 | c_1 | ", `(g) the Leg of c_1 reads ${ids(LEG_S1)}`);
 ok(ids(LEG_H2) === "r_1,r_2,r_3 | c_1,c_2 | h_1,h_2", `(g) the Leg of h_2 reads ${ids(LEG_H2)}`);
@@ -513,12 +359,9 @@ ok(
 ok(sha(PLAN_TABLE) === planTableSha, `(h) ${PLAN_TABLE} changed`);
 ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");
 
-// (i) under `--move-edges` (kogaki#1880): each Segment's `bind` and `edges` read from the Move file, its Bind targets given
-// the Leg's Arguments and CentralClaim in order by the Harness, and no call made between grounding and the writer (kogaki#1876)
-const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
-const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
-const EDGES_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", EDGED, "--library", library];
-const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
+// (i) under `--move-edges`, which changes nothing (kogaki#1880, kogaki#1922): each Segment's `bind` and `edges` read from
+// the Move file, its Bind targets given the Leg's Arguments and CentralClaim in order by the Harness, and no call made
+// between grounding and the writer (kogaki#1876)
 const ti = run("edges", [...EDGES_ROUTE, "--move-edges"], { SMP_TABLE: JSON.stringify(TABLE_H1) });
 const trec = ti.rec || {};
 const tYaml = (f) => (existsSync(join(ti.o, f)) ? parseYaml(readFileSync(join(ti.o, f), "utf8"), f) : null);
@@ -563,8 +406,17 @@ ok(
   `(i) pairing.yaml is not the Leg's Arguments then its CentralClaim, in order: ${JSON.stringify(tYaml("pairing.yaml"))}`,
 );
 ok(
-  trec.move_edges === true && !Object.hasOwn(trec, "move_table"),
-  `(i) trial.json does not record move_edges true and no second file: ${JSON.stringify(trec.move_edges)}`,
+  !Object.hasOwn(trec, "move_edges") && !Object.hasOwn(trec, "move_table"),
+  `(i) trial.json records the flag or a second file: ${JSON.stringify(trec.move_edges)}`,
+);
+const sameWriter = (r) => (r.seen.find((x) => x.stage === "writer") || {}).prompt;
+ok(
+  JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(ti.seen.map((x) => x.stage)) &&
+    sameWriter(a) !== undefined &&
+    sameWriter(a) === sameWriter(ti) &&
+    JSON.stringify(yamlAt("move-structure.yaml")) === JSON.stringify(tYaml("move-structure.yaml")) &&
+    JSON.stringify(yamlAt("pairing.yaml")) === JSON.stringify(tYaml("pairing.yaml")),
+  "(i) the run under --move-edges differs from the run without it in its calls, the Writer's input, the move structure or the pairing (kogaki#1922)",
 );
 ok(
   ["rbs.yaml", "bind.yaml", "paragraph.md", "sheet.html"].every((f) => existsSync(join(ti.o, f))),
@@ -603,28 +455,28 @@ ok(
   tGround &&
     tGround.prompt.includes('"edges"') &&
     !tGround.prompt.includes('"genericity"') &&
-    !tGround.prompt.includes("grants that a prohibition"),
-  "(i) the grounding call is not handed each Segment's number, bind and edges in place of its operation",
+    !tGround.prompt.includes('"operation"') &&
+    !tGround.prompt.includes('"relation"') &&
+    !tGround.prompt.includes('"manner"'),
+  "(i) the grounding call is not handed each Segment's number, bind and edges and nothing else of a Segment",
 );
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
-// The Move's description on the sheet (kogaki#1913), above a table of #, bind and Edges that shows no Segment's
-// operation or relation; neither the description nor those words are handed to the Writer or the Readback call.
+// The Move's description on the sheet (kogaki#1913), above a table of #, bind and Edges; the description is handed to
+// neither the Writer nor the Readback call.
 const tMove = parseYaml(readFileSync("moves/grant_the_rule_then_withdraw_its_enforcer.yaml", "utf8"));
-const tWords = tMove.segments.flatMap((sg) => [sg.operation, sg.relation].filter((w) => typeof w === "string"));
 ok(
   tSegs.startsWith(`<h2>Segments</h2><p>${tMove.description}</p>`) &&
     /<thead><tr><th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
-    tWords.every((w) => !tSegs.includes(w)) &&
     !tSegs.includes("genericity") &&
     !tSegs.includes("Unmatched") &&
     !tSegs.includes("Waypoint"),
-  "(i) the sheet's Segments section does not open with the Move's description and show the three columns #, bind and Edges, or it holds a Segment's operation or relation, genericity, an Unmatched table or a Waypoints column",
+  "(i) the sheet's Segments section does not open with the Move's description and show the three columns #, bind and Edges, or it holds genericity, an Unmatched table or a Waypoints column",
 );
 const tReadback = (ti.seen.find((x) => x.stage === "readback") || {}).prompt || "";
 ok(
-  [tMove.description, ...tWords].every((w) => !tWriter.join("\n").includes(w) && !tReadback.includes(w)),
-  "(i) the Writer's input or the Readback call's input holds the Move's description, an operation or a relation",
+  !tWriter.join("\n").includes(tMove.description) && !tReadback.includes(tMove.description),
+  "(i) the Writer's input or the Readback call's input holds the Move's description",
 );
 const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
 ok(
@@ -737,6 +589,7 @@ for (const [name, args, want] of [
     [...unedgedRoute, "--move-edges"],
     `the Move ${MOVE} carries no \`bind\` and \`edges\` on its Segments`,
   ],
+  ["unedged", unedgedRoute, `the Move ${MOVE} carries no \`bind\` and \`edges\` on its Segments`],
   [
     "e-targets",
     [...swapRoute, "--move-edges"],
@@ -928,4 +781,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l)-(n)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(d), (g)-(j), (l)-(n)`);

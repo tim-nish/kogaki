@@ -20,25 +20,13 @@ breaks:
     rather than in their own voice — the calculation reads as an attributed
     assertion instead of something the reader works through
 segments:
-  - operation: >-
-      grants that a prohibition on the conduct at issue is formally in place
-    bind: 1
+  - bind: 1
     edges: []
-  - operation: >-
-      denies the existence of any body able to impose compliance on all parties
-    relation: >-
-      withdraws from the thing just granted the backing that would make it bind
-    bind: 2
+  - bind: 2
     edges:
       - sense: Concession.Denier
         to: [1]
-  - operation: >-
-      infers the conduct that follows for some parties once no penalty is in
-      prospect
-    relation: >-
-      turns the gap the previous step opened into its effect on how some parties
-      act
-    manner: >-
+  - manner: >-
       the reckoning is voiced as the parties' own words rather than described
       from outside
     bind: 3

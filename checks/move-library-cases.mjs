@@ -61,7 +61,7 @@ const EDGES = [
     ],
   },
 ];
-const EDGED = { ...BARE, segments: BARE.segments.map((s, i) => ({ ...s, ...EDGES[i] })) };
+const EDGED = { ...BARE, segments: EDGES };
 const second = (edges) => ({ ...EDGED, segments: EDGED.segments.map((s, i) => (i === 1 ? { ...s, edges } : s)) });
 const refusal = (rec) => validateMoveRecord(rec, LIB, "p1.yaml").error || "";
 
@@ -90,6 +90,22 @@ ok(
   /`segments` Segment 2: `edges` entry 1: `to` names 2/.test(refusal(second([{ sense: "Cause.Reason", to: [2] }]))),
   `(c10e) an Edge that points to its own Segment is not refused naming the Segment: ${refusal(second([{ sense: "Cause.Reason", to: [2] }]))}`,
 );
+
+// (c10g) a Segment that carries `bind` and `edges` beside one of the two older prose fields is refused naming the
+// Segment and the field (kogaki#1922).
+for (const [k, n] of [
+  ["operation", 1],
+  ["relation", 2],
+]) {
+  const mixed = {
+    ...EDGED,
+    segments: EDGED.segments.map((s, i) => (i === n - 1 ? { ...s, [k]: "says a thing." } : s)),
+  };
+  ok(
+    refusal(mixed).includes(`\`segments\` Segment ${n} carries \`${k}\``) && refusal(mixed).includes("kogaki#1922"),
+    `(c10g) a Segment with bind, edges and ${k} is not refused naming the Segment and the field: ${refusal(mixed)}`,
+  );
+}
 
 // (c10f) a record of one Segment with nothing bound and no Edge is refused naming Segment 1 (kogaki#1902).
 const LONE = { ...EDGED, segments: [{ ...EDGED.segments[0], bind: null, edges: [] }] };

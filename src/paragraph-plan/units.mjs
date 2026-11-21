@@ -74,16 +74,3 @@ export function planLegOptions(legs, structure, priorKnowledge) {
     priorKnowledge,
   }));
 }
-
-// A MOVE'S SEGMENTS AS THE CALLS THAT READ A MOVE ARE HANDED THEM (kogaki#1884): each numbered into
-// `{ segment, operation, relation, manner }`, `relation` empty on Segment 1 and `manner` empty where the Move
-// gives none. The Structure-Mapping Playground's short Trial is its reader (src/structure-mapping-playground/short.mjs).
-export function segmentsForPlanCall(segments) {
-  if (!Array.isArray(segments) || !segments.length) return segments;
-  return segments.map((s, i) => ({
-    segment: i + 1,
-    operation: String(s.operation).trim(),
-    relation: String(s.relation ?? "").trim(),
-    manner: String(s.manner ?? "").trim(),
-  }));
-}

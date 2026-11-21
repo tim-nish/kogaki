@@ -196,11 +196,11 @@ ok(pick([twin("b"), twin("a")]).move.id === "a", "(g) of two equal Moves the id 
 ok(pick([A_MORE, Z_FEWER]).move.id === "z_fewer", "(g) the fewer compared Edges did not decide before the id");
 const MEETS_TWO = move("m", [
   seg(1),
-  { ...seg(2, [{ sense: "Conjunction", to: [1] }]), relation: "a." },
-  { ...seg(3, [{ sense: "Conjunction", to: [2] }]), relation: "b." },
+  seg(2, [{ sense: "Conjunction", to: [1] }]),
+  seg(3, [{ sense: "Conjunction", to: [2] }]),
 ]);
 ok(pick([Z_FEWER, MEETS_TWO]).move.id === "m", "(g) the higher count did not decide first");
-const NONE_MET = move("n", [seg(1), { ...seg(2, [{ sense: "Contrast", to: [1] }]), relation: "a." }]);
+const NONE_MET = move("n", [seg(1), seg(2, [{ sense: "Contrast", to: [1] }])]);
 const zero = pick([NONE_MET]);
 ok(
   zero && zero.move.id === "n" && zero.met === 0 && zero.compared === 1,
@@ -235,13 +235,18 @@ ok(
   `(i) the view shows no Segment row: ${viewText}`,
 );
 
-// (j) A MOVE RECORD WITH `bind` AND `edges` NEEDS NO OPERATION OR RELATION.
+// (j) A MOVE RECORD WITH `bind` AND `edges` CARRIES NO OPERATION AND NO RELATION (kogaki#1922).
 const bare = move("bare", [
   { bind: 1, edges: [] },
   { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
 ]);
 const vb = validateMoveRecord(bare, MOVES);
 ok(!vb.error, `(j) a Move whose Segments carry bind and edges was refused for its operation or relation: ${vb.error}`);
+const vm = validateMoveRecord(move("mixed", [{ operation: "opens.", bind: 1, edges: [] }]), MOVES);
+ok(
+  vm.error && /Segment 1 carries `operation`/.test(vm.error),
+  `(j) a Move whose Segment carries bind, edges and operation was admitted: ${vm.error}`,
+);
 const vo = validateMoveRecord(move("old", [{ operation: "opens." }, { operation: "closes." }]), MOVES);
 ok(
   vo.error && /relation/.test(vo.error),
