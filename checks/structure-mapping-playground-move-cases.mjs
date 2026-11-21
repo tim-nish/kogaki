@@ -608,18 +608,18 @@ ok(
 );
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
-// The Move's own words on the sheet (kogaki#1913): its description above the table, each Segment's operation and relation
-// in a cell, and none of them handed to the Writer or the Readback call.
+// The Move's description on the sheet (kogaki#1913), above a table of #, bind and Edges that shows no Segment's
+// operation or relation; neither the description nor those words are handed to the Writer or the Readback call.
 const tMove = parseYaml(readFileSync("moves/grant_the_rule_then_withdraw_its_enforcer.yaml", "utf8"));
 const tWords = tMove.segments.flatMap((sg) => [sg.operation, sg.relation].filter((w) => typeof w === "string"));
 ok(
   tSegs.startsWith(`<h2>Segments</h2><p>${tMove.description}</p>`) &&
-    /<th>#<\/th><th>operation<\/th><th>relation<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
-    tWords.every((w) => tSegs.includes(`<td>${w}</td>`)) &&
+    /<thead><tr><th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
+    tWords.every((w) => !tSegs.includes(w)) &&
     !tSegs.includes("genericity") &&
     !tSegs.includes("Unmatched") &&
     !tSegs.includes("Waypoint"),
-  "(i) the sheet's Segments section does not open with the Move's description and show the five columns with each operation and relation, or it holds genericity, an Unmatched table or a Waypoints column",
+  "(i) the sheet's Segments section does not open with the Move's description and show the three columns #, bind and Edges, or it holds a Segment's operation or relation, genericity, an Unmatched table or a Waypoints column",
 );
 const tReadback = (ti.seen.find((x) => x.stage === "readback") || {}).prompt || "";
 ok(
