@@ -88,7 +88,7 @@ const unboundNote = (bound, j) => {
 const rowAttrs = (edited, n) => (edited.has(n) ? ` class="edited"` : "");
 export const segmentsTable = (segs, edited = new Map(), bound = null) =>
   segs.length
-    ? `<table><thead><tr><th>#</th><th>content clause</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>` +
+    ? `<table><thead><tr><th>#</th><th>content clause</th><th>manner</th></tr></thead><tbody>` +
       segs
         .map(
           (s, j) =>
@@ -97,7 +97,7 @@ export const segmentsTable = (segs, edited = new Map(), bound = null) =>
                 ? ` <span class="badge edited" title="${esc(edited.get(j + 1).join(", "))}">${EDITED_BADGE}</span>`
                 : ""
             }</td>` +
-            `<td>${esc(s.content || "")}${unboundNote(bound, j)}</td><td>${esc(s.operation || "")}</td><td>${esc(s.relation || "")}</td>` +
+            `<td>${esc(s.content || "")}${unboundNote(bound, j)}</td>` +
             `<td>${esc(s.manner || "")}</td></tr>`,
         )
         .join("") +

@@ -30,7 +30,7 @@
     "TS2739": 2
   },
   "src/move-extraction-playground/extract.mjs": {
-    "TS2339": 3,
+    "TS2339": 1,
     "TS2353": 1
   },
   "src/move-extraction-playground/leg-run.mjs": {

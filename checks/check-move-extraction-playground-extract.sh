@@ -8,8 +8,8 @@
 #   (a) the run writes one Extraction per paragraph as a `.yaml` record read by the Brief's
 #       YAML reader (kogaki#1413): `status` naming the run, `unit: paragraph <N> of 2 in
 #       <slug>`, no `reader` (kogaki#1699), `segments` a list of maps, one per
-#       sentence, carrying `content` and `operation`, `relation` on every Segment but
-#       Segment 1 (kogaki#1510), and `manner` only where the answer filled one, paragraph 2's
+#       sentence, carrying `opening`, `content` and no other key (kogaki#1926) but `manner`
+#       where the answer filled one, paragraph 2's
 #       Segment 2 here; `breaks` a list of tests; no Q4 Footing (kogaki#1414); a
 #       `description` and no `technique` (kogaki#1412); and the record renders to Markdown
 #       for reading.
@@ -28,31 +28,29 @@
 #       Adapter reads the admitted Moves, every one, without refusal.
 #   (b3) an entry of `segments` is read as a Segment or refused, never dropped (kogaki#1416):
 #       an admitted Move carries exactly as many Segments as the Extraction lists; an entry
-#       carrying a label key, one with an empty `operation`, one after the first with no
-#       `relation`, and a Segment 1 carrying one, are each refused naming the Segment, the
-#       last three in the Adapter's words; the Move admitted from paragraph 2 carries its
+#       carrying a label key, and one carrying either of the two retired prose keys
+#       (kogaki#1926), are each refused naming the Segment; the Move admitted from paragraph 2 carries its
 #       `manner` on Segment 2 and on no other (kogaki#1510); and
 #       `tools/move_ingest.py` carries no label set.
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
 #       number and `answers` holding exactly q1 to q3), the answer, and the Round count
-#       with every refusal: paragraph 1's first answer omits an `operation` clause and its
+#       with every refusal: paragraph 1's first answer omits a `content` clause and its
 #       second names its paragraph as a string, each refused naming the field, and the
 #       third Round's prompt carries BOTH refusals, oldest first; paragraph 2's first
 #       answer writes a `subject_nouns` entry into a `breaks` test and is refused
 #       naming the test (rule 7, kogaki#1440); the prompt carries rule 7's
-#       sentences; and it carries rule 9's read-aloud test, which excludes the page's
-#       layout from `operation`, `content`, `relation` and `manner` (kogaki#1478, kogaki#1510).
+#       sentence; and it carries rule 9's read-aloud test, which excludes the page's
+#       layout from `content` and `manner` (kogaki#1478, kogaki#1926).
 #   (d) every call ran with `--tools ""`, on the shared supervisor, the content-bound and constraints calls among them.
 #   (e) the reader table is retired (kogaki#1699): no paragraph's input carries `reader_state_before`,
 #       no record or prompt skeleton carries `reader`, the table carries no `state_bound_unit`
 #       row, and an answer carrying `reader` is refused as an undeclared key.
 #   (f) the validator refuses, naming the field:
-#       a Segment count other than the sentence count, an `operation` clause naming a
-#       subject noun, a `relation` on Segment 1 of a paragraph with earlier text (rule 5,
-#       kogaki#1510), an empty `relation` on any later Segment, a `manner` restating the
-#       `operation` or naming a subject noun (kogaki#1510), a subject noun in a `breaks` test, a word outside the Latin script in a `relation` or a `breaks` test, while a
+#       a Segment count other than the sentence count, a Segment carrying either of the
+#       two retired prose keys (kogaki#1926), a `manner`
+#       naming a subject noun (kogaki#1510), a subject noun in a `breaks` test, a word outside the Latin script in a `manner` or a `breaks` test, while a
 #       subject noun in a `content` clause alone validates (kogaki#1519), a `breaks` given as keyed fields rather than a list of tests,
 #       and an answer for the retired Q4 (kogaki#1414); a record carrying the retired
 #       `technique`, and a `description` over 200 characters, naming its length
@@ -72,27 +70,14 @@
 #       Segment 1 and a `leaves` entry against the Segment it names; a question left standing that no
 #       entry names, a `takes` entry Segment 1 does not take up and a `leaves` entry a later Segment
 #       explains are each refused naming the Segment or the entry, the refusal reaching the
-#       Extractor's next Round; the call's input is the four kinds with their definitions, the
-#       Segments' `operation` and `relation` and the two lists, and its prompt carries no `passage`,
+#       Extractor's next Round; the call's input is the four kinds with their definitions, each
+#       Segment's `content` clause and the two lists (kogaki#1926), and its prompt carries no `passage`,
 #       `earlier_paragraphs`, `reader_state_before` or `subject_nouns` key.
 #   (i) the constraints on the record and in the call's answer (kogaki#1698): the record refuses a
 #       kind outside the four naming it, a `what` naming a subject noun, a `takes` entry carrying
 #       `segment`, a `leaves` entry naming a Segment the paragraph lacks and a missing `takes`; the
 #       answer is refused by name for a missing or undeclared key, a kind outside the four, a `why`
-#       over twelve words, `supported` not a boolean and lists not repeating the input's, and, where
-#       the lists were to be derived, for an unsupported entry or a non-empty `unnamed`.
-#   (l) the library's constraints, derived (kogaki#1698): `rejudge --constraints --library <dir>`
-#       over two fixture records hands the call each record's Segments and `obligation` with no
-#       list and no `before` or `after`, changes no record without `--write`, and with it appends both
-#       lists, every other line byte-identical, an obligation's question becoming a `leaves` entry of
-#       kind `answer`; the records load; each run is recorded as `rejudge-<timestamp>` under the
-#       `move-extraction-playground` lane of the `--runs-root` it passed and never beside the library (kogaki#1754);
-#       a second run replaces the lists in place; a fourth run prunes the oldest, leaving three.
-#   (m2) the obligation retired from the library (kogaki#1701): `rejudge --constraints --write
-#       --retire-obligation` over a fixture library carrying `obligation` and `obligation_triggers`
-#       leaves no record carrying either, every record loading in the Adapter and the obligation's
-#       question carried as a `leaves` entry; `--retire-obligation` without `--write` is refused as
-#       usage. (l)'s record still carrying `obligation` after a plain `--write` is refused naming it.
+#       over twelve words, `supported` not a boolean and lists not repeating the input's.
 #   (j) the retired keys (kogaki#1583): a record carrying `discharges` or `obligation_content` is
 #       refused as an undeclared key, the extraction call's answer carrying `obligation` or
 #       `obligation_triggers` is refused as retired (kogaki#1698), and FORMAT carries rule 8 and the
@@ -108,10 +93,6 @@
 #       Segment, a `why` of at most twelve words, an unbound verdict quoting a phrase of its clause --
 #       is refused by name, as is the extraction call's answer carrying `content_bound`; and the sheet's
 #       Segments table shows an unbound verdict's reason beside its content cell, and nothing for a bound one.
-#   (m) the state retired from the library (kogaki#1699): `rejudge --constraints --write
-#       --retire-state` over a fixture library carrying `before`, `after` and `after_segment` leaves no
-#       record carrying any of the three, every record loading in the Adapter; `--retire-state`
-#       without `--write`, and the deleted `rejudge --state`, are refused as usage.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -178,8 +159,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
     segments: p.sentences.map((s, i) => ({
       content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-      operation: "states one consequence of an act the reader did not ask for.",
-      relation: i === 0 ? "" : "widens the step before it",
       manner: !first && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
     takes: first ? [] : [{ kind: "answer", what: "who owns the copy" }],
     leaves: first ? [{ kind: "answer", what: "who owns the copy", segment: 2 }] : [],
@@ -187,7 +166,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
     description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
   };
-  if (first && round === 1) delete record.segments[0].operation;
+  if (first && round === 1) delete record.segments[0].content;
   if (first && round === 2) record.paragraph = String(p.number);
   if (!first && round === 1) record.breaks[0] = "drop the installer — the cost floats";
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
@@ -224,10 +203,8 @@ for (const [i, f] of files.entries()) {
   const segs = Array.isArray(rec.segments) ? rec.segments : [];
   const want = i === 0 ? 2 : 3;
   ok(segs.length === want, `(a) ${f} carries ${segs.length} Segments for ${want} sentences`);
-  ok(segs.every((s) => /^CONTENT-\d-\d names what the copy does\.$/.test(s.content) && /\S/.test(s.operation || "") && s.does === undefined),
-    `(a) a Segment of ${f} lacks the content clause or the operation clause, or carries a \`does\``);
-  ok(segs.every((s, j) => j === 0 ? s.relation === undefined : /\S/.test(s.relation || "")),
-    `(a) a Segment of ${f} carries a relation on Segment 1, or lacks one after it`);
+  ok(segs.every((s) => /^CONTENT-\d-\d names what the copy does\.$/.test(s.content) && Object.keys(s).every((k) => ["opening", "content", "manner"].includes(k))),
+    `(a) a Segment of ${f} lacks the content clause, or carries a key beside \`opening\`, \`content\` and \`manner\` (kogaki#1926)`);
   ok(segs.every((s, j) => (i === 1 && j === 1) ? s.manner === "a brief direct statement, given with no elaboration." : s.manner === undefined),
     `(a) ${f} does not carry a manner exactly where the answer filled one: ${JSON.stringify(segs.map((s) => s.manner))}`);
   ok(Array.isArray(rec.breaks) && rec.breaks.length === 3 && rec.breaks.every((b) => typeof b === "string" && !/^(remove|reorder|extend):/.test(b)),
@@ -236,7 +213,7 @@ for (const [i, f] of files.entries()) {
   ok(rec.technique === undefined && !/^technique:/m.test(t), `(a) ${f} carries the retired \`technique\` (kogaki#1412)`);
   const md = X.extractionMarkdown(rec);
   ok(!md.includes("## 2. Reader") && ["## Passage", "## Answers", "## 3. The order inside the Passage", "## 5. Where it would break"].every((h) => md.includes(`\n${h}\n`))
-    && md.includes(`operation: ${segs[0] && segs[0].operation}`)
+    && md.includes(`— ${segs[0] && segs[0].content}`)
     && (i === 0 || md.includes("manner: a brief direct statement, given with no elaboration.")), `(a) ${f}'s record does not render to Markdown for reading`);
 }
 
@@ -386,17 +363,15 @@ if len(good["segments"]) != len(base["segments"]):
 def variant(edit):
     rec = json.loads(json.dumps(base))
     if len(rec["segments"]) < 2:
-        rec["segments"].append({"content": "c", "operation": "it widens the claim", "relation": "it extends it"})
+        rec["segments"].append({"content": "c"})
     edit(rec)
     return rec
 def label(rec): rec["segments"][1]["function"] = "opens"
-def no_operation(rec): rec["segments"][1]["operation"] = ""
-def no_relation(rec): rec["segments"][1].pop("relation", None)
-def first_relation(rec): rec["segments"][0]["relation"] = "takes up the previous paragraph"
+def old_operation(rec): rec["segments"][1]["operation"] = "it widens the claim"
+def old_relation(rec): rec["segments"][1]["relation"] = "it extends it"
 for edit, words in ((label, ("Segment 2 carries %sfunction%s" % (BT, BT), "cannot be read as a Segment")),
-                    (no_operation, ("condition adapter", "Segment 2 carries no one-line %soperation%s" % (BT, BT))),
-                    (no_relation, ("condition adapter", "Segment 2 carries no one-line %srelation%s" % (BT, BT))),
-                    (first_relation, ("condition adapter", "Segment 1 carries a %srelation%s" % (BT, BT)))):
+                    (old_operation, ("Segment 2 carries %soperation%s" % (BT, BT), "cannot be read as a Segment")),
+                    (old_relation, ("Segment 2 carries %srelation%s" % (BT, BT), "cannot be read as a Segment"))):
     path = os.path.join(tmp, "%s.yaml" % edit.__name__)
     with open(path, "w") as h:
         h.write(m.yaml_write(variant(edit)))
@@ -446,7 +421,7 @@ else {
   ok(existsSync(join(p1, "reader-path-unit-p1.stdout")), "(c) the supervisor's raw answers for p1 are not in the run directory");
   const a1 = existsSync(join(p1, "rounds.json")) ? JSON.parse(readFileSync(join(p1, "rounds.json"), "utf8")) : {};
   ok(a1.rounds === 3, `(c) p1/rounds.json records ${a1.rounds} round(s), not 3`);
-  ok(Array.isArray(a1.refusals) && a1.refusals.length === 2 && /Segment 1 carries no `operation`/.test(a1.refusals[0])
+  ok(Array.isArray(a1.refusals) && a1.refusals.length === 2 && /Segment 1 carries no `content`/.test(a1.refusals[0])
     && /names paragraph "1", not 1/.test(a1.refusals[1]),
     `(c) p1/rounds.json does not record both refusals in order: ${JSON.stringify(a1.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
@@ -464,17 +439,16 @@ else {
   // rule 7's mechanical half (kogaki#1440): a subject noun in a `breaks` test is refused naming the test
   ok(Array.isArray(a2.refusals) && a2.refusals.length === 1 && /`breaks` test 1 names "installer", one of your subject_nouns/.test(a2.refusals[0]),
     `(c) a subject noun in a \`breaks\` test was not refused naming the test: ${JSON.stringify(a2.refusals)}`);
-  // rule 7's sentences reach the Extractor in its rendered instruction
+  // rule 7's sentence reaches the Extractor in its rendered instruction
   const instruction = prompt.slice(0, prompt.indexOf("# Extraction: the interaction contract"));
   for (const sentence of [
-    "Segment 1's `operation` carries no reference to any earlier step or earlier paragraph.",
-    "A later Segment's `operation` is the operation alone, and its `relation` carries the connection to the step before.",
+    "The whole record is general: every prose field of it, `manner` and each entry of `breaks`, names no term, place, person or claim of the original, none of `subject_nouns`, and no word in the original's language; the record's `content` clause and `opening` are the only fields bound to the source.",
   ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
   // rule 9 (kogaki#1478): the read-aloud test reaches the Extractor in FORMAT's own words, so neither copy can drift
   const formatText = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").replace(/\s+/g, " ");
   for (const sentence of [
-    "`operation`, `content`, `relation` and `manner` describe what the sentence does when read aloud.",
-    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `operation`, `content`, `relation` or `manner`.",
+    "`content` and `manner` describe what the sentence does when read aloud.",
+    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `content` or `manner`.",
     "\"Introduces a bolded term\" fails the test; \"introduces a term\" passes it.",
   ]) {
     ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 9's read-aloud test: ${sentence}`);
@@ -500,7 +474,7 @@ const persona = { reader: "a developer", prior_knowledge: "none" };
 const input = X.extractionUnitInput({ passage: "s", paragraphs: [P1, P2], index: 1, namesTaken: [], persona });
 const good = () => ({ version: "1", paragraph: 2, source: "not given", prior_text: "assumed", language: "English", subject_nouns: ["installer"],
   answers: { q1: "a", q2: "b", q3: "c" }, what_it_does: "x by taking up the last point",
-  segments: [1, 2, 3].map((_, i) => ({ content: "c", operation: "states one consequence plainly", relation: i === 0 ? "" : "r", manner: "" })),
+  segments: [1, 2, 3].map(() => ({ content: "c", manner: "" })),
   takes: [], leaves: [], why_this_order: "w", presupposes: "p", breaks: ["a change — a loss"], description: "d", name: "n_m", notes: "" });
 ok(!X.validateExtractionUnit(good(), input).error, `(f) the validator refused a good record: ${X.validateExtractionUnit(good(), input).error}`);
 // the reader table is retired (kogaki#1699): an answer carrying `reader` is an undeclared key.
@@ -508,36 +482,29 @@ const m1 = good(); m1.reader = [{ dimension: "knowledge", before: "b", after: "a
 ok(/carries `reader`, which it does not declare/.test(X.validateExtractionUnit(m1, input).error || ""), `(e) a record carrying the retired \`reader\` was not refused: ${X.validateExtractionUnit(m1, input).error}`);
 const m2 = good(); m2.segments.pop();
 ok(/one Segment per sentence/.test(X.validateExtractionUnit(m2, input).error || ""), "(f) a Segment count other than the sentence count was not refused");
-const m3 = good(); m3.segments[1].operation = "the installer copies";
-ok(/Segment 2: the `operation` clause names "installer"/.test(X.validateExtractionUnit(m3, input).error || ""), "(f) an operation clause naming a subject noun was not refused");
-
-// rule 5 (kogaki#1510): Segment 1 carries no `relation`, on a paragraph with earlier text too --
-// `good()` is paragraph 2 and validates with none; one carrying a relation is refused.
-ok(input.earlier_paragraphs.length === 1, "(f) the validator's input is not a paragraph with earlier text");
-const m4 = good(); m4.segments[0].relation = "takes up the previous paragraph's last point";
-ok(/Segment 1: carries a `relation` — Segment 1 carries none/.test(X.validateExtractionUnit(m4, input).error || ""), "(f) a Segment 1 relation on a paragraph with earlier text was not refused (rule 5)");
-const m4b = good(); m4b.segments[2].relation = "";
-ok(/Segment 3: the `relation` clause is empty/.test(X.validateExtractionUnit(m4b, input).error || ""), "(f) an empty relation on a later Segment was not refused");
+// THE TWO RETIRED PROSE KEYS (kogaki#1926): a Segment carrying either is refused as a key it does not declare.
+const m3 = good(); m3.segments[1].operation = "states one consequence plainly";
+ok(/Segment 2 carries `operation`, which it does not declare/.test(X.validateExtractionUnit(m3, input).error || ""), "(f) a Segment carrying an operation clause was not refused");
+const m4 = good(); m4.segments[2].relation = "widens the step before it";
+ok(/Segment 3 carries `relation`, which it does not declare/.test(X.validateExtractionUnit(m4, input).error || ""), "(f) a Segment carrying a relation clause was not refused");
 const m4c = good(); m4c.breaks = { remove: "r", reorder: "o", extend: "e" };
 ok(/`breaks` is not a list of prose tests/.test(X.validateExtractionUnit(m4c, input).error || ""), "(f) keyed breaks were not refused as not a list of prose tests");
 const m4d = good(); m4d.answers.q4 = "d";
 ok(/`answers` carries `q4`/.test(X.validateExtractionUnit(m4d, input).error || ""), "(f) an answer for the retired Q4 was not refused");
 
 // THE MANNER (kogaki#1510): filled on one Segment and empty on the rest validates; a manner
-// restating the operation, or naming a subject noun, is refused naming the Segment.
+// naming a subject noun is refused naming the Segment.
 const m4h = good(); m4h.segments[1].manner = "a brief direct statement, given with no elaboration.";
 ok(!X.validateExtractionUnit(m4h, input).error, `(f) a manner filled on one Segment was refused: ${X.validateExtractionUnit(m4h, input).error}`);
-const m4i = good(); m4i.segments[1].manner = "states the consequence plainly";
-ok(/Segment 2: the `manner` clause restates the `operation`/.test(X.validateExtractionUnit(m4i, input).error || ""), "(f) a manner restating the operation was not refused naming the Segment");
 const m4j = good(); m4j.segments[2].manner = "quotes the installer verbatim";
 ok(/Segment 3: the `manner` clause names "installer"/.test(X.validateExtractionUnit(m4j, input).error || ""), "(f) a manner naming a subject noun was not refused naming the Segment");
 // THE WHOLE MOVE IS GENERAL (kogaki#1519): a subject noun or a word in the original's language
-// is refused in a `breaks` test and a `relation` as in `operation` and
-// `manner`, each naming the field; `content` is bound to the source and may name the subject.
+// is refused in a `breaks` test as in `manner`, each naming the field; `content` is bound to the
+// source and may name the subject.
 const m4l = good(); m4l.breaks = ["a change — a loss", "name the installer's version — the step binds one subject"];
 ok(/`breaks` test 2 names "installer", one of your subject_nouns/.test(X.validateExtractionUnit(m4l, input).error || ""), "(f) a break naming a subject noun was not refused naming the break");
-const m4n = good(); m4n.segments[1].relation = "adds a point with また";
-ok(/Segment 2: the `relation` clause carries "また", a word outside the Latin script/.test(X.validateExtractionUnit(m4n, input).error || ""), "(f) a relation carrying また was not refused naming the Segment");
+const m4n = good(); m4n.segments[1].manner = "adds a point with また";
+ok(/Segment 2: the `manner` clause carries "また", a word outside the Latin script/.test(X.validateExtractionUnit(m4n, input).error || ""), "(f) a manner carrying また was not refused naming the Segment");
 const m4o = good(); m4o.breaks = ["drop 「なぜなら」 — the reason reads as a claim"];
 ok(/`breaks` test 1 carries "「なぜなら」"/.test(X.validateExtractionUnit(m4o, input).error || ""), "(f) a break built on a source-language word was not refused naming the break");
 const m4p = good(); m4p.segments[0].content = "says the installer owns the copy";
@@ -583,8 +550,8 @@ const e5 = X.validateExtractionUnit(m5, input).error || "";
 ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record broken on two fields at once did not name both: ${e5}`);
 
 // (h) THE CONSTRAINTS, JUDGED AGAINST THE SEGMENTS (kogaki#1698): a fourth call per paragraph whose
-// input is the four kinds, the record's Segments and its `takes` and `leaves`. The fake judge
-// supports a `takes` entry where Segment 1's operation defines or answers, a `leaves` entry where
+// input is the four kinds, each Segment's `content` clause and the record's `takes` and `leaves`. The fake judge
+// supports a `takes` entry where Segment 1's clause defines or answers, a `leaves` entry where
 // the Segment it names poses a question or names a term no later Segment answers or defines, and
 // lists in `unnamed` a question or term left standing that no entry names. Paragraph 1's first
 // answer names nothing in `leaves`, paragraph 3's carries a `takes` entry Segment 1 does not take
@@ -593,12 +560,12 @@ ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record brok
 // is written. The call's rendered prompt carries no `passage`, `earlier_paragraphs`,
 // `reader_state_before` or `subject_nouns` key.
 const H_OPS = {
-  1: [["poses a direct question about what decides a pattern.", ""], ["gives the question one instance.", "grounds the question before it"], ["names the parts that decide it, bare.", "fills the frame the step before set up"]],
-  2: [["defines a term for a recurring pattern.", ""], ["asserts a claim without giving its grounds.", "extends the term defined before it"], ["gives the pattern a label.", "closes on the claim before it"]],
-  3: [["states a general claim.", ""], ["names a term for the claim's cause.", "grounds the claim before it"], ["carries the claim to its consequence.", "runs the claim before it forward"]],
-  4: [["defines a graded quantity.", ""], ["says it again in plain words.", "restates the definition before it"], ["states how the quantity bears on an outcome, naming two opposite ends of its range.", "applies the quantity defined before it"]],
-  5: [["poses a direct question about what decides a pattern.", ""], ["answers the question with one cause.", "answers the question before it"]],
-  6: [["names a term for the claim's cause.", ""], ["defines the term in one sentence.", "gives the meaning of the term before it"]],
+  1: ["poses a direct question about what decides a pattern.", "gives the question one instance.", "names the parts that decide it, bare."],
+  2: ["defines a term for a recurring pattern.", "asserts a claim without giving its grounds.", "gives the pattern a label."],
+  3: ["states a general claim.", "names a term for the claim's cause.", "carries the claim to its consequence."],
+  4: ["defines a graded quantity.", "says it again in plain words.", "states how the quantity bears on an outcome, naming two opposite ends of its range."],
+  5: ["poses a direct question about what decides a pattern.", "answers the question with one cause."],
+  6: ["names a term for the claim's cause.", "defines the term in one sentence."],
 };
 const H_LEG = "Copies drift. One case shows it. Haste and habit decide it.\n\nThe pattern is a lapse. It always spreads. Call it drift.\n\nCopies fail. Call the cause inertia. So the copy stays wrong.\n\nDrift is graded. It is how far a copy strays. Little drift keeps a copy right, and much drift breaks it.\n\nWhy do copies drift? Haste makes them drift.\n\nCall the cause inertia. Inertia is the habit of leaving a thing as it is.\n";
 const QUESTION = "what decides the pattern?", TERM = "the named cause";
@@ -623,9 +590,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (input.kinds) {
     appendFileSync(dir + "/constraints-inputs.jsonl", JSON.stringify(input) + "\\n");
     appendFileSync(dir + "/constraints-prompts.jsonl", JSON.stringify(prompt) + "\\n");
-    const ops = input.segments.map((s) => s.operation);
+    const ops = input.segments.map((s) => s.content);
     const owed = left(ops);
-    if (input.takes === null) return answer({ takes: [], leaves: owed.map((x) => ({ ...x, supported: true, why: "The Segment leaves it standing." })), unnamed: [] });
     const named = (x) => input.leaves.some((y) => y.kind === x.kind && y.segment === x.segment);
     return answer({
       takes: input.takes.map((x) => ({ ...x, supported: /defines|answers/.test(ops[0]), why: /defines|answers/.test(ops[0]) ? "Segment 1 takes it up." : "Segment 1 takes nothing up." })),
@@ -638,12 +604,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const round = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
   writeFileSync(counter, String(round));
   const ops = OPS[p.number];
-  const leaves = p.number === 1 && round === 1 ? [] : p.number === 6 && round === 1 ? [{ kind: "explain", what: ${JSON.stringify(TERM)}, segment: 1 }] : left(ops.map((o) => o[0]));
+  const leaves = p.number === 1 && round === 1 ? [] : p.number === 6 && round === 1 ? [{ kind: "explain", what: ${JSON.stringify(TERM)}, segment: 1 }] : left(ops);
   const takes = p.number === 3 && round === 1 ? [{ kind: "explain", what: "a term an earlier step named" }] : p.number === 4 ? [{ kind: "explain", what: "the quantity just named" }] : [];
   answer({ version: "1", paragraph: p.number, source: "not given", prior_text: "not assumed", language: "English", subject_nouns: ["installer"],
     answers: { q1: "Hands the reader one claim.", q2: "Raises why it holds.", q3: "Attention from a plain claim." },
     what_it_does: "Hands the reader one claim.",
-    segments: ops.map(([operation, relation], i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " is about copies.", operation, relation, manner: "" })),
+    segments: ops.map((o, i) => ({ content: "Clause " + (i + 1) + " " + o, manner: "" })),
     takes, leaves,
     why_this_order: "The claim comes first.", presupposes: "The reader keeps copies.", breaks: ["drop the instance — the claim floats"],
     description: "States a claim, then its parts.", name: "claim_then_parts_" + p.number, notes: "" });
@@ -686,9 +652,9 @@ const hjudge = join(hroot, "fake-judge.mjs");
   const p1Prompt = p1Retry && existsSync(p1Retry) ? JSON.stringify(JSON.parse(readFileSync(p1Retry, "utf8"))) : "";
   ok(p1Prompt.includes("leaves a question no `leaves` entry names"), "(h) paragraph 1's constraints refusal does not reach the Extractor's next round");
   const inputs = existsSync(join(hroot, "constraints-inputs.jsonl")) ? readFileSync(join(hroot, "constraints-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-  ok(inputs.length === 9 && inputs.every((x) => JSON.stringify(Object.keys(x)) === '["kinds","segments","takes","leaves","obligation"]'
-    && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["operation","relation"]') && x.obligation === null),
-    `(h) the constraints calls are not nine, each handed the kinds, the Segments' operation and relation and the two lists alone: ${inputs.length}`);
+  ok(inputs.length === 9 && inputs.every((x) => JSON.stringify(Object.keys(x)) === '["kinds","segments","takes","leaves"]'
+    && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["content"]')),
+    `(h) the constraints calls are not nine, each handed the kinds, the Segments' content clauses and the two lists alone (kogaki#1926): ${inputs.length}`);
   ok(inputs.length && JSON.stringify(inputs[0].kinds) === JSON.stringify(MOVE_CONSTRAINT_KINDS), "(h) the constraints call is not handed the four kinds with their definitions");
   const cprompts = existsSync(join(hroot, "constraints-prompts.jsonl")) ? readFileSync(join(hroot, "constraints-prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   ok(cprompts.length && cprompts.every((t) => t.includes("You are the judge at the Extractor workflow's `constraints_unit` judgment point.")
@@ -700,8 +666,7 @@ const hjudge = join(hroot, "fake-judge.mjs");
 // refuses a `kind` outside the four naming it, a `what` naming a subject noun, a `takes` entry
 // carrying `segment` and a `leaves` entry naming a Segment the paragraph lacks; the call's answer
 // is refused, by name, for a missing key, an undeclared key, a kind outside the four, a `why` over
-// twelve words, `supported` not a boolean, lists that do not repeat the input's, and, where the
-// lists were to be derived, an unsupported entry or a non-empty `unnamed`.
+// twelve words, `supported` not a boolean and lists that do not repeat the input's.
 {
   const err = (edit) => X.validateExtractionUnit({ ...good(), ...edit }, input).error || "";
   ok(err({ leaves: [{ kind: "answer", what: "the posed question", segment: 3 }] }) === "", `(i) a record carrying one \`leaves\` entry was refused: ${err({ leaves: [{ kind: "answer", what: "the posed question", segment: 3 }] })}`);
@@ -714,8 +679,8 @@ const hjudge = join(hroot, "fake-judge.mjs");
     "(i) a leaves entry naming a Segment the paragraph lacks was not refused");
   const { takes: _t, ...noTakes } = good();
   ok(/carries no `takes`/.test(X.validateExtractionUnit(noTakes, input).error || ""), "(i) a record without `takes` was not refused naming it");
-  const judged = { kinds: MOVE_CONSTRAINT_KINDS, segments: [{ operation: "poses a question.", relation: "" }, { operation: "narrows it.", relation: "takes up the question before it" }],
-    takes: [], leaves: [{ kind: "answer", what: "the posed question", segment: 1 }], obligation: null };
+  const judged = { kinds: MOVE_CONSTRAINT_KINDS, segments: [{ content: "poses a question." }, { content: "narrows it." }],
+    takes: [], leaves: [{ kind: "answer", what: "the posed question", segment: 1 }] };
   const v = (why = "Segment 1 poses it and nothing answers it.") => ({ kind: "answer", what: "the posed question", segment: 1, supported: true, why });
   const aerr = (a, inp = judged) => X.validateConstraintsUnit(a, { input: inp, at: "paragraph 1" }).error || "";
   ok(aerr({ takes: [], leaves: [v()], unnamed: [] }) === "", `(i) a well-formed answer was refused: ${aerr({ takes: [], leaves: [v()], unnamed: [] })}`);
@@ -728,138 +693,6 @@ const hjudge = join(hroot, "fake-judge.mjs");
     ["lists not repeating the input", { takes: [], leaves: [{ ...v(), what: "another question" }], unnamed: [] }, /`leaves` does not repeat the input's 1 entr\(ies\) in order/],
   ];
   for (const [label, a, want] of cases) ok(want.test(aerr(a)), `(i) ${label} was not refused by name: ${aerr(a)}`);
-  const derive = { ...judged, takes: null, leaves: null };
-  ok(/judged unsupported in a list you derived/.test(aerr({ takes: [], leaves: [{ ...v(), supported: false }], unnamed: [] }, derive)), "(i) a derived entry judged unsupported was not refused");
-  ok(/`unnamed` is not empty in a list you derived/.test(aerr({ takes: [], leaves: [v()], unnamed: [{ kind: "answer", what: "x", segment: 1, why: "left." }] }, derive)), "(i) a derived answer with unnamed entries was not refused");
-  ok(aerr({ takes: [], leaves: [v()], unnamed: [] }, derive) === "", "(i) a derived answer was refused");
-}
-
-// (l) THE LIBRARY'S CONSTRAINTS, DERIVED (kogaki#1698): `rejudge --constraints --library <dir>`
-// puts each record's Segments and `obligation` through the constraints call with
-// no list given; without `--write` it changes no record, and with it writes both lists onto each
-// record, leaving every other line byte-identical, and the library's own reader loads the result.
-{
-  const lib = join(hroot, "library");
-  mkdirSync(lib, { recursive: true });
-  copyFileSync(join(repo, "moves", "ROLES.json"), join(lib, "ROLES.json"));
-  const recs = {
-    asks: { id: "asks", description: "Poses a question and leaves it.",
-      breaks: ["answer it at once — nothing is left to carry"], obligation: [QUESTION],
-      segments: [{ operation: H_OPS[1][0][0] }, { operation: H_OPS[1][1][0], relation: H_OPS[1][1][1] }] },
-    defines: { id: "defines", description: "Names a term and defines it.",
-      breaks: ["drop the definition — the name is a label"],
-      segments: [{ operation: H_OPS[6][0][0] }, { operation: H_OPS[6][1][0], relation: H_OPS[6][1][1] }] },
-  };
-  const texts = {};
-  for (const [id, r] of Object.entries(recs)) { texts[id] = stringifyYaml(r); writeFileSync(join(lib, `${id}.yaml`), texts[id]); }
-  const runsRoot = join(hroot, "runs");
-  const rj = (args) => spawnSync(process.execPath, ["src/move-extraction-playground/extract.mjs", "rejudge", "--constraints", "--library", lib, "--runs-root", runsRoot, ...args],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
-  const dry = rj([]);
-  ok(dry.status === 0 && /Moves derived: 2; no record was changed/.test(dry.stdout), `(l) the dry re-judge did not derive both Moves: ${dry.stdout}${dry.stderr}`);
-  ok(Object.entries(texts).every(([id, t]) => readFileSync(join(lib, `${id}.yaml`), "utf8") === t), "(l) the re-judge without --write changed a record");
-  const wet = rj(["--write"]);
-  ok(wet.status === 0 && /written: 2/.test(wet.stdout), `(l) the re-judge with --write did not write both Moves: ${wet.stdout}${wet.stderr}`);
-  for (const [id, t] of Object.entries(texts)) {
-    const now = readFileSync(join(lib, `${id}.yaml`), "utf8");
-    ok(now.startsWith(t) && /^takes:/m.test(now.slice(t.length)) && /^leaves:/m.test(now.slice(t.length)),
-      `(l) ${id}'s record was not left byte-identical with takes and leaves appended: ${now}`);
-    // `asks` keeps its `obligation` until `--retire-obligation` cuts it (m2), and the Adapter refuses
-    // it naming the field (kogaki#1701); `defines`, carrying none, loads.
-    const c = validateMoveRecord(parseYaml(now, `${id}.yaml`), lib, `${id}.yaml`);
-    if (id === "asks") ok(/carries the retired `obligation`/.test(c.error || ""), `(l) asks's rewritten record, still carrying \`obligation\`, is not refused naming it: ${c.error || "loaded"}`);
-    else ok(!c.error, `(l) ${id}'s rewritten record does not load: ${c.error}`);
-  }
-  const asks = parseYaml(readFileSync(join(lib, "asks.yaml"), "utf8"), "asks.yaml");
-  ok(JSON.stringify(asks.leaves) === JSON.stringify([{ kind: "answer", what: QUESTION, segment: 1 }]) && JSON.stringify(asks.takes) === "[]",
-    `(l) the obligation's question did not become a \`leaves\` entry of kind answer: ${JSON.stringify([asks.takes, asks.leaves])}`);
-  const inputs = readFileSync(join(hroot, "constraints-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.takes === null);
-  ok(inputs.length === 4 && inputs.some((x) => JSON.stringify(x.obligation) === JSON.stringify([QUESTION]))
-    && inputs.every((x) => !("before" in x) && !("after" in x)),
-    `(l) the re-judge did not hand the call each record's obligation, with no list and no state: ${JSON.stringify(inputs)}`);
-  const lane = join(runsRoot, "move-extraction-playground");
-  const runs = readdirSync(lane).filter((d) => /^rejudge-\d/.test(d)).sort();
-  ok(runs.length === 2 && runs.every((d) => existsSync(join(lane, d, "constraints.json"))),
-    `(l) each re-judge did not record its calls in a rejudge-<timestamp> directory under the move-extraction-playground lane: ${runs}`);
-  ok(new RegExp(`^run directory: ${lane}/rejudge-\\d`, "m").test(wet.stdout), `(l) the re-judge did not name its run directory under the lane: ${wet.stdout}`);
-  const twice = rj(["--write"]);
-  const again = parseYaml(readFileSync(join(lib, "asks.yaml"), "utf8"), "asks.yaml");
-  ok(twice.status === 0 && JSON.stringify(again.leaves) === JSON.stringify(asks.leaves) && (readFileSync(join(lib, "asks.yaml"), "utf8").match(/^leaves:/gm) || []).length === 1,
-    "(l) a second --write run did not replace the two lists in place");
-  const fourth = rj([]);
-  const kept = readdirSync(lane).filter((d) => /^rejudge-\d/.test(d)).sort();
-  ok(fourth.status === 0 && kept.length === 3 && !kept.includes(runs[0]),
-    `(l) a fourth re-judge did not prune the lane to its three newest runs: ${kept}`);
-  ok(![lib, hroot].some((d) => readdirSync(d).some((f) => f.startsWith("rejudge-run-"))), "(l) a re-judge wrote a rejudge-run-* directory beside the library");
-}
-
-// (m) THE STATE RETIRED FROM THE LIBRARY (kogaki#1699): `rejudge --constraints --write --retire-state`
-// writes `takes` and `leaves` onto each record and deletes its `before`, `after` and `after_segment`,
-// so every record it writes loads in the Adapter; `--retire-state` without `--write`, and the
-// deleted `rejudge --state`, are refused as usage.
-{
-  const lib = join(hroot, "retire");
-  mkdirSync(lib, { recursive: true });
-  copyFileSync(join(repo, "moves", "ROLES.json"), join(lib, "ROLES.json"));
-  const segs = [{ operation: H_OPS[1][0][0] }, { operation: H_OPS[1][1][0], relation: H_OPS[1][1][1] }];
-  const recs = {
-    stated: { id: "stated", description: "Poses a question and leaves it.", before: { question: "holds: none." }, after: { question: "asks what decides the pattern." },
-      after_segment: { question: "1" }, breaks: ["answer it at once — nothing is left to carry"], segments: segs },
-    bare: { id: "bare", description: "Poses a question and leaves it.", after: { knowledge: "holds a question." }, breaks: ["drop it — nothing is left"], segments: segs },
-  };
-  for (const [id, r] of Object.entries(recs)) writeFileSync(join(lib, `${id}.yaml`), stringifyYaml(r));
-  const rj = (args) => spawnSync(process.execPath, ["src/move-extraction-playground/extract.mjs", "rejudge", ...args, "--runs-root", join(hroot, "runs")],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
-  const dry = rj(["--constraints", "--library", lib, "--retire-state"]);
-  ok(dry.status !== 0 && /usage:/.test(dry.stderr), `(m) --retire-state without --write was not refused as usage: ${dry.stdout}${dry.stderr}`);
-  const old = rj(["--state", "--library", lib]);
-  ok(old.status !== 0 && /usage:/.test(old.stderr), `(m) the deleted rejudge --state was not refused as usage: ${old.stdout}${old.stderr}`);
-  const wet = rj(["--constraints", "--library", lib, "--write", "--retire-state"]);
-  ok(wet.status === 0 && /written: 2/.test(wet.stdout), `(m) the retiring re-judge did not write both Moves: ${wet.stdout}${wet.stderr}`);
-  for (const id of Object.keys(recs)) {
-    const text = readFileSync(join(lib, `${id}.yaml`), "utf8");
-    const now = parseYaml(text, `${id}.yaml`);
-    ok(!/^(before|after|after_segment):/m.test(text) && ["before", "after", "after_segment"].every((k) => !(k in now)) && Array.isArray(now.takes) && Array.isArray(now.leaves),
-      `(m) ${id} still carries a retired state field, or lacks its lists: ${text}`);
-    const c = validateMoveRecord(now, lib, `${id}.yaml`);
-    ok(!c.error, `(m) ${id}'s retired record does not load: ${c.error}`);
-  }
-}
-
-// (m2) THE OBLIGATION RETIRED FROM THE LIBRARY (kogaki#1701): `rejudge --constraints --write
-// --retire-obligation` writes `takes` and `leaves` onto each record and deletes its `obligation`
-// and `obligation_triggers`, leaving no record carrying either and every record loading in the
-// Adapter, the obligation's question carried as a `leaves` entry; `--retire-obligation` without
-// `--write` is refused as usage.
-{
-  const lib = join(hroot, "retire-obligation");
-  mkdirSync(lib, { recursive: true });
-  copyFileSync(join(repo, "moves", "ROLES.json"), join(lib, "ROLES.json"));
-  const segs = [{ operation: H_OPS[1][0][0] }, { operation: H_OPS[1][1][0], relation: H_OPS[1][1][1] }];
-  const recs = {
-    owed: { id: "owed", description: "Poses a question and leaves it.", breaks: ["answer it at once — nothing is left to carry"], segments: segs,
-      obligation: [QUESTION], obligation_triggers: { question: { fired: true, why: "Segment 1 asks what no later one answers.", segment: 1 } } },
-    plain: { id: "plain", description: "Poses a question and leaves it.", breaks: ["drop it — nothing is left"], segments: segs },
-  };
-  for (const [id, r] of Object.entries(recs)) writeFileSync(join(lib, `${id}.yaml`), stringifyYaml(r));
-  const rj = (args) => spawnSync(process.execPath, ["src/move-extraction-playground/extract.mjs", "rejudge", "--constraints", "--library", lib, "--runs-root", join(hroot, "runs"), ...args],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
-  const dry = rj(["--retire-obligation"]);
-  ok(dry.status !== 0 && /usage:/.test(dry.stderr) && /--retire-obligation/.test(dry.stderr), `(m2) --retire-obligation without --write was not refused as usage: ${dry.stdout}${dry.stderr}`);
-  const wet = rj(["--write", "--retire-obligation"]);
-  ok(wet.status === 0 && /written: 2/.test(wet.stdout), `(m2) the retiring re-judge did not write both Moves: ${wet.stdout}${wet.stderr}`);
-  for (const id of Object.keys(recs)) {
-    const text = readFileSync(join(lib, `${id}.yaml`), "utf8");
-    const now = parseYaml(text, `${id}.yaml`);
-    ok(!/^obligation(_triggers)?:/m.test(text) && !("obligation" in now) && !("obligation_triggers" in now) && Array.isArray(now.takes) && Array.isArray(now.leaves)
-      && now.description === recs[id].description && JSON.stringify(now.segments) === JSON.stringify(recs[id].segments),
-      `(m2) ${id} still carries an obligation key, lacks its lists, or lost another field: ${text}`);
-    const c = validateMoveRecord(now, lib, `${id}.yaml`);
-    ok(!c.error, `(m2) ${id}'s retired record does not load: ${c.error}`);
-  }
-  const owed = parseYaml(readFileSync(join(lib, "owed.yaml"), "utf8"), "owed.yaml");
-  ok(JSON.stringify(owed.leaves) === JSON.stringify([{ kind: "answer", what: QUESTION, segment: 1 }]),
-    `(m2) the retired obligation's question is not carried as a \`leaves\` entry of kind answer: ${JSON.stringify(owed.leaves)}`);
 }
 
 // (j) THE RETIRED KEYS (kogaki#1583): a record carrying `discharges` or `obligation_content` is
@@ -917,9 +750,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     answers: { q1: "Places three powers against one test.", q2: "Raises which powers it binds.", q3: "Attention from a concrete contrast." },
     what_it_does: "Places named powers on either side of one test.",
     segments: [
-      { content: "Some powers meet the dilemma more often than others", operation: "states a general claim.", relation: "", manner: "" },
-      { content: process.env.PSX_ALWAYS || n === 1 ? ${JSON.stringify(BAD)} : ${JSON.stringify(GOOD)},
-        operation: "sorts named cases to either side of the claim.", relation: "gives instances of the claim before it", manner: "" }],
+      { content: "Some powers meet the dilemma more often than others", manner: "" },
+      { content: process.env.PSX_ALWAYS || n === 1 ? ${JSON.stringify(BAD)} : ${JSON.stringify(GOOD)}, manner: "" }],
     takes: [], leaves: [], why_this_order: "The claim comes first.", presupposes: "The reader knows the powers.", breaks: ["drop the instances — the claim floats"],
     description: "States a claim, then sorts named cases by it.", name: "sort_cases_by_a_claim", notes: "" });
 });

@@ -145,7 +145,7 @@ figure:
 Present only when the Passage refers to a figure the article shows. Follow
 `passages/FIGURE.md` to recover the figure's **structure** — its `kind` and
 the **positions** (roles) it has — and write one line per role into the
-Move's own vocabulary, exactly as its Segments' `does` clauses would name it. `relations`
+Move's own vocabulary. `relations`
 states in one line what holds between the positions. **Never the figure's
 content**: no printed label, no data value, nothing that names this
 article's own subject inside a role's line beyond what makes the role
@@ -164,16 +164,16 @@ refused naming its length. In
 `tools/move_ingest.py`'s `passage` mode, once the model's record is admitted,
 the tool reads the Extraction record beside the Passage and copies its
 `segments` into the record's own `segments`, entry for entry, in the same
-order: one map per Segment, carrying its `does` and, on every Segment after
-the first, its `relation` to the one before — the
+order: one map per Segment, carrying its `manner` where the Extraction
+fills one (kogaki#1926) — the
 quoted opening words stay in the Extraction and are not copied, since they
 locate a Segment in the Passage and `segments` does not carry the Passage,
 and the content clause stays in the Extraction too, since it is written
-about the original and `segments` carries only the generalized clause.
+about the original.
 
 A record is refused, naming `segments`, where the Extraction carries no
-`segments` for the tool to copy it from, where an Extraction Segment carries no
-`does`, naming that Segment's number,
+`segments` for the tool to copy it from, where an Extraction Segment carries a
+key other than `opening`, `content` and `manner`, naming that Segment's number,
 or where the model's own record already carried a `segments` value that
 disagrees with the copy — the model is never asked to write or reorder
 Segments, so a value it supplied anyway is a defect, not an alternative to

@@ -11,7 +11,7 @@ from .library import (
     Proposal, merge_into, save_accepted,
 )
 from .passage import (
-    WORD, _cell, near_duplicates, read_saved_segments, render_passage_screen,
+    WORD, _cell, render_passage_screen,
 )
 
 
@@ -155,29 +155,24 @@ def check_extraction_split_note(record, line_no=None):
 # kogaki#1413, kogaki#1414).
 # --------------------------------------------------------------------------
 #
-# Each Segment map carries `opening`, `content`, the subject-free `operation`
-# (`does` until kogaki#1510), after the first `relation` in prose, and, where
-# the Extractor found a technique the two cannot name, `manner`; no label set is
-# read (kogaki#1414). `opening` and `content` are for the owner's reading and
-# are not copied. Segment 1 carries no `relation` (kogaki#1510); one that does is
-# copied as it stands, and the Adapter refuses it, since a Move carries no
-# relation to what precedes it (kogaki#1411).
+# Each Segment map carries `opening`, `content` and, where the Extractor found a
+# local technique, `manner` (kogaki#1926); no label set is read (kogaki#1414).
+# `opening` and `content` are for the owner's reading and are not copied.
 
 # AN ENTRY IS READ AS A SEGMENT OR REFUSED, NEVER DROPPED (kogaki#1416). Every
 # entry of `segments` is copied into the Move, in order, so the Move never
 # carries fewer Segments than the Extraction lists. An entry carrying a key
 # outside SEGMENT_ENTRY_KEYS is refused by name rather than read in part; whether
-# the copied `operation`, `relation` and `manner` are a Segment is the Adapter's question
+# the copied `manner` is a Segment is the Adapter's question
 # (`validateMoveRecord`, reached through `validate_move`, kogaki#1418), asked
 # once, so the ingest carries no second reading of the Segment's shape.
-SEGMENT_ENTRY_KEYS = ("opening", "content", "operation", "relation", "manner")
+SEGMENT_ENTRY_KEYS = ("opening", "content", "manner")
 
 
 def extraction_segments(record, line_no=None):
     """The ordered Segments of the Extraction's `segments` as the Move's own
-    `segments` value: `[{"operation": ...}, {"operation": ..., "relation":
-    ...}, ...]`, one per entry, each carrying `manner` where the entry fills
-    one. Returns `None` where there is no record or it carries no
+    `segments` value: one map per entry, empty unless the entry fills
+    `manner`. Returns `None` where there is no record or it carries no
     `segments`, and raises `Refusal` naming the entry where it is not a map
     or carries a key a Segment entry does not."""
     entries = (record or {}).get("segments")
@@ -200,9 +195,7 @@ def extraction_segments(record, line_no=None):
                 % (number, unknown[0], ", ".join("`%s`" % k for k in SEGMENT_ENTRY_KEYS)),
                 line_no=line_no,
             )
-        segment = {"operation": _cell(entry.get("operation"))}
-        if index > 0 or _cell(entry.get("relation")):
-            segment["relation"] = _cell(entry.get("relation"))
+        segment = {}
         if _cell(entry.get("manner")):
             segment["manner"] = _cell(entry.get("manner"))
         segments.append(segment)
@@ -337,14 +330,7 @@ def run_from_extraction(extraction_paths, moves_dir, out_dir, select=None):
         _text, record = read_extraction(path)
         proposals.append(derive_from_extraction(record))
 
-    saved_rows = read_saved_segments(moves_dir)
-    screens = []
-    for proposal in proposals:
-        duplicates = []
-        if proposal.admitted:
-            duplicates = near_duplicates(proposal.mapping.get("segments"),
-                                          saved_rows)
-        screens.append(render_passage_screen(proposal, duplicates))
+    screens = [render_passage_screen(proposal) for proposal in proposals]
 
     os.makedirs(out_dir, exist_ok=True)
     screen_path = os.path.join(os.path.abspath(out_dir), "PassageScreen.md")

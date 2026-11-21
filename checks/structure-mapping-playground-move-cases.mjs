@@ -78,11 +78,7 @@ writeFileSync(
     takes: [],
     leaves: [],
     breaks: ["breaks if the point is dropped."],
-    segments: [
-      { operation: "names the two parts." },
-      { operation: "sets the third part beside them.", relation: "follows from the step before." },
-      { operation: "states what the two relations make together.", relation: "follows from the step before." },
-    ],
+    segments: [{}, {}, {}],
   }),
 );
 

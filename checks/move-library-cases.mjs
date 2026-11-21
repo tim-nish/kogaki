@@ -42,11 +42,7 @@ const BARE = {
   before: { knowledge: "before.", question: "holds: none." },
   after: { knowledge: "after." },
   breaks: ["breaks if the point is dropped."],
-  segments: [
-    { operation: "states the point once, plainly." },
-    { operation: "gives its reason.", relation: "gives the reason for the Segment before it" },
-    { operation: "frames what follows.", relation: "sets the frame after the reason" },
-  ],
+  segments: [{}, {}, {}],
   takes: [],
   leaves: [],
 };
@@ -91,8 +87,8 @@ ok(
   `(c10e) an Edge that points to its own Segment is not refused naming the Segment: ${refusal(second([{ sense: "Cause.Reason", to: [2] }]))}`,
 );
 
-// (c10g) a Segment that carries `bind` and `edges` beside one of the two older prose fields is refused naming the
-// Segment and the field (kogaki#1922).
+// (c10g) a Segment that carries one of the two retired prose fields is refused naming the Segment and the field
+// (kogaki#1926).
 for (const [k, n] of [
   ["operation", 1],
   ["relation", 2],
@@ -102,7 +98,7 @@ for (const [k, n] of [
     segments: EDGED.segments.map((s, i) => (i === n - 1 ? { ...s, [k]: "says a thing." } : s)),
   };
   ok(
-    refusal(mixed).includes(`\`segments\` Segment ${n} carries \`${k}\``) && refusal(mixed).includes("kogaki#1922"),
+    refusal(mixed).includes(`\`segments\` Segment ${n} carries \`${k}\``),
     `(c10g) a Segment with bind, edges and ${k} is not refused naming the Segment and the field: ${refusal(mixed)}`,
   );
 }

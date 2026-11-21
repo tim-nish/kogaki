@@ -173,8 +173,7 @@ function stopLine(rec) {
 // THE INGEST: the Extractions, in paragraph order, through `run_from_extraction` with the
 // owner's `accept` recorded, into this run's own library. It is Kogaki's one admission gate
 // for Moves (kogaki#1418): each candidate is validated through the Adapter's own validator
-// (src/move-validate.mjs), so a Move this stage admits is one the production Adapter reads. The library starts empty, so the
-// near-duplicate check has no row to match and each proposal's screen is rendered with none.
+// (src/move-validate.mjs), so a Move this stage admits is one the production Adapter reads.
 // A refusal prints each refused Extraction's line to stderr, which `stopLine` reads (kogaki#1576).
 const INGEST_PY = `
 import json, os, sys
@@ -190,7 +189,7 @@ for p in paths:
     entries.append({"extraction": os.path.basename(p), "admitted": prop.admitted,
                     "move": prop.id if prop.admitted else None,
                     "refusal": None if prop.admitted else str(prop.refusal),
-                    "screen": mi.render_passage_screen(prop, [])})
+                    "screen": mi.render_passage_screen(prop)})
 result = {"entries": entries, "written": []}
 try:
     r = mi.run_from_extraction(paths, moves_dir, out_dir, select="accept")

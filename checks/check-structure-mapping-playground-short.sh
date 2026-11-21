@@ -192,7 +192,7 @@ const library = (() => {
     r.takes = id === INFER ? [{ kind: "carry", what: INFER_TAKES }] : [];
     r.leaves = id === MOVE ? [{ kind: "carry", what: CARRY_WHAT, segment: r.segments.length }]
       : id === PLAIN ? [{ kind: "apply", what: PLAIN_LEAVES, segment: r.segments.length }] : [];
-    // The retired `obligation` (kogaki#1701) is cut, as the owner's `--retire-obligation` run cuts it.
+    // The retired `obligation` (kogaki#1701) is cut: a record carrying it is refused.
     delete r.obligation; delete r.obligation_triggers;
     writeFileSync(join(dir, n), stringifyYaml(r));
   }

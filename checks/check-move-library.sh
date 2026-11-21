@@ -18,11 +18,7 @@
 # WHAT IT ASSERTS, over `moves/` and over fixture libraries on every run:
 #   (a) every `moves/*.yaml` parses as the Brief's YAML reader reads it and is
 #       admitted by the Adapter's validator against `moves/ROLES.json`, and its
-#       `id` is its file stem (the ingest derives the path from the id). Until
-#       the owner's `rejudge --constraints --write` run has given the library
-#       its `takes` and `leaves` (kogaki#1698) -- no record carries `takes` --
-#       each record is validated with both lists set empty, so every other field
-#       is still held, and the fixtures (c9) hold the two lists themselves;
+#       `id` is its file stem (the ingest derives the path from the id);
 #   (b) `moves/INDEX.md` is byte-for-byte what `tools/move_ingest.py`'s own
 #       `write_index` regenerates from the records on disk -- the ingest's
 #       writer, run over a copy, so the two cannot drift into disagreeing.
@@ -87,7 +83,7 @@ const WRITE_INDEX = [
 
 // ONE PREDICATE FOR THE TREE AND THE FIXTURES. `dir` holds a `moves/`
 // library; the result is the list of failure lines, each prefixed `tag`.
-function libraryFailures(dir, tag, unrejudged = false) {
+function libraryFailures(dir, tag) {
   const out = [];
   const lib = join(dir, "moves");
   const records = readdirSync(lib).filter((n) => n.endsWith(".yaml")).sort();
@@ -105,10 +101,7 @@ function libraryFailures(dir, tag, unrejudged = false) {
       out.push(`${tag} ${name}: is not a map of fields`); continue;
     }
     if (record.id !== stem) out.push(`${tag} ${name}: carries id ${JSON.stringify(record.id)}, not its file stem`);
-    // Until the owner's rejudge run, a record is read with both lists empty and without the
-    // retired `obligation` and `obligation_triggers`, which `--retire-obligation` cuts (kogaki#1701).
-    const { obligation, obligation_triggers, ...kept } = record;
-    const r = validateMoveRecord(unrejudged ? { ...kept, takes: [], leaves: [] } : record, lib, name);
+    const r = validateMoveRecord(record, lib, name);
     if (r.error) out.push(`${tag} ${name}: the Adapter refuses it: ${r.error}`);
   }
   // (b) the INDEX is the regeneration of the records on disk.
@@ -147,7 +140,7 @@ const WHOLE = {
   id: "p1", description: "a fixture Move.",
   before: { knowledge: "before.", question: "holds: none." }, after: { knowledge: "after." },
   breaks: ["breaks if the point is dropped."],
-  segments: [{ operation: "states the point once, plainly." }],
+  segments: [{}],
   takes: [], leaves: [],
 };
 
@@ -227,7 +220,7 @@ const WHOLE = {
 // the Move lacks is refused naming the field.
 {
   const d = fixture("after-segment");
-  const two = { ...WHOLE, segments: [{ operation: "states the point once, plainly." }, { operation: "grounds it.", relation: "extends the point before it" }] };
+  const two = { ...WHOLE, segments: [{}, {}] };
   writeRecord(d, "p1.yaml", { ...two, after_segment: { knowledge: "2" } });
   reindex(d);
   const f = libraryFailures(d, "(c8)");
@@ -245,7 +238,7 @@ const WHOLE = {
 // refusals names its field, its entry and, for a kind, the kind.
 {
   const d = fixture("constraints");
-  const two = { ...WHOLE, segments: [{ operation: "poses a question." }, { operation: "narrows it.", relation: "takes up the question before it" }] };
+  const two = { ...WHOLE, segments: [{}, { manner: "a brief direct statement." }] };
   const posed = { ...two, takes: [], leaves: [{ kind: "answer", what: "the posed question", segment: 1 }] };
   writeRecord(d, "p1.yaml", posed);
   reindex(d);
@@ -278,12 +271,7 @@ rmSync(root, { recursive: true, force: true });
 console.log("fixture cases run: 29");
 
 // ---- the committed library ----
-const unrejudged = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml"))
-  .every((n) => !/^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")));
-if (unrejudged) console.log("moves/: no record carries `takes` yet -- each is validated with both lists empty until the owner's rejudge --constraints --write run (kogaki#1698)");
-const carrying = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml") && /^obligation(_triggers)?:/m.test(readFileSync(join(repo, "moves", n), "utf8")));
-if (unrejudged && carrying.length) console.log(`moves/: ${carrying.join(", ")} still carr${carrying.length === 1 ? "ies" : "y"} the retired \`obligation\`, read without it until the owner's rejudge --constraints --write --retire-obligation run (kogaki#1701)`);
-const real = libraryFailures(repo, "(a/b)", unrejudged);
+const real = libraryFailures(repo, "(a/b)");
 fails.push(...real);
 const count = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml")).length;
 console.log(`moves/: ${count} record(s) read, INDEX.md compared`);
