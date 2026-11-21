@@ -30,9 +30,9 @@ import {
 // THE PLAN BLOCK (kogaki#1859, kogaki#1865, kogaki#1901): `rows`, the Leg's structure as `legRows` reads it at the
 // Leg's `relation` in the Brief's `structure`, then the symbols of its CentralClaim and of its Arguments, and one part
 // per Segment where the Leg carries `segments` -- each `{ bind, edges }`, `bind` naming entry k of `legSentences`. A
-// part carries `bound`, the symbol of that entry, `stands`, the Senses file's texts toward each part its Edges point
-// to, each ending in its rationale, and `pointed`, the later parts whose Edges point to it; no Sense name is handed
-// on. `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
+// part carries `bound`, the symbol of that entry, `stands`, one text of the Senses file for each Edge, toward the
+// parts that Edge names taken together and ending in its rationale, and `pointed`, the later parts whose Edges point
+// to it; no Sense name is handed on. `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
 // names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
@@ -52,18 +52,21 @@ export function planValues(structure, leg) {
     .find((e) => e.sense !== null && e.sense !== undefined && !names.has(e.sense));
   if (unknown)
     return { error: `the text of the Sense ${JSON.stringify(unknown.sense)}, which ${SENSES_FILE} does not hold` };
-  const standsOf = (e) =>
-    e.to.flatMap((to) => {
-      const n = e.sense === null || e.sense === undefined ? null : names.get(e.sense);
-      return [
-        ...(n ? [{ to, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}), rationale: n.rationale }] : []),
-        ...(e.hypophora ? [{ to, meaning: hypophora.meaning, rationale: hypophora.rationale }] : []),
-      ];
-    });
+  const standsOf = (e) => {
+    const to = [...e.to].sort((a, b) => a - b);
+    const parts = { to, parts: listOf(to.map((number) => ({ number }))), ...(to.length > 1 ? { together: true } : {}) };
+    const n = e.sense === null || e.sense === undefined ? null : names.get(e.sense);
+    return [
+      ...(n ? [{ ...parts, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}), rationale: n.rationale }] : []),
+      ...(e.hypophora ? [{ ...parts, meaning: hypophora.meaning, rationale: hypophora.rationale }] : []),
+    ];
+  };
   const stands = segs.map((g) => (g.edges || []).flatMap(standsOf));
   const segments = segs.map((g, i) => {
     const b = Number.isInteger(g.bind) ? sentences[g.bind - 1] : null;
-    const pointed = stands.flatMap((st, k) => (k > i && st.some((x) => x.to === i + 1) ? [{ number: k + 1 }] : []));
+    const pointed = stands.flatMap((st, k) =>
+      k > i && st.some((x) => x.to.includes(i + 1)) ? [{ number: k + 1 }] : [],
+    );
     return {
       number: i + 1,
       ...(b ? { bound: label(b) } : {}),

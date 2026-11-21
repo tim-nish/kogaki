@@ -1749,16 +1749,17 @@ passage headed "How the paragraph uses the structure" says that the reader
 already knows every Argument and that the Writer chooses the paragraph's
 words. No Relation's sentence is written with a Role's name in place of its
 braces. Where the Leg carries `segments` (the short Trial's Brief-Leg
-route, §4.20), it lists one part per Segment, each line opening with
-the symbol its part is about or with `Neither`, and under a plan that Trial
-hands the Writer no claims block. After that opening, for each Edge
-and each earlier part the Edge points to, the line carries `To part <n>:` and
-the text `src/sme/senses.json` holds for the Edge's Sense, its part word's text
-after `Here`, then the `rationale` of that part or, where the part has none, of
-the Sense, which says what the two sentences do for the reader, and, where the
-Edge carries Hypophora, that file's `hypophora` text and its `rationale`
-toward the same part. An Edge that points to two parts is written once for
-each, since each text holds on its own. The line then ends with `Pointed to by`
+route, §4.20), it lists one part per Segment, each line beginning with
+the symbol of the row its part states or with `Neither`, and under a plan that
+Trial hands the Writer no claims block. After that opening, for each Edge, the
+line carries `To part <n>:`, or `To part <n> and part <m> together:` where the
+Edge points to several earlier parts, and the text `src/sme/senses.json` holds
+for the Edge's Sense, its part word's text after `Here`, then the `rationale`
+of that part or, where the part has none, of the Sense, which says what the two
+sentences do for the reader, and, where the Edge carries Hypophora, that file's
+`hypophora` text and its `rationale` toward the same parts. An Edge that points
+to several parts is written once, since those parts together are the sentence
+pointed to. The line then ends with `Pointed to by`
 and the later parts whose Edges point to it. No Sense name, no Move name and no
 Move id stands in the line, and a plan naming a Sense the file does not hold
 yields no Packet, the refusal naming the Sense (kogaki#1901). The plan file is

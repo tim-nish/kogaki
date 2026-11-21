@@ -7,10 +7,8 @@ persona:
 
 register: |
   **Sentences.** Classic register, in full clauses, each with a concrete subject that acts.
-  A term of art is explained where it first appears.
   Sentences that belong together are joined into one, so that a short sentence stands among longer ones.
   A list holds as many items as the content has.
-  A sentence says what a thing is and what it does.
 
   **Paragraphs.** A paragraph's first sentence names in full each thing it refers to.
   Inside a paragraph, reference is free.
