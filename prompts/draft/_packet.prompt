@@ -42,6 +42,8 @@ It begins with the symbol of the row the part states, or with Neither where it s
 A part is one sentence.
 A part about an Argument may instead be a few words inside the sentence of the part next to it.
 A part about an Argument brings it back that briefly.
+A part may point to what the part just before it states with a demonstrative and its name.
+The reader has just read that part, so they know which thing is meant.
 The part about the CentralClaim says how its Arguments stand to each other, and brings each Argument back as briefly as any other part does.
 A part marked Neither works only with what the table holds.
 The table holds everything this paragraph tells the reader.
