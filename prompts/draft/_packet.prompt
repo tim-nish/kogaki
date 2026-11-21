@@ -24,13 +24,9 @@ The paragraph gives the reader the CentralClaim.
 The CentralClaim is how its Arguments stand to each other, and the reader does not have that yet.
 
 The reader already knows every Argument.
-Bring an Argument back in the shortest form by which the reader recognises it.
-A reader who is told again in full what they know stops looking for what is new.
-Two forms do this.
-A short clause gives the Argument as the reason or the condition for what its sentence goes on to say.
-The weight of that sentence then falls on what follows the clause.
-A short noun phrase stands for the whole Argument.
-The sentence can then speak of the Argument as one thing and say something about it.
+Give an Argument only the words the reader needs to tell which known thing is meant: the name of a Role in it, a few words of it, or a word that points back to it.
+A reader told at length what they already know reads less closely, and then misses the CentralClaim.
+The paragraph's words go to the CentralClaim, because it is the one thing the reader does not have.
 
 Write the paragraph in words you choose for this reader.
 The sentences in the table are written to fix the structure exactly, and a reader hears them as a plan.
@@ -42,11 +38,12 @@ A reader takes a second name for a second thing.
 
 ### The parts of the paragraph, in order
 
-Each part is about one sentence.
-A part about an Argument may be as short as a clause of the sentence beside it.
-A line opens with the symbol its part is about, or with Neither where the part is about no row of the table.
-A part about an Argument brings that Argument back in one of the two forms above.
-The part about the CentralClaim says what the CentralClaim's sentence in the table means.
+Each numbered line below is one part.
+It begins with the symbol of the row the part states, or with Neither where it states no row.
+A part is one sentence.
+A part about an Argument may instead be a few words inside the sentence of the part next to it.
+A part about an Argument brings it back that briefly.
+The part about the CentralClaim says how its Arguments stand to each other, and brings each Argument back as briefly as any other part does.
 A part marked Neither works only with what the table holds.
 The table holds everything this paragraph tells the reader.
 A line may say how its part stands to an earlier part.
@@ -55,12 +52,12 @@ The text after the colon speaks of two sentences only, this part and the part na
 In that text, "this sentence" is this part.
 In that text, "the sentence pointed to" is the part named before the colon.
 The text ends by saying what the two sentences do for the reader.
-Where a line names several earlier parts, each text holds on its own for the part it names.
-It says nothing of how those earlier parts stand to each other.
+Where a line names several earlier parts, those parts together are the sentence pointed to.
+Where a line holds several texts, the part is one sentence that fits all of them.
 A part that later parts point to also does what each of their lines says of the sentence pointed to.
 
 {{#each plan.segments}}
-{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To part {{to}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}} {{rationale}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To {{#each parts}}part {{number}}{{#if more}} and {{/if}}{{/each}}{{#if together}} together{{/if}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}} {{rationale}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
 {{/each}}
 {{/if}}
 {{else}}
