@@ -16,7 +16,8 @@ const ok = (cond, msg) => {
 };
 
 // `caught` reaches `lost` and `audits`, and through them three Roles and two Relations. The Role `owner`, the Relation
-// `signs` and the HigherOrderRelation `sealed` are in the structure and are not reached.
+// `signs` and the HigherOrderRelation `sealed` are in the structure and are not reached. `lost` carries a
+// `holds_over_relations` and its row holds that sentence; `caught` carries none and its row holds its `holds`.
 const STRUCTURE = {
   roles: [
     { id: "kit", name: "the kit", context: "The files the installer copies.", attributes: [] },
@@ -36,7 +37,13 @@ const STRUCTURE = {
     { id: "signs", name: "signs", between: ["owner", "ledger"], holds: "{owner} signs {ledger}." },
   ],
   higher_order: [
-    { id: "lost", name: "lost", relates: ["writes", "overwrites"], holds: "An edit to {kit} in {tree} is lost." },
+    {
+      id: "lost",
+      name: "lost",
+      relates: ["writes", "overwrites"],
+      holds: "An edit to {kit} in {tree} is lost.",
+      holds_over_relations: "{overwrites} undoes what {writes} left.",
+    },
     {
       id: "caught",
       name: "caught",
@@ -53,7 +60,7 @@ const ROWS = [
   "| {writes} | writes | Relation | {kit}, {tree} | The installer writes {kit} into {tree}. |",
   "| {overwrites} | overwrites | Relation | {kit}, {tree} | The next run overwrites {kit} in {tree}. |",
   "| {audits} | audits | Relation | {ledger}, {tree} | {ledger} names each file of {tree}. |",
-  "| {lost} | lost | Relation | {writes}, {overwrites} | An edit to {kit} in {tree} is lost. |",
+  "| {lost} | lost | Relation | {writes}, {overwrites} | {overwrites} undoes what {writes} left. |",
   "| {caught} | caught | Relation | {lost}, {audits} | {ledger} shows which edit to {kit} was lost. |",
 ];
 const SEGMENTS = [

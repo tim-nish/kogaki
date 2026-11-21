@@ -1745,7 +1745,11 @@ HigherOrderRelation the Leg's relation reaches, as `legRows` gives them
 (`src/sme/arguments.mjs`): its symbol in braces, its name, its kind, the
 symbols of its Arguments and its sentence with the braces kept. The kind of a
 HigherOrderRelation's row is `Relation`: the Writer's input names one kind of
-relation, and the Arguments column shows which rows each one joins. Two lines then
+relation, and the Arguments column shows which rows each one joins. The
+sentence of a HigherOrderRelation's row is its `holds_over_relations` where it
+carries one and its `holds` where it carries none, which is so for an apex
+composed over a component with several tops and for a Brief stored before the
+field existed. Two lines then
 name the symbol of the CentralClaim and the symbols of its Arguments, and a
 passage headed "How the paragraph uses the structure" says that the reader
 already knows every Argument and that the Writer chooses the paragraph's
@@ -3332,7 +3336,7 @@ claims, with their ids, the `thesis` and the Persona's `reader` and
 prior-knowledge line into one RelationalStructure: `roles`, each `{ id, name,
 context, attributes, claims }`; `relations`, each `{ id, name, between,
 holds, from }`; `higher_order`, a list of one or more `{ id, name, relates,
-holds, from }`; and `attains_thesis`, the id of the one higher-order relation
+holds, holds_over_relations, from }`; and `attains_thesis`, the id of the one higher-order relation
 that states the thesis. `validateReadSet` refuses, naming the item: an
 undeclared or missing key, and a written `reach` or `unreached`; an id out of
 the convention below, and a `name` missing, not one snake_case word, or
@@ -3365,6 +3369,17 @@ relation. A
 connection no claim states is therefore written only as the apex. A
 higher-order relation's `relates` may name higher-order relations, so the
 tower is one connected system under the apex rather than a flat list.
+
+**A higher-order relation carries a second sentence, over the relations it
+relates.** A higher-order relation other than the apex carries
+`holds_over_relations`: one sentence that says how the two it relates stand
+to each other, writing each of the two as `{<id>}` and nothing else in
+braces. The read writes each as `{<name>}` and `mintStructure` rewrites the
+names to ids. `validateReadSet` refuses, naming the relation, one that is
+empty, that writes no `{<id>}` for one of the two, or that writes another
+name in braces. `holds` stays the sentence that is read where no table
+stands: a Leg's `text`, the Thesis of a component with one top, and the
+sentences the Leg Senses reading is handed.
 
 **Reach is computed from the apex, and what it misses is reported, not
 refused** (kogaki#1766). The runner derives, and the Model never writes,
