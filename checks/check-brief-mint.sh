@@ -10,8 +10,7 @@
 #   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
 #        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
 #        (dj) the candidate constraint, single-top apex, depth line and bound (#1773),
-#        and the written apex's sentence over the relations it relates
-#        (checks/brief-mint-apex-cases.mjs).
+#        and the written apex's sentence over relations (fixtures/brief-mint/apex-cases.mjs).
 
 #   (dn) the apex answered by its name with no `id` or `from`, minted c_<n> at
 #        adoption, and no bare minted id on the Thesis gate (kogaki#1772).
@@ -380,7 +379,7 @@ const DJ_STRUCTURE = mintStructure({
     || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || (s1.unconnected || []).length !== 1) {
     fails.push(`(dj) the apex state did not rewrite the over-long Thesis before the gate: ${JSON.stringify(s1.gate && s1.gate.options)}`);
   }
-  fails.push(...(await import("./checks/brief-mint-apex-cases.mjs")).writtenApexCases({ structure: DJ_STRUCTURE, claims: DJ_CLAIMS, connected, k2, written, candidates: c, multi, adoptedMulti, runState: s1 }));
+  fails.push(...(await import("./checks/fixtures/brief-mint/apex-cases.mjs")).writtenApexCases({ structure: DJ_STRUCTURE, claims: DJ_CLAIMS, connected, k2, written, candidates: c, multi, adoptedMulti, runState: s1 }));
   const bad = runApex(long);
   let stopped = null;
   const exit = process.exit;

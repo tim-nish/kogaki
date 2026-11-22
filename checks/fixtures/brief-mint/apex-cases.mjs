@@ -1,9 +1,9 @@
 // Case (dj) of checks/check-brief-mint.sh, over the apex written for a component with several tops (kogaki#1941):
 // the `apex` answer carries `holds_over_relations`, the sentence rides the candidate and the run state to adoption,
 // the adopted apex carries it and the Writer's row for the Leg that states the Thesis shows it. Returns the failures.
-import { validateApex, withApex } from "../src/compose/structure.mjs";
-import { thesisGateOptions } from "../src/brief/candidates.mjs";
-import { legRows } from "../src/sme/arguments.mjs";
+import { validateApex, withApex } from "../../../src/compose/structure.mjs";
+import { thesisGateOptions } from "../../../src/brief/candidates.mjs";
+import { legRows } from "../../../src/sme/arguments.mjs";
 
 export function writtenApexCases({
   structure,
