@@ -28,7 +28,6 @@
         "breaks": "content",
         "segments": "content",
         "description": "content",
-        "segments.manner": "content",
         "takes": "content",
         "leaves": "content"
       }
@@ -41,7 +40,9 @@
         "evidence",
         "before",
         "after",
-        "after_segment"
+        "after_segment",
+        "segments.bind",
+        "segments.edges"
       ]
     },
     "schema_file": "passages/FORMAT.md",
@@ -51,7 +52,7 @@
   },
   "content_bound_unit": {
     "id": "content_bound_unit",
-    "note": "The second call per paragraph, before the constraints call (kogaki#1614, the owner's reading of 2026-10-26). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes, and its input is the paragraph's sentences, each Segment's `content` clause beside its sentence, and `subject_nouns` as the allowed vocabulary, and nothing of the general fields: no `manner`, `breaks` or earlier paragraph. `validateContentBoundUnit` reads the answer back; a Segment judged unbound refuses the Extraction, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. The verdicts are written onto the record as `content_bound`, one entry per Segment. No schema file is rendered: nothing of FORMAT is this call's input.",
+    "note": "The second call per paragraph, before the constraints call (kogaki#1614, the owner's reading of 2026-10-26). `src/move-extraction-playground/extract.mjs` issues it after the paragraph's Extraction record passes, and its input is the paragraph's sentences, each Segment's `content` clause beside its sentence, and `subject_nouns` as the allowed vocabulary, and nothing of the general fields: no `breaks` or earlier paragraph. `validateContentBoundUnit` reads the answer back; a Segment judged unbound refuses the Extraction, and the refusal is put back into the Extractor's next round verbatim, within the Extractor's own round budget. The verdicts are written onto the record as `content_bound`, one entry per Segment. No schema file is rendered: nothing of FORMAT is this call's input.",
     "governing": "passages/FORMAT.md, \"The paragraph unit\", rule 7 (the `content` clause is the one field bound to the source); kogaki#1614",
     "prompt_file": "move-extraction-playground/content-bound-unit"
   },

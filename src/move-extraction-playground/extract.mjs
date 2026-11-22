@@ -104,10 +104,10 @@ export const OBLIGATION_WORDS_MAX = 12;
 // kogaki#1604: the match is the instructing mood, `must` or `should` before the dash.
 export const WORDING =
   /\b(?:must|should)\b[^—]*?\b(?:(?:open|begin|end|close) (?:with|on)|in (?:one|a single) sentence)\b/i;
-// A Segment is its content clause and its `manner`, and `breaks` is a list of prose tests
-// (kogaki#1414): no label set is offered to the model or read back from it. `manner` is empty
-// unless the paragraph shows a local technique at that Segment (kogaki#1510, kogaki#1926).
-const SEGMENT_KEYS = ["content", "manner"];
+// A Segment is its content clause, and `breaks` is a list of prose tests (kogaki#1414): no
+// label set is offered to the model or read back from it. A Segment carries no `manner`
+// (kogaki#1940): an answer carrying one is refused as any undeclared key is.
+const SEGMENT_KEYS = ["content"];
 // The library's id form: the ingest's own `MOVE_ID` (tools/move_ingest.py).
 const MOVE_ID = /^[a-z0-9_]+$/;
 const FLOW = { lane: "brief", label: "Extractor" };
@@ -205,7 +205,6 @@ function extractionRecordSkeleton(input) {
     what_it_does: "<one sentence>",
     segments: p.sentences.map(() => ({
       content: "<one clause, about this paragraph's own content>",
-      manner: "",
     })),
     takes: [
       { kind: "<one of the kinds, or leave the list empty>", what: "<what Segment 1 takes up, one subject-free line>" },
@@ -329,7 +328,7 @@ function nounIn(nouns, text) {
   const lower = String(text).toLowerCase();
   return nouns.find((n) => (/\s/.test(n) ? lower.includes(n) : ws.has(n)));
 }
-// THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- `manner` and each
+// THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- each
 // `breaks` test -- names none of `subject_nouns` and no word in the original's language;
 // `content` is the one field bound to the source. A word in another script is a run of letters outside the Latin script, or of
 // CJK or full-width punctuation, such as 「なぜなら」; dashes and quotes stay common punctuation.
@@ -449,19 +448,6 @@ export function validateExtractionUnit(record, input) {
           (s.content.trim().match(/^[A-Za-z]+/) || [""])[0],
           `${atS}: the \`content\` clause opens on`,
         );
-        if (e2) errors.push(e2);
-      }
-      {
-        const e2 = lineRefusal(s.manner, `${atS}: the \`manner\` clause`, { empty: true });
-        if (e2) errors.push(e2);
-      }
-      for (const k of SEGMENT_KEYS) {
-        if (typeof s[k] === "string" && /—\s*manner:/.test(s[k])) {
-          errors.push(`${atS}: the \`${k}\` clause carries \`— manner:\`; the clauses are separate fields`);
-        }
-      }
-      {
-        const e2 = generalRefusal(nouns, s.manner, `${atS}: the \`manner\` clause`);
         if (e2) errors.push(e2);
       }
     }
@@ -748,7 +734,6 @@ export function extractionRecord(record, input, runRel) {
     segments: record.segments.map((s, i) => ({
       opening: openingWords(p.sentences[i]),
       content: s.content.trim(),
-      ...(s.manner.trim() ? { manner: s.manner.trim() } : {}),
     })),
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
@@ -787,11 +772,7 @@ export function extractionMarkdown(rec) {
     const v = (r.content_bound || [])[i];
     return v && v.bound === false ? ` — not bound: ${line(v.why)}` : "";
   };
-  const segs = (r.segments || []).map(
-    (s, i) =>
-      `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)}` +
-      (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""),
-  );
+  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)}`);
   const splits = (r.split_notes || []).flatMap((n) => [
     `split: ${line(n.note)}`,
     ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : []),

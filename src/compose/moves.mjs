@@ -349,9 +349,9 @@ function figureBlockRefusal(block, at) {
 // The shapes moves/ROLES.json's `shapes` states for the list-valued roles,
 // read back at the Adapter (kogaki#1414, carried in YAML by kogaki#1413):
 // `breaks` a list of one-line prose tests, `segments` a list of maps carrying
-// `bind` and `edges` and, where the Extraction filled one, `manner` (kogaki#1510).
+// `bind` and `edges` and no other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
 // A record the ingest has just written from an Extraction carries no `bind` and no `edges` (kogaki#1926).
-export const SEGMENT_FIELDS = Object.freeze(["manner", "bind", "edges"]);
+export const SEGMENT_FIELDS = Object.freeze(["bind", "edges"]);
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 
@@ -419,8 +419,6 @@ function optionalRoleRefusal(role, field, v, at) {
       const extra = Object.keys(s).find((k) => !SEGMENT_FIELDS.includes(k));
       if (extra)
         return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
-      if (s.manner !== undefined && !oneLine(s.manner))
-        return `${atS} carries a \`manner\` that is not one non-empty line — a Segment with no manner leaves the key out`;
     }
     return bindAndEdgesRefusal(v, at, field);
   }

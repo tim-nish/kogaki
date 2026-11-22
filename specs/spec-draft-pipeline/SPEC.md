@@ -2418,7 +2418,7 @@ CentralClaim, as `legSentences` (`src/sme/arguments.mjs`) gives them. A
 Move library in which every Move file's Segments carry `bind` and `edges`; a
 file without them is refused at `start`, naming it. The setting
 `paragraph_plan.leg_edge_candidates` of `kogaki.settings.json`. No program of
-the stage reads `manner`, `takes`, `leaves` or `breaks`
+the stage reads `takes`, `leaves` or `breaks`
 from a Move file.
 
 **The plan file.** `paragraph-plan.yaml`, beside the Brief, carries `version`

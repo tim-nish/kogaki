@@ -26,10 +26,7 @@ segments:
     edges:
       - sense: Concession.Denier
         to: [1]
-  - manner: >-
-      the reckoning is voiced as the parties' own words rather than described
-      from outside
-    bind: 3
+  - bind: 3
     edges:
       - sense: Cause.Result
         to: [2]

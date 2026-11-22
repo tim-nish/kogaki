@@ -35,7 +35,7 @@
 #   (d) src/SCHEMA-BINDS.md is byte-for-byte `renderView()` of the declarations.
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION: (f1) a judge row reading the Move
-# record with no entry for `segments.manner` fails naming the table and the
+# record with no entry for `segments.bind` fails naming the table and the
 # field, (f2) the same row naming it unread passes, (f3) two rows carrying one
 # sentence one word apart fail naming both rows, (f4) the same two rows
 # carrying it identically pass, (f5) a view missing a line fails.
@@ -376,16 +376,16 @@ const fixture = (name) => {
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 
-// (f1) the kogaki#1446 shape: a judge row reading the Move record, no entry for `manner`.
+// (f1) the kogaki#1446 shape: a judge row reading the Move record, no entry for `bind`.
 {
   const { path, table } = fixture("unbound-segment-key.json");
   const f = bindsFailures(path, table);
-  ok(f.some((l) => l.startsWith(path) && l.includes("move") && l.includes("`segments.manner`")),
-    `(f1) a judge row reading the Move record with no entry for segments.manner fails naming the table and the field: ${f.join(" | ")}`);
+  ok(f.some((l) => l.startsWith(path) && l.includes("move") && l.includes("`segments.bind`")),
+    `(f1) a judge row reading the Move record with no entry for segments.bind fails naming the table and the field: ${f.join(" | ")}`);
   // (f2) the control: the same row naming the field unread passes.
-  table.fixture_judge_unit.binds_unread.move.push("segments.manner");
+  table.fixture_judge_unit.binds_unread.move.push("segments.bind");
   const g = bindsFailures(path, table);
-  ok(g.length === 0, `(f2) the same row naming segments.manner unread passes: ${g.join(" | ")}`);
+  ok(g.length === 0, `(f2) the same row naming segments.bind unread passes: ${g.join(" | ")}`);
 }
 // (f3) one sentence, two rows, one word changed.
 {

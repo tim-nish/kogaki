@@ -42,8 +42,7 @@ segments:
     edges:
       - sense: Concession.Denier
         to: [2]
-  - manner: a brief direct statement, left without support
-    bind: null
+  - bind: null
     edges:
       - sense: Instantiation.Instance
         to: [6]

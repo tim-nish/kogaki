@@ -25,10 +25,9 @@ the Corpus; this file does not extract Moves.
 - **Segment** — one entry of `segments`: a sentence or group of sentences
   that does one thing to the reader. The model draws the boundaries, and
   the human confirms the cut at step 2 before `segments` is written. A
-  Segment carries two fields, both prose: **content**, what the Segment
-  does with the Passage's own content, and **manner**, left out unless the
-  Passage shows a local technique at that Segment (kogaki#1510,
-  kogaki#1926). No field draws on a label set. Earlier forms of this contract gave each Segment a
+  Segment carries one field, prose: **content**, what the Segment
+  does with the Passage's own content (kogaki#1926,
+  kogaki#1940). The field draws on no label set. Earlier forms of this contract gave each Segment a
   function and a relation drawn from two closed label sets; no framework
   this file cites defines either set as a complete classification, nothing branched on the function, and a planner handed
   the two labels without the prose lost what the Segment did (kogaki#1414).
@@ -119,17 +118,17 @@ rule 8 is kogaki#1698's (replacing kogaki#1583's obligation), rule 9 is kogaki#1
    longer carries.)*
 6. *(retired, kogaki#1699: where a reader-table row was credited.)*
 7. **The whole record is written general.** Every prose field of the
-   record, `manner`, each entry of `breaks` and each `what` of `takes` and `leaves`, names no term, place, person or
+   record, each entry of `breaks` and each `what` of `takes` and `leaves`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
 8. **`takes` and `leaves` are the Move's constraints** (kogaki#1698, owner ruling 2026-11-06, replacing the obligation of kogaki#1583 and kogaki#1618). `takes` is what Segment 1 takes up on entry, written as what a predecessor could leave; `leaves` is what the paragraph's Segments leave for a later unit to take up. Each is a list, possibly empty, of `{ kind, what }`, `kind` one of four (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs, each rendered with its definition: `answer` a question raised, to be answered; `explain` a term or item named, to be explained; `carry` a structure given in a base, to be carried onto the subject; `apply` a principle, division or general statement given, to be put to work on a case) and `what` one line written general, as a `breaks` entry is; a `leaves` entry also carries `segment`, the Segment that leaves it. A question the paragraph answers, or a term it explains, in a later Segment of its own is left for nothing. Both are read by judgment, never compared verbatim. After the record passes the content-bound call, a third call (`constraints_unit`) reads each Segment's `content` clause and the record's two lists, and no sentence of the Passage: an entry its Segment does not support, or a question, term, base or principle a Segment leaves that no entry names, refuses the Extraction, and the refusal goes back into the Extractor's next attempt. An empty list is a normal case. `obligation` and `obligation_triggers` are retired from the Extraction: a record carrying either is refused.
-9. **`content` and `manner` describe what the
+9. **`content` describes what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
    breaks or a quotation's marks, is layout: it is recorded in `passage`
-   and nowhere else, never in `content` or `manner`. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
+   and nowhere else, never in `content`. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
    mechanism, one rule covering the class rather than a list of its members.
 10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*
 
@@ -164,7 +163,7 @@ fields; nothing in the copy is judged.
 | Extraction field | Move field |
 |------------------|------------|
 | `name` | `id` |
-| `segments` | `segments` — one entry per Segment, carrying its `manner` where one is filled; never `opening` or `content` |
+| `segments` | `segments` — one entry per Segment, an empty map; never `opening` or `content` |
 | `breaks` | `breaks`, the list of prose tests |
 | `takes` | `takes`, copied unchanged (kogaki#1698) |
 | `leaves` | `leaves`, copied unchanged, each entry with its `segment` (kogaki#1698) |
@@ -179,8 +178,8 @@ fields become no Move field, and no stage after the Extraction reads them
 `segments` is the Move's whole structure, and a Move record carrying
 `technique` is refused by name.
 
-A Move's fields serve two readers (kogaki#1604). A Segment's `manner` and
-the Move's `obligation` shape the
+A Move's fields serve two readers (kogaki#1604). The Move's `obligation`
+shapes the
 structure of the prose the Move produces. `takes` and `leaves` (kogaki#1698)
 are read by judgment, at extraction and by the Composers that move to them,
 for what the Move takes up and leaves; `obligation` is carried until the
@@ -435,7 +434,6 @@ segments:
     content: <what this Segment does with the Passage's own content>
   - opening: <...>
     content: <...>
-    manner: <only where the Passage shows a local technique at this Segment>
 why_this_order: <one sentence>
 presupposes: <two or three lines>
 breaks:
@@ -478,16 +476,8 @@ What each field holds:
 - `segments` — one entry per Segment, in the cut the human confirmed at
   step 2. `opening` is the quoted opening words of that Segment. `content`
   is one clause saying what the Segment does, written about this Passage's
-  own content. `manner` is left
-  out unless the Passage shows a local realisation at that Segment: then
-  it is one clause naming it — a brief direct statement that takes
-  no elaboration, a quotation, a shift of form — never a point, never a
-  reason, and naming no term,
-  place, person or claim of the original. Left out is the normal case. No
-  label set is used for either field. `manner` is written general: it
-  names no term, place, person or claim of
-  the original, none of `subject_nouns`, and no word in the original's
-  language. `content` and `opening` are the only Segment fields bound to the
+  own content. No
+  label set is used for the field. `content` and `opening` are the only Segment fields, both bound to the
   source (kogaki#1519). A Segment carrying any other key is
   refused at ingestion, naming the Segment's number.
 - `why_this_order` — one sentence stating why this order and not another.
@@ -674,7 +664,6 @@ segments:
     content: names the reader's question for them.
   - opening: The biggest reason is the instability of the world
     content: answers it at once.
-    manner: a brief direct statement, given with no elaboration.
   - opening: Throughout history, interest... has repeatedly surged
     content: generalizes the answer so it becomes the book's thesis.
 why_this_order: >-

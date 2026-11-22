@@ -28,8 +28,7 @@ segments:
     edges:
       - sense: MetaDiscourse
         to: [1]
-  - manner: the reply is voiced as a likely guess rather than asserted outright
-    bind: 2
+  - bind: 2
     edges:
       - sense: Condition.Consequent
         to: [2]

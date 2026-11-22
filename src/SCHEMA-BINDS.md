@@ -33,7 +33,8 @@ it does not read, and empty where the stage does not read the schema at all.
 | `after_segment` | unread |
 | `description` | content |
 | `evidence` | unread |
-| `segments.manner` | content |
+| `segments.bind` | unread |
+| `segments.edges` | unread |
 
 - `extraction_unit` is src/move-extraction-playground/extraction-workflow.json `extraction_unit`.
 
