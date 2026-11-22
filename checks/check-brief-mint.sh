@@ -10,7 +10,8 @@
 #   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
 #        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
 #        (dj) the candidate constraint, single-top apex, depth line and bound (#1773),
-#        and the written apex's sentence over the relations it relates.
+#        and the written apex's sentence over the relations it relates
+#        (checks/brief-mint-apex-cases.mjs).
 
 #   (dn) the apex answered by its name with no `id` or `from`, minted c_<n> at
 #        adoption, and no bare minted id on the Thesis gate (kogaki#1772).
@@ -26,7 +27,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { composeBrief, composeThesisCandidates } from "./src/brief.mjs";
 import { classifyHomes, thesisGateOptions, thesisGate } from "./src/brief/candidates.mjs";
-import { componentsOf, partitionComponents, validateApex, withApex, withReach } from "./src/compose/structure.mjs"; import { mintStructure } from "./src/sme/structure.mjs"; import { legRows } from "./src/sme/arguments.mjs";
+import { componentsOf, partitionComponents, validateApex, withApex, withReach } from "./src/compose/structure.mjs"; import { mintStructure } from "./src/sme/structure.mjs";
 import { unreachedCoverage, withThesis } from "./src/brief/candidates.mjs";
 import { GATE_WORK, STATE_WORK, briefThesisWords, homeCollisionReading, thesisBoundRefusal } from "./src/brief/renderers.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
@@ -286,27 +287,12 @@ const DJ_STRUCTURE = mintStructure({
   }
   const k2 = connected.find((k) => k.claims[0] === "L3");
   const written = { component: k2.component, name: "ax_log", relates: [...k2.top], holds: "A log and a clock are both kept for whoever reads them later.", holds_over_relations: "{c_11} holds of the same record {c_12} stamps." };
-  // THE APEX ANSWER CARRIES A SENTENCE OVER THE RELATIONS IT RELATES, each written by its id as the Call's input gives it.
-  const multiTop = connected.filter((k) => k.top.length > 1);
-  const whole = validateApex({ apexes: [written] }, multiTop, DJ_STRUCTURE);
-  if (JSON.stringify(k2.top) !== '["c_11","c_12"]' || whole.text) fails.push(`(dj) an apex answer writing each of its tops c_11 and c_12 in braces was refused: ${JSON.stringify([k2.top, whole])}`);
-  const { holds_over_relations: overTops, ...keyless } = written;
-  for (const [what, apex, want] of [["no `holds_over_relations`", keyless, "its `holds_over_relations` is missing"],
-    ["an empty `holds_over_relations`", { ...written, holds_over_relations: " " }, "its `holds_over_relations` is empty"],
-    ["a `holds_over_relations` that leaves out {c_12}", { ...written, holds_over_relations: "{c_11} holds of the record the clock stamps." }, "its `holds_over_relations` writes no {c_12}, a relation its `relates` names"],
-    ["a `holds_over_relations` that writes {r_4} too", { ...written, holds_over_relations: `${overTops} {r_4} is that record.` }, "its `holds_over_relations` writes {r_4}, which is neither of the two its `relates` names"]]) {
-    const v = validateApex({ apexes: [apex] }, multiTop, DJ_STRUCTURE);
-    if (!v.text || !v.text.includes(`the apex of ${k2.component}: ${want}`)) fails.push(`(dj) an apex answer carrying ${what} was not refused naming the component ${k2.component}: ${JSON.stringify(v)}`);
-  }
   const c = composeThesisCandidates([written], connected, DJ_CLAIMS, DJ_STRUCTURE);
   const single = c.find((x) => x.claims.includes("L1"));
   const multi = c.find((x) => x.claims.includes("L3"));
   if (c.length !== 2 || c[0] !== single) fails.push(`(dj) the candidates are not two, deepest first: ${JSON.stringify(c.map((x) => [x.id, x.depth]))}`);
   if (!single || single.apex.name !== "every_gate_reads_listed" || Object.keys(single.apex).length !== 1 || single.thesis !== "Every gate under check root reads a listed feed.") {
     fails.push(`(dj) the single-top candidate's apex is not its top c_10 with its holds in Role names: ${JSON.stringify(single)}`);
-  }
-  if (!multi || multi.apex.holds_over_relations !== overTops || multi.thesis !== written.holds || /[{}]/.test(thesisGateOptions(c).map((o) => o.label).join(""))) {
-    fails.push(`(dj) the written apex's candidate does not carry its sentence over relations, or the Thesis read at the gate is not its \`holds\`: ${JSON.stringify(multi)}`);
   }
   if (!multi || multi.apex.name !== "ax_log" || multi.depth !== 2 || single.depth !== 2) {
     // both are depth 2: c_10 over c_9, and the written apex over c_11/c_12; a tie keeps the components. order
@@ -329,21 +315,6 @@ const DJ_STRUCTURE = mintStructure({
     fails.push(`(dj) a single-top adoption wrote an apex rather than naming c_10: ${JSON.stringify([adoptedSingle.attains_thesis, adoptedSingle.relations.map((h) => h.id)])}`);
   }
   const adoptedMulti = withApex(DJ_STRUCTURE, multi.apex, DJ_CLAIMS);
-  if (adoptedMulti.attains_thesis !== "c_13" || !adoptedMulti.relations.some((h) => h.id === "c_13" && h.name === "ax_log" && !Object.hasOwn(h, "from"))) {
-    fails.push(`(dj) a multi-top adoption did not carry the written apex: ${JSON.stringify(adoptedMulti.relations.map((h) => h.id))}`);
-  }
-  // THE ADOPTED APEX CARRIES THE SENTENCE OVER RELATIONS, and the Writer's row for the Leg that states the Thesis shows
-  // it. An apex composed before the answer carried the key is adopted without it, and its row shows `holds`.
-  const rowOf = (s) => legRows(s, s.attains_thesis).find((r) => r.symbol === `{${s.attains_thesis}}`);
-  const apexRow = rowOf(adoptedMulti);
-  if (JSON.stringify(adoptedMulti.relations.find((h) => h.id === "c_13")) !== JSON.stringify({ id: "c_13", name: "ax_log", relates: ["c_11", "c_12"], holds: written.holds, holds_over_relations: overTops })
-    || !apexRow || apexRow.sentence !== overTops || apexRow.arguments !== "{c_11}, {c_12}") {
-    fails.push(`(dj) the adopted apex does not carry its sentence over relations, or its row does not show it: ${JSON.stringify([adoptedMulti.relations.at(-1), apexRow])}`);
-  }
-  const earlier = withApex(DJ_STRUCTURE, { name: keyless.name, relates: keyless.relates, holds: keyless.holds }, DJ_CLAIMS);
-  if (Object.hasOwn(earlier.relations.at(-1), "holds_over_relations") || rowOf(earlier).sentence !== written.holds) {
-    fails.push(`(dj) an apex composed with no sentence over relations is not adopted as it stands, its row showing \`holds\`: ${JSON.stringify([earlier.relations.at(-1), rowOf(earlier)])}`);
-  }
   const cov = unreachedCoverage(adoptedSingle);
   const l4 = cov.find((e) => e.strand === "L4");
   const l3 = cov.find((e) => e.strand === "L3");
@@ -409,10 +380,7 @@ const DJ_STRUCTURE = mintStructure({
     || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || (s1.unconnected || []).length !== 1) {
     fails.push(`(dj) the apex state did not rewrite the over-long Thesis before the gate: ${JSON.stringify(s1.gate && s1.gate.options)}`);
   }
-  const t2 = (s1.thesis_candidates || []).find((x) => x.id === multi.id);
-  if (!t2 || t2.apex.holds_over_relations !== overTops || /[{}]/.test(s1.gate.options.map((o) => o.label).join(""))) {
-    fails.push(`(dj) the run state does not carry the written apex's sentence over relations to adoption, or the gate prints it: ${JSON.stringify(t2)}`);
-  }
+  fails.push(...(await import("./checks/brief-mint-apex-cases.mjs")).writtenApexCases({ structure: DJ_STRUCTURE, claims: DJ_CLAIMS, connected, k2, written, candidates: c, multi, adoptedMulti, runState: s1 }));
   const bad = runApex(long);
   let stopped = null;
   const exit = process.exit;
