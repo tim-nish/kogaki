@@ -69,7 +69,7 @@ const fails = [];
     relations: [{ id: "c_1", name: "reads", between: ["r_1", "r_2"], holds: "{r_1} reads {r_2}.", from: "L1" },
       { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" },
       { id: "c_3", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] }],
-  }, { name: "apex", relates: ["c_3"], holds: CLAIM }, CLAIMS);
+  }, { name: "apex", relates: ["c_3"], holds: CLAIM, holds_over_relations: "{c_3} is the whole of what the claim states." }, CLAIMS);
   const calls = join(base, "calls.jsonl");
   const judgeText = (refuseReview) => `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";

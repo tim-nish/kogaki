@@ -13,6 +13,7 @@ import {
   keysRefusal,
   ID_PREFIX,
   ELEMENT_NAME as NAME,
+  overRelationsRefusal,
   relationsAmongRoles as among,
   relationsAmongRelations as over,
 } from "../sme/structure.mjs";
@@ -243,8 +244,11 @@ export const holdsInRoleNames = (structure, holds) => {
 };
 
 // THE APEX RECORD (kogaki#1768), refused `{ group, text }` or `{}`: one apex per component of `components`, each
-// relating exactly that component's `top`, with a `name` no element of the structure or other apex carries and a
-// `holds` that is one sentence. The apex carries no `id`, which the adoption mints, and no `from` (kogaki#1772).
+// relating exactly that component's `top`, with a `name` no element of the structure or other apex carries, a
+// `holds` that is one sentence and a `holds_over_relations` that writes each id of its `relates` in braces and no
+// other (`overRelationsRefusal`; the call's input names relations by id, so the refusal writes ids). The apex carries
+// no `id`, which the adoption mints, and no `from` (kogaki#1772). An apex with no `holds_over_relations` is refused
+// with the sentence's other refusals, naming its component.
 export function validateApex(answer, components, structure) {
   const b = keysRefusal(answer, ["apexes"], "the answer");
   if (b) return shape(b);
@@ -258,7 +262,11 @@ export function validateApex(answer, components, structure) {
       );
     if (isMap(a) && Object.hasOwn(a, "id"))
       return shape(`apexes[${i}] carries \`id\` — the apex's id is minted when it is adopted; write its \`name\``);
-    const ab = keysRefusal(a, ["component", "name", "relates", "holds"], `apexes[${i}]`);
+    const ab = keysRefusal(
+      isMap(a) ? { holds_over_relations: undefined, ...a } : a,
+      ["component", "name", "relates", "holds", "holds_over_relations"],
+      `apexes[${i}]`,
+    );
     if (ab) return shape(ab);
     const k = components.find((c) => c.component === a.component);
     if (!k)
@@ -283,6 +291,10 @@ export function validateApex(answer, components, structure) {
       return shape(
         `the apex of ${a.component}: its \`holds\` carries ${/\{[^}]+\}/.exec(a.holds)[0]} — the apex is the Thesis sentence, written in the claims' own words, never over Role ids`,
       );
+    const over = Object.hasOwn(a, "holds_over_relations")
+      ? overRelationsRefusal(a, new Map(a.relates.map((id) => [id, id])))
+      : "is missing";
+    if (over) return shape(`the apex of ${a.component}: its \`holds_over_relations\` ${over}`);
   }
   const missing = components.find((c) => !seen.has(c.component));
   if (missing)
@@ -293,9 +305,19 @@ export function validateApex(answer, components, structure) {
   return {};
 }
 
+// A COMPOSED APEX AS IT IS CARRIED from the `apex` call's answer to the adopted structure: its `name`, `relates` and
+// `holds`, and its `holds_over_relations` where the answer carries one -- a run state written before the call
+// answered it carries none, and the apex is adopted as it stands.
+export const composedApex = (apex) => ({
+  name: apex.name,
+  relates: [...apex.relates],
+  holds: apex.holds,
+  ...(Object.hasOwn(apex, "holds_over_relations") ? { holds_over_relations: apex.holds_over_relations } : {}),
+});
+
 // THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `relations` under the next `c_<n>` id
-// (kogaki#1772, kogaki#1937) and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived as
-// \`withReach\` derives them.
+// (kogaki#1772, kogaki#1937) with its `holds_over_relations` where it carries one, and named `attains_thesis`, the
+// other apexes discarded, and `reach` and `unreached` derived as \`withReach\` derives them.
 // An apex whose `name` is already a higher-order relation's is a single top (kogaki#1773): it is named
 // `attains_thesis` under the id it already carries and nothing is appended.
 export function withApex(structure, apex, claims) {
@@ -308,7 +330,7 @@ export function withApex(structure, apex, claims) {
   return withReach(
     {
       ...read,
-      relations: [...structure.relations, { id, name: apex.name, relates: [...apex.relates], holds: apex.holds }],
+      relations: [...structure.relations, { id, ...composedApex(apex) }],
       attains_thesis: id,
     },
     claims,

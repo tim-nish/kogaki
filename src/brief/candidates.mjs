@@ -37,7 +37,14 @@ import {
   validateOwnerAnswer,
 } from "../compose.mjs";
 import { resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
-import { componentsOf, depthOf, holdsInRoleNames, partitionComponents, withApex } from "../compose/structure.mjs";
+import {
+  componentsOf,
+  composedApex,
+  depthOf,
+  holdsInRoleNames,
+  partitionComponents,
+  withApex,
+} from "../compose/structure.mjs";
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims } from "./run-state.mjs";
 
@@ -234,7 +241,7 @@ export function composeThesisCandidates(apexes, components, claims, structure) {
         {
           id: `thesis-${k.component}`,
           component: k.component,
-          apex: single ? { name: apex.name } : { name: apex.name, relates: [...apex.relates], holds: apex.holds },
+          apex: single ? { name: apex.name } : composedApex(apex),
           depth: single ? depthOf(structure, apex.id) : 1 + Math.max(0, ...k.top.map((id) => depthOf(structure, id))),
           relation_count: k.relations.filter((id) => amongRoles.has(id)).length,
           claims: [...k.claims],

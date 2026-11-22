@@ -9,7 +9,8 @@
 #        `compose_path` (kogaki#1262, #1328); (cc) no external-authority switch (#1571).
 #   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
 #        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
-#        (dj) the candidate constraint, single-top apex, depth line and bound (#1773).
+#        (dj) the candidate constraint, single-top apex, depth line and bound (#1773),
+#        and the written apex's sentence over relations (fixtures/brief-mint/apex-cases.mjs).
 
 #   (dn) the apex answered by its name with no `id` or `from`, minted c_<n> at
 #        adoption, and no bare minted id on the Thesis gate (kogaki#1772).
@@ -178,7 +179,7 @@ const DD_STRUCTURE = {
     { id: "c_6", name: "goes_stale", relates: ["c_3", "c_4"], holds: "Because {r_3} keeps {r_4}, it serves {r_4} stale.", from: ["L1"] }],
 };
 const DD_HOLDS = ["Guards fail open when nobody feeds them.", "Caches serve stale answers when nobody evicts them."];
-const ddApexes = (ks) => ks.map((k, i) => ({ component: k.component, name: `apex_${i + 1}`, relates: [...k.top], holds: DD_HOLDS[i] }));
+const ddApexes = (ks) => ks.map((k, i) => ({ component: k.component, name: `apex_${i + 1}`, relates: [...k.top], holds: DD_HOLDS[i], holds_over_relations: `{${k.top.join("} and {")}} is all this part says.` }));
 const ddCandidates = () => {
   const ks = componentsOf(DD_STRUCTURE, DD_CLAIMS);
   return composeThesisCandidates([], ks, DD_CLAIMS, DD_STRUCTURE);
@@ -284,7 +285,7 @@ const DJ_STRUCTURE = mintStructure({
     fails.push(`(dj) the components were not split into connected [L1,L2],[L3] and unconnected [L4]: ${JSON.stringify(ks.map((k) => [k.claims, k.relations]))}`);
   }
   const k2 = connected.find((k) => k.claims[0] === "L3");
-  const written = { component: k2.component, name: "ax_log", relates: [...k2.top], holds: "A log and a clock are both kept for whoever reads them later." };
+  const written = { component: k2.component, name: "ax_log", relates: [...k2.top], holds: "A log and a clock are both kept for whoever reads them later.", holds_over_relations: "{c_11} holds of the same record {c_12} stamps." };
   const c = composeThesisCandidates([written], connected, DJ_CLAIMS, DJ_STRUCTURE);
   const single = c.find((x) => x.claims.includes("L1"));
   const multi = c.find((x) => x.claims.includes("L3"));
@@ -313,9 +314,6 @@ const DJ_STRUCTURE = mintStructure({
     fails.push(`(dj) a single-top adoption wrote an apex rather than naming c_10: ${JSON.stringify([adoptedSingle.attains_thesis, adoptedSingle.relations.map((h) => h.id)])}`);
   }
   const adoptedMulti = withApex(DJ_STRUCTURE, multi.apex, DJ_CLAIMS);
-  if (adoptedMulti.attains_thesis !== "c_13" || !adoptedMulti.relations.some((h) => h.id === "c_13" && h.name === "ax_log" && !Object.hasOwn(h, "from"))) {
-    fails.push(`(dj) a multi-top adoption did not carry the written apex: ${JSON.stringify(adoptedMulti.relations.map((h) => h.id))}`);
-  }
   const cov = unreachedCoverage(adoptedSingle);
   const l4 = cov.find((e) => e.strand === "L4");
   const l3 = cov.find((e) => e.strand === "L3");
@@ -381,6 +379,7 @@ const DJ_STRUCTURE = mintStructure({
     || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || (s1.unconnected || []).length !== 1) {
     fails.push(`(dj) the apex state did not rewrite the over-long Thesis before the gate: ${JSON.stringify(s1.gate && s1.gate.options)}`);
   }
+  fails.push(...(await import("./checks/fixtures/brief-mint/apex-cases.mjs")).writtenApexCases({ structure: DJ_STRUCTURE, claims: DJ_CLAIMS, connected, k2, written, candidates: c, multi, adoptedMulti, runState: s1 }));
   const bad = runApex(long);
   let stopped = null;
   const exit = process.exit;
