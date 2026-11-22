@@ -238,7 +238,7 @@ const WHOLE = {
 // refusals names its field, its entry and, for a kind, the kind.
 {
   const d = fixture("constraints");
-  const two = { ...WHOLE, segments: [{}, { manner: "a brief direct statement." }] };
+  const two = { ...WHOLE, segments: [{}, {}] };
   const posed = { ...two, takes: [], leaves: [{ kind: "answer", what: "the posed question", segment: 1 }] };
   writeRecord(d, "p1.yaml", posed);
   reindex(d);

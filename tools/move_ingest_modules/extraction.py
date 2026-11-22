@@ -155,24 +155,24 @@ def check_extraction_split_note(record, line_no=None):
 # kogaki#1413, kogaki#1414).
 # --------------------------------------------------------------------------
 #
-# Each Segment map carries `opening`, `content` and, where the Extractor found a
-# local technique, `manner` (kogaki#1926); no label set is read (kogaki#1414).
+# Each Segment map carries `opening` and `content` and no other key (kogaki#1926,
+# kogaki#1940); no label set is read (kogaki#1414).
 # `opening` and `content` are for the owner's reading and are not copied.
 
 # AN ENTRY IS READ AS A SEGMENT OR REFUSED, NEVER DROPPED (kogaki#1416). Every
 # entry of `segments` is copied into the Move, in order, so the Move never
 # carries fewer Segments than the Extraction lists. An entry carrying a key
 # outside SEGMENT_ENTRY_KEYS is refused by name rather than read in part; whether
-# the copied `manner` is a Segment is the Adapter's question
+# the copied list is a Move's `segments` is the Adapter's question
 # (`validateMoveRecord`, reached through `validate_move`, kogaki#1418), asked
 # once, so the ingest carries no second reading of the Segment's shape.
-SEGMENT_ENTRY_KEYS = ("opening", "content", "manner")
+SEGMENT_ENTRY_KEYS = ("opening", "content")
 
 
 def extraction_segments(record, line_no=None):
     """The ordered Segments of the Extraction's `segments` as the Move's own
-    `segments` value: one map per entry, empty unless the entry fills
-    `manner`. Returns `None` where there is no record or it carries no
+    `segments` value: one empty map per entry (kogaki#1940).
+    Returns `None` where there is no record or it carries no
     `segments`, and raises `Refusal` naming the entry where it is not a map
     or carries a key a Segment entry does not."""
     entries = (record or {}).get("segments")
@@ -195,10 +195,7 @@ def extraction_segments(record, line_no=None):
                 % (number, unknown[0], ", ".join("`%s`" % k for k in SEGMENT_ENTRY_KEYS)),
                 line_no=line_no,
             )
-        segment = {}
-        if _cell(entry.get("manner")):
-            segment["manner"] = _cell(entry.get("manner"))
-        segments.append(segment)
+        segments.append({})
     return segments
 
 

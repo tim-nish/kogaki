@@ -21,8 +21,7 @@ breaks:
 segments:
   - bind: 1
     edges: []
-  - manner: realised as one brief closing statement that takes no elaboration
-    bind: 2
+  - bind: 2
     edges:
       - sense: Cause.Result
         to: [1]

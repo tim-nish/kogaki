@@ -15,7 +15,7 @@
     "text and regenerates src/SCHEMA-BINDS.md from them.",
     "",
     "A field name is the schema's own key; a field inside a list entry is named",
-    "`<list>.<key>`, so a Move Segment's manner is `segments.manner`."
+    "`<list>.<key>`, so a Move Segment's Bind target is `segments.bind`."
   ],
   "holds": {
     "structural": "Constrains order or standing, never stated: the field decides where or whether an output part stands, and its wording never reaches the output.",
@@ -29,7 +29,7 @@
       "fields_from": "the field each role of moves/ROLES.json maps, the fields src/compose.mjs's MOVE_CARRIED_FIELDS lets a Move carry beside them, and each `segments` entry's own keys below",
       "list_fields": {
         "segments": {
-          "keys": ["manner"],
+          "keys": ["bind", "edges"],
           "declared_in": "moves/ROLES.json `shapes.segments`"
         }
       }

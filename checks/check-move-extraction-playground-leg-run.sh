@@ -6,8 +6,8 @@
 #   (a) the run exits 0 with the stages extract:done,ingest:done; every Extractor call went through the recorder
 #       (10 calls, paragraph 1 refused once), each recorded call and answer the binary's own, and no other model
 #       call was made; the run record keeps its shape, its one Leg in `legs`.
-#   (b) the ingest derived one Move per Extraction into the run's own library, a `manner` on paragraph 2's
-#       Segment 2 rides to that Move's Segment alone (kogaki#1510).
+#   (b) the ingest derived one Move per Extraction into the run's own library, and the Move from paragraph 2
+#       carries one empty map per Segment (kogaki#1940).
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
 #   (e) the sheet: one run-conditions line and the three cards of `SHEET_CELLS` (Extraction, Move, Run record) in
 #       order, each with its badge and its four folded parts; no comparison table and no card of a removed stage.
@@ -92,8 +92,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       language: "English", subject_nouns: ["installer", "kit"],
       answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
-      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-        manner: p.number === 2 && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
+      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does." })),
       takes: [], leaves: [], why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       description: "Names an act, then names who pays for it (paragraph " + p.number + ").", name: "name_an_act_then_its_cost_" + p.number, notes: "",
@@ -151,11 +150,10 @@ else {
     `(b) the ingest did not write one Move per Extraction into the run's library: ${JSON.stringify(ingest.written)}`);
   ok(ingest.entries.length === 3 && ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
   ok(existsSync(join(runDir, "moves", "ROLES.json")), "(b) the run's library carries no copy of moves/ROLES.json");
-  // THE MANNER STOPS AT THE MOVE (kogaki#1510, kogaki#1585): paragraph 2's Segment 2 carries one, so its Move does.
-  const MANNER = "a brief direct statement, given with no elaboration.";
+  // NO KEY IS COPIED ONTO A SEGMENT (kogaki#1940): the Move from paragraph 2 carries one empty map per Segment.
   const move2 = parseYaml(readOr(join(runDir, "moves", "name_an_act_then_its_cost_2.yaml"), "id: none\n"), "move2");
-  ok(Array.isArray(move2.segments) && JSON.stringify(move2.segments.map((g) => g.manner ?? null)) === JSON.stringify([null, MANNER]),
-    `(b) the Move ingested from paragraph 2 does not carry its manner on Segment 2 alone: ${JSON.stringify(move2.segments)}`);
+  ok(Array.isArray(move2.segments) && JSON.stringify(move2.segments) === JSON.stringify([{}, {}]),
+    `(b) the Move ingested from paragraph 2 does not carry one empty map per Segment: ${JSON.stringify(move2.segments)}`);
 
   // (e) the sheet: one run-conditions line and the three cards of `SHEET_CELLS` in order --
   // every assertion reads inside the card a property belongs to.

@@ -484,8 +484,8 @@ ok(
   `(i) the writer's stdin does not hold the table of the Leg's structure, the symbols of its CentralClaim and Arguments and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(\| \{|The CentralClaim |Its Arguments |\d+\. )/.test(l)))}`,
 );
 ok(
-  !tWriter.some((l) => l.includes("PW-") || l.includes("*Serves:*") || l.includes("voiced as the parties' own words")),
-  "(i) the writer's stdin carries a Point, a Serves line or a Segment's manner",
+  !tWriter.some((l) => l.includes("PW-") || l.includes("*Serves:*")),
+  "(i) the writer's stdin carries a Point or a Serves line",
 );
 const tGround = ti.seen.find((x) => x.stage === "grounding");
 ok(

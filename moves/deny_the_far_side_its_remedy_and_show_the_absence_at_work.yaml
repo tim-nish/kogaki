@@ -31,8 +31,7 @@ segments:
       - sense: FrameSetting
         to: [1]
         hypophora: true
-  - manner: a brief denial in one clause, set down and left without elaboration
-    bind: 2
+  - bind: 2
     edges:
       - sense: Cause.Reason
         to: [2]

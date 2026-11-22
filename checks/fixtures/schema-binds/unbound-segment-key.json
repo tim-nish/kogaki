@@ -1,8 +1,8 @@
 {
-  "note": "kogaki#1452 fixture: a judge row that reads the Move record and declares every field but `segments.manner` -- the shape of the kogaki#1446 gap, where the judge read one key of a Segment and no rule held it. checks/check-schema-binds.sh asserts this table fails naming the table and the field.",
+  "note": "kogaki#1452 fixture: a judge row that reads the Move record and declares every field but `segments.bind` -- the shape of the kogaki#1446 gap, where the judge read one key of a Segment and no rule held it. checks/check-schema-binds.sh asserts this table fails naming the table and the field.",
   "fixture_judge_unit": {
     "id": "fixture_judge_unit",
-    "judgment_point": "judge the paragraphs of ONE Leg against the bound Move: whether they begin where its `before` holds, end where its `after` leaves the reader, follow its `segments` in order, and survive each test in its `breaks`. Whether each paragraph takes its Segment's `manner` is judged too.",
+    "judgment_point": "judge the paragraphs of ONE Leg against the bound Move: whether they begin where its `before` holds, end where its `after` leaves the reader, follow its `segments` in order, and survive each test in its `breaks`. Whether each paragraph keeps to its Segment's `bind` is judged too.",
     "input_shape": "ONE verdict record: `version`, `verdicts`.",
     "refusal": "a verdict outside the closed set. The bound Move's `before`, `after`, `segments` and `breaks` are what you judge, never what your record states.",
     "governing": "checks/check-schema-binds.sh, fixture (kogaki#1452)",
@@ -10,7 +10,7 @@
       "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "after_segment", "takes", "leaves"]
+      "move": ["id", "figure", "continues_from", "description", "evidence", "after_segment", "takes", "leaves", "segments.edges"]
     }
   }
 }

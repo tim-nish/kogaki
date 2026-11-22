@@ -88,18 +88,17 @@ ok(
 );
 
 // (c10g) a Segment that carries one of the two retired prose fields is refused naming the Segment and the field
-// (kogaki#1926).
+// (kogaki#1926), and so is the same Segment carrying `manner` (kogaki#1940).
+const carrying = (k, n) =>
+  refusal({ ...EDGED, segments: EDGED.segments.map((s, i) => (i === n - 1 ? { ...s, [k]: "says a thing." } : s)) });
 for (const [k, n] of [
   ["operation", 1],
   ["relation", 2],
 ]) {
-  const mixed = {
-    ...EDGED,
-    segments: EDGED.segments.map((s, i) => (i === n - 1 ? { ...s, [k]: "says a thing." } : s)),
-  };
   ok(
-    refusal(mixed).includes(`\`segments\` Segment ${n} carries \`${k}\``),
-    `(c10g) a Segment with bind, edges and ${k} is not refused naming the Segment and the field: ${refusal(mixed)}`,
+    carrying(k, n).includes(`\`segments\` Segment ${n} carries \`${k}\``) &&
+      carrying("manner", n).includes(`\`segments\` Segment ${n} carries \`manner\``),
+    `(c10g) a Segment with bind, edges and ${k}, or with manner, is not refused naming the Segment and the field: ${carrying(k, n)} | ${carrying("manner", n)}`,
   );
 }
 
