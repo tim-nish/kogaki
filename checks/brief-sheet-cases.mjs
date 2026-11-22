@@ -174,6 +174,20 @@ const refusals = [
     "the apex, relations[4]",
   ],
   [
+    "an apex whose holds_over_relations writes one of the relations it relates",
+    without((s) => {
+      s.relations[4].holds_over_relations = "{h1} is what the team overlooks.";
+    }),
+    '"h2" (c_5)\'s `holds_over_relations` writes no {p3}',
+  ],
+  [
+    "an apex whose holds_over_relations writes a Role in braces",
+    without((s) => {
+      s.relations[4].holds_over_relations = "{p3} overlooks what {h1} says of {file}.";
+    }),
+    '"h2" (c_5)\'s `holds_over_relations` writes {file}',
+  ],
+  [
     "a relation carrying both between and relates",
     without((s) => {
       s.relations[0].relates = ["p2", "p3"];
@@ -278,6 +292,16 @@ ok(
 ok(
   !readSet(STRUCTURE, fixtureClaims).text,
   "(c) the valid structure, its apex with no `from` and h2 relating h1, was refused",
+);
+const apexOver = readSet(
+  without((s) => {
+    s.relations[4].holds_over_relations = "{p3} overlooks what {h1} says.";
+  }),
+  fixtureClaims,
+);
+ok(
+  !apexOver.text,
+  `(c) an apex carrying a holds_over_relations that writes each relation it relates was refused: ${JSON.stringify(apexOver)}`,
 );
 ok(
   JSON.stringify(withReach(MINTED, fixtureClaims).reach) ===

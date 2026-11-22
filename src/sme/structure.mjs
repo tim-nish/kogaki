@@ -164,7 +164,8 @@ function idNameRefusal(kind, x, i, names) {
 // THE STRUCTURE READ OVER THE CLAIM SET, refused `{ group, text }` or `{}`. `claims` is `parseClaims`'s list.
 // `thesis: false` is the Brief's read (kogaki#1768): no Thesis is adopted yet, so the record carries no `attains_thesis`
 // and every higher-order relation names the claims that state it. The apex — the higher-order relation `attains_thesis`
-// names — carries no `from` (kogaki#1772). `considered: true` is the Brief's read too (kogaki#1817).
+// names — carries no `from` (kogaki#1772), and its `holds_over_relations` is optional and checked where it is carried,
+// over every id its `relates` names. `considered: true` is the Brief's read too (kogaki#1817).
 export function validateReadSet(record, claims, { thesis = true, considered = false } = {}) {
   const derived = isMap(record) ? ["reach", "unreached"].find((k) => Object.hasOwn(record, k)) : undefined;
   if (derived)
@@ -224,9 +225,10 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
       return shape(
         `the apex, relations[${i}], carries \`from\` — the apex is the one connection no claim states, and carries no \`from\``,
       );
+    const over = !apex || Object.hasOwn(x, "holds_over_relations") ? ["holds_over_relations"] : [];
     const keys = Object.hasOwn(x, "between")
       ? ["id", "name", "between", "holds", "from"]
-      : ["id", "name", "relates", "holds", ...(apex ? [] : ["holds_over_relations", "from"])];
+      : ["id", "name", "relates", "holds", ...over, ...(apex ? [] : ["from"])];
     const b = keysRefusal(x, keys, `relations[${i}]`) || idNameRefusal("relations", x, i, names);
     if (b) return shape(b);
   }
@@ -254,9 +256,12 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
     if (stray !== undefined)
       return shape(`${at} relates ${JSON.stringify(stray)}, which names no relation or higher-order relation`);
     if (!isText(h.holds)) return shape(`${at}'s \`holds\` is empty`);
-    if (h.id === apexId) continue;
-    const over = overRelationsRefusal(h, new Map([...relations, ...higher].map((x) => [x.id, x.name])));
+    const over =
+      h.id === apexId && !Object.hasOwn(h, "holds_over_relations")
+        ? null
+        : overRelationsRefusal(h, new Map([...relations, ...higher].map((x) => [x.id, x.name])));
     if (over) return shape(`${at}'s \`holds_over_relations\` ${over}`);
+    if (h.id === apexId) continue;
     if (!Array.isArray(h.from)) return shape(`${at}'s \`from\` is not a list of claim ids`);
     if (!h.from.length)
       return shape(
@@ -285,15 +290,16 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
 }
 
 // A HIGHER-ORDER RELATION'S SENTENCE OVER THE RELATIONS IT RELATES, refused as the words after the field's name, or
-// `null`: one sentence carrying `{<id>}` for each of the two `relates` names and no other braces.
-function overRelationsRefusal(h, nameOf) {
+// `null`: one sentence carrying `{<id>}` for each id `relates` names and no other braces. `relates` names two, and
+// the apex's may name more: the tops of its component. `nameOf` gives each id as the refusal writes it.
+export function overRelationsRefusal(h, nameOf) {
   if (!isText(h.holds_over_relations)) return "is empty";
   const written = [...h.holds_over_relations.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
   const absent = h.relates.find((x) => !written.includes(x));
   if (absent !== undefined) return `writes no {${nameOf.get(absent)}}, a relation its \`relates\` names`;
   const stray = written.find((x) => !h.relates.includes(x));
   if (stray !== undefined)
-    return `writes {${nameOf.get(stray) ?? stray}}, which is neither of the two its \`relates\` names`;
+    return `writes {${nameOf.get(stray) ?? stray}}, which is ${h.relates.length === 2 ? "neither of the two" : "none of those"} its \`relates\` names`;
   return null;
 }
 

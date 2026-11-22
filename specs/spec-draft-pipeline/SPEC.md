@@ -1747,9 +1747,9 @@ symbols of its Arguments and its sentence with the braces kept. The kind of a
 HigherOrderRelation's row is `Relation`: the Writer's input names one kind of
 relation, and the Arguments column shows which rows each one joins. The
 sentence of a HigherOrderRelation's row is its `holds_over_relations` where it
-carries one and its `holds` where it carries none, which is so for an apex
-composed over a component with several tops and for a Brief stored before the
-field existed. Two lines then
+carries one and its `holds` where it carries none, which is so for a Brief
+stored before the field existed and for an apex composed over a component
+with several tops before the `apex` Call wrote the field. Two lines then
 name the symbol of the CentralClaim and the symbols of its Arguments, and a
 passage headed "How the paragraph uses the structure" says that the reader
 already knows every Argument and that the Writer chooses the paragraph's
@@ -3389,7 +3389,12 @@ to each other, writing each of the two as `{<id>}` and nothing else in
 braces. The read writes each as `{<name>}` and `mintStructure` rewrites the
 names to ids. `validateReadSet` refuses, naming the relation, one that is
 empty, that writes no `{<id>}` for one of the two, or that writes another
-name in braces. `holds` stays the sentence that is read where no table
+name in braces. The apex, `{ id, name, relates, holds }`, carries
+`holds_over_relations` as an optional fifth key: an apex composed by the
+`apex` Call of §4.22 carries it, over every relation its `relates` names,
+which may be more than two, and where it is carried `validateReadSet` checks
+it by the same three refusals; an apex stored without it is read as it
+stands. `holds` stays the sentence that is read where no table
 stands: a Leg's `text`, the Thesis of a component with one top, and the
 sentences the Leg Senses reading is handed.
 
@@ -3513,8 +3518,15 @@ higher-order relation the apex reaches, each Leg's text its relation's
    the route back through Terrain. A component with ONE top-level
    higher-order relation takes that relation as its apex, and its Thesis is
    the relation's `holds` with its Roles named; one Call writes an apex for
-   each component with several tops: one sentence, in the claims' words,
-   stating the connection those tops make. A Thesis over
+   each component with several tops, `{ component, name, relates, holds,
+   holds_over_relations }`: `holds` is one sentence, in the claims' words,
+   stating the connection those tops make, and `holds_over_relations` is one
+   sentence saying how those tops stand to each other, writing each of them
+   as `{<id>}`, the id the Call's input gives it, and nothing else in
+   braces. `validateApex` refuses, naming the component, an apex whose
+   `holds_over_relations` is missing or empty, writes no `{<id>}` for one of
+   its `relates`, or writes in braces anything that is none of them. The
+   Thesis the owner reads at the gate is `holds`. A Thesis over
    `brief.thesis_words` words (`kogaki.settings.json`) is rewritten once by
    the `thesis_bound_unit` Call, handed the sentence, the bound and the
    component it attains; a rewrite still over the bound stops the run naming
@@ -3527,7 +3539,8 @@ higher-order relation the apex reaches, each Leg's text its relation's
    Thesis (kogaki#1742).
 4. `adopt_thesis` adopts the selected apex, and the structure is closed under
    it (`withApex`): the apex is appended to `relations` under the next
-   `c_<n>` id and becomes `attains_thesis` — a single top is named under the
+   `c_<n>` id, as `{ id, name, relates, holds, holds_over_relations }`, and
+   becomes `attains_thesis` — a single top is named under the
    id it already carries and no apex is
    written — and what it does not reach is recorded as unreached. The `apex`
    Call answers each apex by its `name` and writes no `id` and no `from`
