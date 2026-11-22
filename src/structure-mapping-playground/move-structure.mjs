@@ -11,6 +11,7 @@
 import { readAdoptedBrief } from "../paragraph-plan/brief.mjs";
 import { legSentences } from "../sme/arguments.mjs";
 import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
+import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 
@@ -19,24 +20,22 @@ const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 
 // Every element a relation or higher-order relation reaches: itself, the relations it relates and their Roles.
 function reached(structure, id) {
-  const relation = new Map((structure.relations || []).map((r) => [r.id, r]));
-  const higher = new Map((structure.higher_order || []).map((h) => [h.id, h]));
+  const relation = new Map(relationsAmongRoles(structure).map((r) => [r.id, r]));
+  const higher = new Map(relationsAmongRelations(structure).map((h) => [h.id, h]));
   const roles = new Set();
   const relations = new Set();
-  const highers = new Set();
   const walk = (x) => {
+    if (relations.has(x)) return;
     if (relation.has(x)) {
-      if (relations.has(x)) return;
       relations.add(x);
       for (const r of relation.get(x).between || []) roles.add(r);
     } else if (higher.has(x)) {
-      if (highers.has(x)) return;
-      highers.add(x);
+      relations.add(x);
       (higher.get(x).relates || []).forEach(walk);
     }
   };
   walk(id);
-  return { roles, relations, highers };
+  return { roles, relations };
 }
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => Object.hasOwn(obj, k)).map((k) => [k, obj[k]]));
@@ -49,14 +48,12 @@ export function legStructureOf(structure, relationId) {
       .map((x) => pick(x, ["id", "name", "context", "attributes"])),
     relations: (structure.relations || [])
       .filter((x) => r.relations.has(x.id))
-      .map((x) => pick(x, ["id", "name", "between", "holds"])),
-    higher_order: (structure.higher_order || [])
-      .filter((x) => r.highers.has(x.id))
-      .map((x) => pick(x, ["id", "name", "relates", "holds", "holds_over_relations"])),
+      .map((x) => pick(x, ["id", "name", "between", "relates", "holds", "holds_over_relations"])),
   };
 }
 
-// The Brief's Leg as this route reads it: `{ record, leg, structure }`, or `{ error }` naming the value refused.
+// The Brief's Leg as this route reads it: `{ record, leg, structure, renamed }`, or `{ error }` naming the value
+// refused; `renamed` the ids of a Brief stored under two lists, as `readAdoptedBrief` renamed them (kogaki#1937).
 export function readBriefLeg(briefPath, legId) {
   const b = readAdoptedBrief(briefPath);
   if (b.error) return { error: b.error };
@@ -71,11 +68,11 @@ export function readBriefLeg(briefPath, legId) {
       error: `--leg ${JSON.stringify(legId)} names no Leg of the Brief at ${briefPath} — it carries ${b.legs.map((l) => l.leg_id).join(", ")}`,
     };
   const structure = legStructureOf(s, leg.relation);
-  if (!structure.relations.length && !structure.higher_order.length)
+  if (!structure.relations.length)
     return {
       error: `the Brief's Leg ${legId} names the relation ${JSON.stringify(leg.relation)}, which its \`structure\` does not carry`,
     };
-  return { record: b.record, leg, structure };
+  return { record: b.record, leg, structure, renamed: b.renamed };
 }
 
 // ---------------------------------------------------------------------------

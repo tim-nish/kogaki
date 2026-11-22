@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 const fails = [];
 const ok = (cond, msg) => {
@@ -14,7 +15,7 @@ const ok = (cond, msg) => {
 const repo = resolve(".");
 const load = (p) => import(pathToFileURL(join(repo, p)).href);
 const { parseYaml, stringifyYaml } = await load("src/yaml.mjs");
-const { mintStructure, validateReadSet } = await load("src/sme/structure.mjs");
+const { mintStructure, validateReadSet, asOneList, oneListIds, ID_PREFIX } = await load("src/sme/structure.mjs");
 const { withReach, structureLegs } = await load("src/compose/structure.mjs");
 const root = mkdtempSync(join(tmpdir(), "brief-sheet-"));
 
@@ -26,7 +27,8 @@ const CLAIMS = [
 ];
 const THESIS = "A green automatic run says nothing about the files its walker never visited.";
 const fixtureClaims = CLAIMS.map((claim, i) => ({ id: `c${i + 1}`, claim }));
-// THE STRUCTURE AS A READ ANSWERS IT: every element by its `name`, the references by name; MINTED is it with the ids.
+// THE STRUCTURE AS A READ ANSWERS IT: every element by its `name`, the references by name, the relations among Roles
+// and the higher-order relations in the one list `relations`; MINTED is it with the ids.
 const STRUCTURE = {
   roles: [
     {
@@ -48,8 +50,6 @@ const STRUCTURE = {
       holds: "{team} reads a pass of {rules} as covering every file.",
       from: "c3",
     },
-  ],
-  higher_order: [
     {
       name: "h1",
       relates: ["p1", "p2"],
@@ -70,9 +70,9 @@ const readSet = (s, claims) => {
 const WANT = [
   ["L1", "c_1", "rules applies only to what walk visits."],
   ["L2", "c_2", "file left off walk is never checked."],
-  ["L3", "h_1", "Because rules reads only walk, file off it is unchecked."],
+  ["L3", "c_4", "Because rules reads only walk, file off it is unchecked."],
   ["L4", "c_3", "team reads a pass of rules as covering every file."],
-  ["L5", "h_2", "team trusts a pass that never reached file."],
+  ["L5", "c_5", "team trusts a pass that never reached file."],
 ];
 
 // (c) the structure's refusals
@@ -85,21 +85,21 @@ const refusals = [
   [
     "a non-apex higher-order relation with no from",
     without((s) => {
-      s.higher_order[0].from = [];
+      s.relations[3].from = [];
     }),
     '"h1"',
   ],
   [
     "a from naming no claim",
     without((s) => {
-      s.higher_order[0].from = ["c9"];
+      s.relations[3].from = ["c9"];
     }),
     '"h1"',
   ],
   [
     "a higher-order relation relating itself through another",
     without((s) => {
-      s.higher_order[0].relates = ["p1", "h2"];
+      s.relations[3].relates = ["p1", "h2"];
     }),
     '"h1"',
   ],
@@ -120,7 +120,7 @@ const refusals = [
   [
     "a higher-order relation relating one relation",
     without((s) => {
-      s.higher_order[0].relates = ["p1"];
+      s.relations[3].relates = ["p1"];
     }),
     '"h1"',
   ],
@@ -134,21 +134,21 @@ const refusals = [
   [
     "a non-apex higher-order relation relating three",
     without((s) => {
-      s.higher_order[0].relates = ["p1", "p2", "p3"];
+      s.relations[3].relates = ["p1", "p2", "p3"];
     }),
-    '"h1" (h_1) does not relate exactly two relations',
+    '"h1" (c_4) does not relate exactly two relations',
   ],
   [
     "a higher-order relation whose holds_over_relations writes one of its two relations",
     without((s) => {
-      s.higher_order[0].holds_over_relations = "{p1} is why the other holds.";
+      s.relations[3].holds_over_relations = "{p1} is why the other holds.";
     }),
     "writes no {p2}",
   ],
   [
     "a higher-order relation whose holds_over_relations writes a Role in braces",
     without((s) => {
-      s.higher_order[0].holds_over_relations = "{p1} is why {p2} holds of {file}.";
+      s.relations[3].holds_over_relations = "{p1} is why {p2} holds of {file}.";
     }),
     "writes {file}",
   ],
@@ -169,9 +169,45 @@ const refusals = [
   [
     "an apex carrying from",
     without((s) => {
-      s.higher_order[1].from = [];
+      s.relations[4].from = [];
     }),
-    "the apex, higher_order[1]",
+    "the apex, relations[4]",
+  ],
+  [
+    "a relation carrying both between and relates",
+    without((s) => {
+      s.relations[0].relates = ["p2", "p3"];
+    }),
+    'the relation "p1" (c_1), carries both `between` and `relates`',
+  ],
+  [
+    "a relation carrying neither between nor relates",
+    without((s) => {
+      delete s.relations[3].relates;
+    }),
+    'the relation "h1" (c_4), carries neither `between` nor `relates`',
+  ],
+  [
+    "a written higher_order list",
+    without((s) => {
+      s.higher_order = [];
+    }),
+    "the structure carries `higher_order`, which it does not declare",
+  ],
+  [
+    "a list with no relation among Roles",
+    without((s) => {
+      s.relations = s.relations.slice(3);
+    }),
+    "carries no relation with `between`",
+  ],
+  [
+    "a list with no higher-order relation",
+    without((s) => {
+      s.relations = s.relations.slice(0, 3);
+      s.attains_thesis = "p3";
+    }),
+    "carries no relation with `relates`",
   ],
 ];
 for (const [what, s, word] of refusals) {
@@ -201,9 +237,9 @@ for (const [what, s, word] of [
   [
     "a higher-order relation id of another kind",
     minted((s) => {
-      s.higher_order[0].id = "r_1";
+      s.relations[3].id = "r_1";
     }),
-    "higher_order[0]",
+    "relations[3]",
   ],
 ]) {
   const v = validateReadSet(s, fixtureClaims);
@@ -212,8 +248,7 @@ for (const [what, s, word] of [
 ok(
   JSON.stringify([
     MINTED.roles.map((r) => [r.id, r.name]),
-    MINTED.relations.map((r) => [r.id, r.name, r.between]),
-    MINTED.higher_order.map((h) => [h.id, h.name, h.relates]),
+    MINTED.relations.map((r) => [r.id, r.name, r.between ?? r.relates]),
     MINTED.attains_thesis,
   ]) ===
     JSON.stringify([
@@ -227,18 +262,18 @@ ok(
         ["c_1", "p1", ["r_1", "r_2"]],
         ["c_2", "p2", ["r_2", "r_3"]],
         ["c_3", "p3", ["r_4", "r_1"]],
+        ["c_4", "h1", ["c_1", "c_2"]],
+        ["c_5", "h2", ["c_4", "c_3"]],
       ],
-      [
-        ["h_1", "h1", ["c_1", "c_2"]],
-        ["h_2", "h2", ["h_1", "c_3"]],
-      ],
-      "h_2",
+      "c_5",
     ]) &&
     MINTED.relations[0].holds === "{r_1} applies only to what {r_2} visits." &&
-    MINTED.higher_order[0].holds_over_relations === "{c_1} is why {c_2} holds." &&
-    !Object.hasOwn(MINTED.higher_order[1], "holds_over_relations") &&
-    !Object.hasOwn(MINTED.higher_order[1], "from"),
-  `(c) the runner did not mint r_/c_/h_ ids in order of appearance over the names: ${JSON.stringify(MINTED)}`,
+    JSON.stringify(ID_PREFIX) === '{"roles":"r","relations":"c"}' &&
+    !Object.hasOwn(MINTED, "higher_order") &&
+    MINTED.relations[3].holds_over_relations === "{c_1} is why {c_2} holds." &&
+    !Object.hasOwn(MINTED.relations[4], "holds_over_relations") &&
+    !Object.hasOwn(MINTED.relations[4], "from"),
+  `(c) the runner did not mint r_/c_ ids in order of appearance over the one list of relations: ${JSON.stringify(MINTED)}`,
 );
 ok(
   !readSet(STRUCTURE, fixtureClaims).text,
@@ -249,7 +284,7 @@ ok(
     JSON.stringify(
       withReach(
         minted((s) => {
-          s.higher_order[1].from = [];
+          s.relations[4].from = [];
         }),
         fixtureClaims,
       ).reach,
@@ -287,7 +322,7 @@ const claims4Ids = [...fixtureClaims, { id: "c4", claim: CLAIM4 }];
 const S4 = without((s) => {
   s.roles.push({ name: "log", context: "The record a run leaves behind.", attributes: [], claims: ["c4"] });
   s.relations.push({ name: "p4", between: ["team", "log"], holds: "{team} keeps {log} for ninety days.", from: "c4" });
-  s.higher_order.push({
+  s.relations.push({
     name: "h3",
     relates: ["p4", "p3"],
     holds: "{team} keeps {log} of a pass of {rules}.",
@@ -302,19 +337,114 @@ ok(
 const sy = withReach(mintStructure(S4).structure, claims4Ids);
 const l4 = structureLegs(sy, claims4Ids);
 ok(
-  JSON.stringify(l4.map((l) => l.relation)) === '["c_1","c_2","h_1","c_3","h_2"]',
+  JSON.stringify(l4.map((l) => l.relation)) === '["c_1","c_2","c_4","c_3","c_5"]',
   `(j) a Leg serves a relation the apex does not reach: ${JSON.stringify(l4.map((l) => l.relation))}`,
 );
-const un = sy.unreached || { relations: [], higher_order: [], claims: [] };
+const un = sy.unreached || { relations: [], claims: [] };
 ok(
-  JSON.stringify(un.relations) === JSON.stringify([{ id: "c_4", reached_by: ["h_3"] }]) &&
-    JSON.stringify(un.higher_order) === JSON.stringify([{ id: "h_3", reached_by: [] }]) &&
-    JSON.stringify(un.claims) === JSON.stringify([{ id: "c4", reached_by: ["c_4", "h_3"] }]),
-  `(j) the structure does not carry p4, h3 and c4 under unreached: ${JSON.stringify(sy.unreached)}`,
+  JSON.stringify(Object.keys(un)) === '["relations","claims"]' &&
+    JSON.stringify(un.relations) ===
+      JSON.stringify([
+        { id: "c_6", reached_by: ["c_7"] },
+        { id: "c_7", reached_by: [] },
+      ]) &&
+    JSON.stringify(un.claims) === JSON.stringify([{ id: "c4", reached_by: ["c_6", "c_7"] }]),
+  `(j) the structure does not carry p4, h3 and c4 under unreached, the relations of both sorts in one list: ${JSON.stringify(sy.unreached)}`,
 );
 ok(
-  JSON.stringify(sy.reach) === JSON.stringify(["c_1", "c_2", "c_3", "h_1", "h_2"]),
+  JSON.stringify(sy.reach) === JSON.stringify(["c_1", "c_2", "c_3", "c_4", "c_5"]),
   `(j) the structure's reach is not the apex's closure: ${JSON.stringify(sy.reach)}`,
+);
+// (j) a structure stored before the one list, under `relations` and `higher_order` with `h_<n>` ids, is read as one
+// list: the higher-order relations appended, each `h_<n>` renamed `c_<R+n>`, and every reference renamed with it.
+const ANSWER4 = {
+  ...STRUCTURE,
+  roles: [
+    ...STRUCTURE.roles,
+    { name: "log", context: "The record a run leaves behind.", attributes: [], claims: ["c4"] },
+  ],
+  relations: [
+    ...STRUCTURE.relations.slice(0, 3),
+    { name: "p4", between: ["team", "log"], holds: "{team} keeps {log} for ninety days.", from: "c4" },
+    ...STRUCTURE.relations.slice(3),
+    {
+      name: "h3",
+      relates: ["p4", "h1"],
+      holds: "{team} keeps {log} of a run of {rules}.",
+      holds_over_relations: "{p4} outlasts {h1}.",
+      from: ["c4"],
+    },
+  ],
+  considered: [
+    { relations: ["p1", "p2"], criterion: ["c2"], verdict: "connected", why: "The walk is what the rules read." },
+    { relations: ["h1", "p3"], criterion: ["c3"], verdict: "connected", why: "The team trusts the run." },
+    { relations: ["p4", "h1"], criterion: ["c4"], verdict: "connected", why: "The log outlasts the run." },
+  ],
+};
+const NEW4 = withReach(mintStructure(ANSWER4).structure, claims4Ids);
+const OLD4 = {
+  roles: NEW4.roles,
+  relations: NEW4.relations.slice(0, 4),
+  higher_order: [
+    {
+      id: "h_1",
+      name: "h1",
+      relates: ["c_1", "c_2"],
+      holds: "Because {r_1} reads only {r_2}, {r_3} off it is unchecked.",
+      holds_over_relations: "{c_1} is why {c_2} holds.",
+      from: ["c2"],
+    },
+    { id: "h_2", name: "h2", relates: ["h_1", "c_3"], holds: "{r_4} trusts a pass that never reached {r_3}." },
+    {
+      id: "h_3",
+      name: "h3",
+      relates: ["c_4", "h_1"],
+      holds: "{r_4} keeps {r_5} of a run of {r_1}.",
+      holds_over_relations: "{c_4} outlasts {h_1}.",
+      from: ["c4"],
+    },
+  ],
+  attains_thesis: "h_2",
+  considered: [
+    { relations: ["c_1", "c_2"], criterion: ["c2"], verdict: "connected", why: "The walk is what the rules read." },
+    { relations: ["h_1", "c_3"], criterion: ["c3"], verdict: "connected", why: "The team trusts the run." },
+    { relations: ["c_4", "h_1"], criterion: ["c4"], verdict: "connected", why: "The log outlasts the run." },
+  ],
+  reach: ["c_1", "c_2", "c_3", "h_1", "h_2"],
+  unreached: {
+    relations: [{ id: "c_4", reached_by: ["h_3"] }],
+    higher_order: [{ id: "h_3", reached_by: [] }],
+    claims: [{ id: "c4", reached_by: ["c_4", "h_3"] }],
+  },
+};
+const OLD4_TEXT = JSON.stringify(OLD4);
+const one4 = asOneList(OLD4);
+ok(
+  JSON.stringify([...oneListIds(OLD4)]) === '[["h_1","c_5"],["h_2","c_6"],["h_3","c_7"]]' &&
+    oneListIds(NEW4).size === 0,
+  `(j) the ids of a structure stored under two lists are not renamed h_<n> to c_<R+n>: ${JSON.stringify([...oneListIds(OLD4)])}`,
+);
+ok(
+  isDeepStrictEqual(one4, NEW4) &&
+    !Object.hasOwn(one4, "higher_order") &&
+    !Object.hasOwn(one4.unreached, "higher_order") &&
+    !/\bh_\d/.test(JSON.stringify(one4)) &&
+    one4.relations[6].holds_over_relations === "{c_4} outlasts {c_5}." &&
+    JSON.stringify(one4.unreached.relations) === '[{"id":"c_4","reached_by":["c_7"]},{"id":"c_7","reached_by":[]}]' &&
+    JSON.stringify(one4.considered.map((c) => c.relations)) === '[["c_1","c_2"],["c_5","c_3"],["c_4","c_5"]]',
+  `(j) a structure stored under two lists is not read as the one list the same reading mints: ${JSON.stringify(one4)}`,
+);
+ok(
+  JSON.stringify(OLD4) === OLD4_TEXT && asOneList(NEW4) === NEW4,
+  "(j) reading a stored structure as one list changed the record in hand, or changed a structure already in one list",
+);
+ok(
+  !validateReadSet(
+    Object.fromEntries(Object.entries(one4).filter(([key]) => key !== "reach" && key !== "unreached")),
+    claims4Ids,
+    { considered: true },
+  ).text,
+  "(j) a structure stored under two lists, read as one, is refused by the check of the one list",
 );
 // (k) the Brief sheet: a Brief over the four-claim structure and its Legs, rendered with no model call
 const { BRIEF_PARTS, BRIEF_RETIRED_WORDS } = await load("src/brief-plan-playground/sheet.mjs");
@@ -357,9 +487,9 @@ ok(
 ok(
   kGraph.includes('class="mermaid"') &&
     kGraph.includes("rules (c1, c2)") &&
-    kGraph.includes("h_2 ==&gt; h_1") &&
-    kGraph.includes("class h_2 apex") &&
-    /class [^\n]*c_4[^\n]* unreached/.test(kGraph) &&
+    kGraph.includes("c_5 ==&gt; c_4") &&
+    kGraph.includes("class c_5 apex") &&
+    /class [^\n]*c_6[^\n]* unreached/.test(kGraph) &&
     !/\d+ Roles?,/.test(kSheet),
   "(k) the graph does not label nodes by name, draw higher-order edges thick, the apex blue and the unreached red, with no counts line",
 );
@@ -390,7 +520,7 @@ ok(
 );
 const kHigher = kMap.slice(kMap.indexOf("<h3>Higher-order relations</h3>"));
 ok(
-  /<tr><td>h_2<\/td><td>h2<\/td><td>[^<]*<\/td><td><\/td><\/tr>/.test(kHigher),
+  /<tr><td>c_5<\/td><td>h2<\/td><td>[^<]*<\/td><td><\/td><\/tr>/.test(kHigher),
   "(k) the apex's from column is not empty",
 );
 const kLegs = kSheet.slice(kSheet.indexOf("<h2>Legs</h2>"));
@@ -399,6 +529,51 @@ ok(
     WANT.every(([id, , text]) => kLegs.includes(`<td>${id}</td>`) && kLegs.includes(text)),
   "(k) the Legs part does not list the five Legs with id, relation and text",
 );
+// A Brief stored before the one list renders the sheet of the same Brief stored after it, and is not written back.
+const kBriefOf = (slug, structure, legs) =>
+  stringifyYaml({
+    slug,
+    thesis: THESIS,
+    strands: claims4Ids.map((c) => ({ id: c.id, slug: c.id })),
+    structure,
+    reader_path: legs,
+  });
+const kNewLegs = structureLegs(NEW4, claims4Ids);
+const kOldId = new Map([...oneListIds(OLD4)].map(([was, now]) => [now, was]));
+const kOldLegs = kNewLegs.map((l) => ({ ...l, relation: kOldId.get(l.relation) ?? l.relation }));
+const kStored = {};
+for (const [which, structure, legs] of [
+  ["one-list", NEW4, kNewLegs],
+  ["two-lists", OLD4, kOldLegs],
+]) {
+  const at = join(kRoot, "theses", which, "brief.yaml");
+  mkdirSync(dirname(at), { recursive: true });
+  const text = kBriefOf("stored", structure, legs);
+  writeFileSync(at, text);
+  const r = spawnSync(
+    process.execPath,
+    ["src/brief-plan-playground/sheet.mjs", "brief", "--brief", at, "--out", join(kRoot, `out-${which}`)],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: join(root, "no-model") }, timeout: 60000 },
+  );
+  const out = join(kRoot, `out-${which}`, "sheet.html");
+  kStored[which] = {
+    status: r.status,
+    stderr: r.stderr,
+    sheet: existsSync(out) ? readFileSync(out, "utf8") : "",
+    kept: readFileSync(at, "utf8") === text,
+  };
+}
+ok(
+  JSON.stringify(kOldLegs.map((l) => l.relation)) === '["c_1","c_2","h_1","c_3","h_2"]' &&
+    kStored["two-lists"].status === 0 &&
+    kStored["one-list"].status === 0 &&
+    kStored["one-list"].sheet.includes("<td>c_5</td><td>h1</td>") &&
+    kStored["one-list"].sheet.includes("c_6 ==&gt; c_5") &&
+    kStored["two-lists"].sheet === kStored["one-list"].sheet &&
+    !/\bh_\d/.test(kStored["two-lists"].sheet),
+  `(k) a Brief stored under two lists does not render the sheet of the same Brief stored under one, its ids renamed: ${kStored["two-lists"].stderr}`,
+);
+ok(kStored["two-lists"].kept, "(k) rendering a Brief stored under two lists wrote the Brief back");
 
 // (l) the Brief sheet's owner act: `show` writes the sheet at the home read from the Brief's path; a retired Leg is refused
 const lHome = join(kRoot, "runs", "brief-plan-playground", "fixture");

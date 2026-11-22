@@ -39,7 +39,7 @@ const finishText = () => { const b = briefRuntimeText(); return code(b.slice(b.i
 const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
 const fails = [];
 
-// THE FIXTURE STRUCTURE: three relations, two higher-order relations, `h2` the apex, its ids minted by the runner over
+// THE FIXTURE STRUCTURE: three relations and two higher-order relations in the one list, `h2` the apex, its ids minted by the runner over
 // the names the read answers (kogaki#1772).
 const STRUCTURE = mintStructure({
   roles: [{ name: "rules", context: "A set of checks that runs without anyone choosing what it reads.", attributes: ["automatic"], claims: ["L1", "L2"] },
@@ -48,15 +48,15 @@ const STRUCTURE = mintStructure({
     { name: "team", context: "The people who read the result of a run.", attributes: [], claims: ["L3"] }],
   relations: [{ name: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "L1" },
     { name: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "L2" },
-    { name: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "L3" }],
-  higher_order: [{ name: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["L2"] },
+    { name: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "L3" },
+    { name: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["L2"] },
     { name: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}." }],
   attains_thesis: "h2",
 }).structure;
 const CLAIMS = [{ id: "L1", claim: "Rules apply to the walk." }, { id: "L2", claim: "A skipped file is unchecked." }, { id: "L3", claim: "Teams trust a pass." }];
 const WANT = [["L1", "c_1", "rules applies only to what walk visits."], ["L2", "c_2", "file left off walk is never checked."],
-  ["L3", "h_1", "Because rules reads only walk, file off it is unchecked."], ["L4", "c_3", "team reads a pass of rules as covering every file."],
-  ["L5", "h_2", "team trusts a pass that never reached file."]];
+  ["L3", "c_4", "Because rules reads only walk, file off it is unchecked."], ["L4", "c_3", "team reads a pass of rules as covering every file."],
+  ["L5", "c_5", "team trusts a pass that never reached file."]];
 const shape = (legs) => JSON.stringify((legs || []).map((l) => [l.leg_id, l.relation, l.text]));
 
 // (a) FIVE LEGS, DERIVED WITH NO CALL: one per reached relation and higher-order relation, in post-order, each
@@ -65,7 +65,7 @@ const LEGS = structureLegs(STRUCTURE, CLAIMS);
 {
   if (shape(LEGS) !== JSON.stringify(WANT)) fails.push(`(a) the derived Legs are not the five, in post-order, each saying its relation's holds: ${shape(LEGS)}`);
   const marked = LEGS.filter((l) => l.reaches_target === true).map((l) => l.relation);
-  if (JSON.stringify(marked) !== '["h_2"]') fails.push(`(a) the Leg marked reaches_target is not the apex's alone: ${JSON.stringify(marked)}`);
+  if (JSON.stringify(marked) !== '["c_5"]') fails.push(`(a) the Leg marked reaches_target is not the apex's alone: ${JSON.stringify(marked)}`);
   for (const l of LEGS) {
     for (const gone of ["waypoints", "move", "rounds"]) if (gone in l) fails.push(`(a) derived Leg ${l.leg_id} carries \`${gone}\` (kogaki#1775)`);
     if (!Array.isArray(l.claims) || !l.claims.length || l.claims.some((c) => c.type !== "strand")) fails.push(`(a) derived Leg ${l.leg_id} carries no Strand claims: ${JSON.stringify(l.claims)}`);
@@ -89,7 +89,7 @@ const LEGS = structureLegs(STRUCTURE, CLAIMS);
     ["a Leg outside the reach", [...LEGS, { ...LEGS[0], leg_id: "L6", relation: "c_9" }], /Leg L6 serves "c_9", which the apex does not reach/],
     ["two Legs on one relation", [...LEGS, { ...LEGS[0], leg_id: "L6" }], /Legs L1 and L6 both serve "c_1"/],
     ["a reached relation with no Leg", LEGS.filter((l) => l.relation !== "c_2"), /leaves "c_2" with no Leg/],
-    ["a mark on a Leg not the apex's", LEGS.map((l) => (l.relation === "h_1" ? { ...l, reaches_target: true } : l)), /not the apex's alone/],
+    ["a mark on a Leg not the apex's", LEGS.map((l) => (l.relation === "c_4" ? { ...l, reaches_target: true } : l)), /not the apex's alone/],
   ];
   for (const [what, legs, want] of cases) {
     const e = pathReachRefusal(legs, STRUCTURE);

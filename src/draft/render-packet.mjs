@@ -36,12 +36,8 @@ import {
 // names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
-  const whole = {
-    roles: structure.roles || [],
-    relations: structure.relations || [],
-    higher_order: structure.higher_order || [],
-  };
-  if (![...whole.relations, ...whole.higher_order].some((r) => r.id === leg.relation)) return null;
+  const whole = { roles: structure.roles || [], relations: structure.relations || [] };
+  if (!whole.relations.some((r) => r.id === leg.relation)) return null;
   const sentences = legSentences(whole, leg.relation);
   const label = (s) => `{${s.id}}`;
   const segs = leg.segments || [];

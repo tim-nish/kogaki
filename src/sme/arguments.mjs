@@ -8,6 +8,7 @@
 //   the ParagraphPlan stage
 //       specs/spec-draft-pipeline/SPEC.md
 //
+import { relationsAmongRelations, relationsAmongRoles } from "./structure.mjs";
 
 // THE SENTENCES, read from the Brief with no model call: the Arguments in the order the relation lists them, then
 // the CentralClaim. A relation's text is its `holds` with each `{<Role id>}` written as the Role's `name`; a Role's
@@ -15,7 +16,7 @@
 
 export function legSentences(structure, relationId) {
   const roles = new Map(structure.roles.map((r) => [r.id, r]));
-  const relations = new Map([...structure.relations, ...structure.higher_order].map((r) => [r.id, r]));
+  const relations = new Map(structure.relations.map((r) => [r.id, r]));
   const named = (holds) => holds.replace(/\{([^{}]+)\}/g, (m, id) => (roles.has(id) ? roles.get(id).name : m));
   const central = relations.get(relationId);
   const args = Object.hasOwn(central, "relates")
@@ -28,11 +29,11 @@ export function legSentences(structure, relationId) {
 }
 
 // THE ROWS OF A LEG'S STRUCTURE, read from the Brief with no model call: everything the Leg's relation reaches, as
-// Roles, then Relations, then HigherOrderRelations, each list in the Brief's order. A sentence keeps its braces, and a
+// Roles, then Relations, then HigherOrderRelations, each in the order of the Brief's lists. A sentence keeps its braces, and a
 // HigherOrderRelation's row carries the kind `Relation` (specs/spec-draft-pipeline/SPEC.md, the plan block).
 export function legRows(structure, relationId) {
-  const relation = new Map(structure.relations.map((r) => [r.id, r]));
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const relation = new Map(relationsAmongRoles(structure).map((r) => [r.id, r]));
+  const higher = new Map(relationsAmongRelations(structure).map((h) => [h.id, h]));
   const reached = new Set();
   const walk = (id) => {
     if (reached.has(id)) return;
@@ -52,8 +53,10 @@ export function legRows(structure, relationId) {
   });
   return [
     ...structure.roles.filter((r) => reached.has(r.id)).map((r) => row(r, "Role", [], r.context)),
-    ...structure.relations.filter((r) => reached.has(r.id)).map((r) => row(r, "Relation", r.between, r.holds)),
-    ...structure.higher_order
+    ...relationsAmongRoles(structure)
+      .filter((r) => reached.has(r.id))
+      .map((r) => row(r, "Relation", r.between, r.holds)),
+    ...relationsAmongRelations(structure)
       .filter((h) => reached.has(h.id))
       .map((h) => row(h, "Relation", h.relates, h.holds_over_relations ?? h.holds)),
   ];

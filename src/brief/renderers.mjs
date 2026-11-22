@@ -368,7 +368,7 @@ export const STATE_WORK = {
       fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
     const claims = everyClaim(state, st);
     const components = componentsOf(state.structure, claims);
-    const { connected, unconnected } = partitionComponents(components);
+    const { connected, unconnected } = partitionComponents(components, state.structure);
     state.unconnected = unconnected;
     if (!connected.length) {
       writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
@@ -379,7 +379,7 @@ export const STATE_WORK = {
     const multi = connected.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
     const element = new Map(
-      [...state.structure.relations, ...state.structure.higher_order].map((x) => [
+      state.structure.relations.map((x) => [
         x.id,
         { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) },
       ]),
@@ -387,7 +387,6 @@ export const STATE_WORK = {
     const described = (k) => ({
       component: k.component,
       relations: k.relations.map((id) => element.get(id)),
-      higher_order: k.higher_order.map((id) => element.get(id)),
       top: k.top,
       claims: k.claims,
     });

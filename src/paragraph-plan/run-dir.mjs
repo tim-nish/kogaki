@@ -114,13 +114,9 @@ function sentencesOfLegs(brief) {
     fail(
       "the Brief carries no `structure`, and each Leg's Senses are read between the sentences of its relation in it (kogaki#1865). Nothing was started.",
     );
-  const whole = {
-    roles: structure.roles || [],
-    relations: structure.relations || [],
-    higher_order: structure.higher_order || [],
-  };
+  const whole = { roles: structure.roles || [], relations: structure.relations || [] };
   return brief.legs.map((leg) => {
-    if (![...whole.relations, ...whole.higher_order].some((r) => r.id === leg.relation))
+    if (!whole.relations.some((r) => r.id === leg.relation))
       fail(
         `the Brief's Leg ${leg.leg_id} names the relation ${JSON.stringify(leg.relation)}, which its \`structure\` does not carry, so the Leg has no sentences to read (kogaki#1865). Nothing was started.`,
       );

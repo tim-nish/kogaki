@@ -267,10 +267,7 @@ function legStructureRefusal(s, at, structure) {
   if (!structure) {
     return `${at}: the Brief carries no \`structure\`, and a Leg names one relation of it (kogaki#1885)`;
   }
-  const ids = new Set([
-    ...(structure.relations || []).map((r) => r.id),
-    ...(structure.higher_order || []).map((h) => h.id),
-  ]);
+  const ids = new Set((structure.relations || []).map((r) => r.id));
   if (typeof s.relation !== "string" || !ids.has(s.relation)) {
     return `${at}: ${Object.hasOwn(s, "relation") ? `its \`relation\` ${JSON.stringify(s.relation)} names no relation or higher-order relation of the Brief's \`structure\`` : "carries no `relation`"} — each Leg names the relation it serves (kogaki#1775)`;
   }
@@ -283,9 +280,7 @@ function legStructureRefusal(s, at, structure) {
 // A RECORDED READER PATH AS ITS READERS AFTER ADOPTION READ IT (kogaki#1768): `/paragraph-plan` and `draft.mjs resolve`
 // read a Leg's `relation` against a `structure` that is present. Returns an error string or null.
 function structureRefusal(s, at, structure) {
-  const ids = structure
-    ? new Set([...(structure.relations || []).map((r) => r.id), ...(structure.higher_order || []).map((h) => h.id)])
-    : null;
+  const ids = structure ? new Set((structure.relations || []).map((r) => r.id)) : null;
   if (!structure) {
     if (Object.hasOwn(s, "relation"))
       return `${at}: carries \`relation\`, and the Brief carries no \`structure\` for it to name — a Leg names its relation only in a Brief /brief composed from a structure (kogaki#1768)`;

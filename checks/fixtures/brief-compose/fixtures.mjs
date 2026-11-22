@@ -44,7 +44,6 @@ export const structureOf = (legs) => ({
   relations: (legs || [])
     .filter((l) => l && typeof l.relation === "string")
     .map((l) => ({ id: l.relation, name: l.relation, between: ["r_1", "r_2"], holds: l.text, from: "L1" })),
-  higher_order: [],
   attains_thesis: ((legs || []).findLast((l) => l && typeof l.relation === "string") || {}).relation,
 });
 export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
@@ -93,7 +92,6 @@ export const CLAIMS_1494 = {
 export const STRUCTURE_1494 = {
   roles: [{ id: "cost", context: "What an attack costs.", attributes: [], claims: ["L1"] }],
   relations: [{ id: "r1", between: ["cost"], holds: "{cost} rises.", claims: ["L1"] }],
-  higher_order: [],
   attains_thesis: "r1",
 };
 export function runRenderings({ renderings }) {

@@ -138,6 +138,7 @@ export {
   readerStateMap,
   readerStateText,
   legRecord,
+  briefAsOneList,
   briefLegs,
   PARAGRAPH_PLAN_FILE,
   sha256,

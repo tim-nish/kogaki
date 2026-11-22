@@ -186,7 +186,6 @@ export async function programTexts(imp) {
       relations: [
         { id: "c_1", name: "writes", between: ["r_1", "r_2"], holds: "The {r_1} writes the {r_2}.", from: "L1" },
       ],
-      higher_order: [],
     },
     relation: "c_1",
     segments: [

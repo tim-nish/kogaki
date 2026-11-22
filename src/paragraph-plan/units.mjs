@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 // ONE UNIT PER LEG. The unit's id is `leg-<n>`, its place in the Reader Path, so a file
 // name never carries a Leg id; `inputs.legs` is the Legs in that order.
+import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 
 export function unitIdFor(i) {
   return `leg-${i + 1}`;
@@ -49,8 +50,8 @@ export function toldBefore(legs, n) {
 // Empty where the Brief carries no `structure`.
 export function legRoles(structure, relationId) {
   if (!structure || typeof relationId !== "string") return [];
-  const relation = new Map((structure.relations || []).map((r) => [r.id, r]));
-  const higher = new Map((structure.higher_order || []).map((h) => [h.id, h]));
+  const relation = new Map(relationsAmongRoles(structure).map((r) => [r.id, r]));
+  const higher = new Map(relationsAmongRelations(structure).map((h) => [h.id, h]));
   const ids = new Set();
   const seen = new Set();
   const walk = (id) => {

@@ -3334,11 +3334,14 @@ by writing the claims.
 **Stage 1, the structure: the `sme_read_set` row.** One Call reads the
 claims, with their ids, the `thesis` and the Persona's `reader` and
 prior-knowledge line into one RelationalStructure: `roles`, each `{ id, name,
-context, attributes, claims }`; `relations`, each `{ id, name, between,
-holds, from }`; `higher_order`, a list of one or more `{ id, name, relates,
-holds, holds_over_relations, from }`; and `attains_thesis`, the id of the one higher-order relation
+context, attributes, claims }`; `relations`, one list whose elements are of
+two shapes, in any order and at least one of each — a relation among Roles,
+`{ id, name, between, holds, from }`, and a higher-order relation, `{ id,
+name, relates, holds, holds_over_relations, from }`; and `attains_thesis`,
+the id of the one higher-order relation
 that states the thesis. `validateReadSet` refuses, naming the item: an
-undeclared or missing key, and a written `reach` or `unreached`; an id out of
+undeclared or missing key, and a written `reach` or `unreached`; a relation
+carrying both `between` and `relates`, or neither; an id out of
 the convention below, and a `name` missing, not one snake_case word, or
 repeated; a Role whose `claims` names no claim, and a Role in no relation; a
 relation whose `from` is not one claim id, or whose `holds` writes no
@@ -3353,12 +3356,18 @@ Mapper's bound, `MAPPER_CALLS`.
 read answers each Role, relation and higher-order relation by its `name`,
 one short snake_case word, and names the elements it refers to — `between`,
 `relates`, `attains_thesis` and each `{<name>}` of a `holds` — by name. The
-runner then mints the ids (`mintStructure`): a Role's is `r_<n>`, a
-relation's `c_<n>` and a higher-order relation's `h_<n>`, numbered from 1 in
-order of appearance, and every reference is rewritten to the id. A read that
+runner then mints the ids (`mintStructure`): a Role's is `r_<n>` and a
+relation's `c_<n>`, a higher-order relation's among them, numbered from 1 in
+order of appearance in its list, and every reference is rewritten to the id.
+A read that
 writes an `id` itself is refused naming the element. Every renderer prints
 an element as its `name` with the claim ids it is read from in parentheses,
 `registration (L1)`, and a `holds` with its Roles' names, never a bare id.
+A Brief stored while its `structure` held the higher-order relations in a
+second list, `higher_order`, under ids `h_<n>`, is read as one list where a
+Brief is read (`asOneList`): each `h_<n>` is read as `c_<R+n>`, R the number
+of its `relations`, with every reference to it and each Leg's `relation`,
+and nothing is written back.
 
 **A higher-order relation names its source, and the apex alone has none**
 (kogaki#1766). A higher-order relation's `from` lists the claim ids whose
@@ -3384,8 +3393,9 @@ sentences the Leg Senses reading is handed.
 **Reach is computed from the apex, and what it misses is reported, not
 refused** (kogaki#1766). The runner derives, and the Model never writes,
 `reach`: `attains_thesis` and every relation and higher-order relation its
-`relates` names, closed. Everything outside it is `unreached`, in three
-lists — relations, higher-order relations and claims — each entry carrying
+`relates` names, closed. Everything outside it is `unreached`, in two
+lists — `relations`, the relations of either sort in the list's order, and
+`claims` — each entry carrying
 `reached_by`, the ids that would have reached it: the higher-order
 relations relating it, or for a claim the relations and higher-order
 relations whose `from` names it. A claim is reached when a reached relation
@@ -3513,8 +3523,9 @@ higher-order relation the apex reaches, each Leg's text its relation's
    `HOME_COLLISION` follows where a candidate's home already holds the same
    Thesis (kogaki#1742).
 4. `adopt_thesis` adopts the selected apex, and the structure is closed under
-   it (`withApex`): the apex becomes `attains_thesis` under the next `h_<n>`
-   id — a single top is named under the id it already carries and no apex is
+   it (`withApex`): the apex is appended to `relations` under the next
+   `c_<n>` id and becomes `attains_thesis` — a single top is named under the
+   id it already carries and no apex is
    written — and what it does not reach is recorded as unreached. The `apex`
    Call answers each apex by its `name` and writes no `id` and no `from`
    (kogaki#1772); the ids of every element follow §4.21's convention.

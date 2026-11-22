@@ -35,8 +35,6 @@ const STRUCTURE = {
     },
     { id: "audits", name: "audits", between: ["ledger", "tree"], holds: "{ledger} names each file of {tree}." },
     { id: "signs", name: "signs", between: ["owner", "ledger"], holds: "{owner} signs {ledger}." },
-  ],
-  higher_order: [
     {
       id: "lost",
       name: "lost",

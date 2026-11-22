@@ -200,7 +200,7 @@
         "required": false,
         "filled_at": "mint",
         "caption": "How the settled Strands' claims relate: the parts each claim plays, the relations among them, the relations among those relations, and the one connection none of them states, which is the Thesis.",
-        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Leg of a Brief carrying it names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
+        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations` -- the relations among Roles and the higher-order relations in one list -- with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Leg of a Brief carrying it names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
       },
       "reader_path": {
         "required": true,

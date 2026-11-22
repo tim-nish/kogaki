@@ -16,6 +16,7 @@ import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
 import { moveContract, loadMoveContracts, readMoveRecord } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
+import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { callRows, callRecordsOf } from "../workflow/call-record.mjs";
 import { legSensesSection } from "./leg-senses-section.mjs";
 
@@ -59,6 +60,10 @@ function readCalls(outDir, stages) {
   });
 }
 
+// The higher-order relations of a proposition's structure, in its own `higher_order`, or of a Leg's structure, in the
+// one list `relations` (kogaki#1937).
+const higherOrderOfEither = (structure) => higherOrderOf(structure) || relationsAmongRelations(structure);
+
 function elementsOf(structure) {
   if (!structure) return [];
   const roles = (structure.roles || []).map((r) => ({
@@ -67,8 +72,8 @@ function elementsOf(structure) {
     attributes: r.attributes || [],
     role: true,
   }));
-  const relations = (structure.relations || []).map((r) => ({ id: r.id, what: r.holds, role: false }));
-  const higher = (higherOrderOf(structure) || []).map((h) => ({ id: h.id, what: h.holds, role: false }));
+  const relations = relationsAmongRoles(structure).map((r) => ({ id: r.id, what: r.holds, role: false }));
+  const higher = higherOrderOfEither(structure).map((h) => ({ id: h.id, what: h.holds, role: false }));
   return [...roles, ...relations, ...higher];
 }
 
@@ -204,8 +209,8 @@ const nodeId = (id, i) =>
 
 function structureSection(structure) {
   const roles = structure.roles || [];
-  const relations = structure.relations || [];
-  const higher = higherOrderOf(structure) || [];
+  const relations = relationsAmongRoles(structure);
+  const higher = higherOrderOfEither(structure);
   const inRelation = new Set(relations.flatMap((r) => r.between || []));
   const inHigher = new Set(higher.flatMap((h) => h.relates || []));
   const unreached = (yes) => (yes ? ' <span class="stop">unreached</span>' : "");

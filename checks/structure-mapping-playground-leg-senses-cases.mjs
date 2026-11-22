@@ -64,7 +64,7 @@ const snapshot = () => {
 const before = snapshot();
 const names = M.senseNames(M.loadSenses());
 
-// ---- the Brief: three Roles, two relations and a higher-order relation over them ----
+// ---- the Brief: three Roles, and in the one list two relations and a higher-order relation over them ----
 const STRUCTURE = {
   roles: [
     { id: "r_1", name: "rule", context: "A standing order that runs by itself.", attributes: [], claims: ["L1"] },
@@ -80,26 +80,24 @@ const STRUCTURE = {
   relations: [
     { id: "c_1", name: "starts", between: ["r_1", "r_2"], holds: "The {r_1} starts the {r_2}.", from: "L1" },
     { id: "c_2", name: "stops", between: ["r_2", "r_3"], holds: "The {r_2} stops each {r_3}.", from: "L2" },
-  ],
-  higher_order: [
     {
-      id: "h_1",
+      id: "c_3",
       name: "chain",
       relates: ["c_1", "c_2"],
       holds: "What the {r_1} starts stops the {r_3}.",
       from: ["L1", "L2"],
     },
   ],
-  attains_thesis: "h_1",
-  reach: ["c_1", "c_2", "h_1"],
-  unreached: { relations: [], higher_order: [], claims: [] },
+  attains_thesis: "c_3",
+  reach: ["c_1", "c_2", "c_3"],
+  unreached: { relations: [], claims: [] },
 };
 const claim = [{ strand: "L1", proposition: "the rule starts the guard." }];
 const LEGS = [
   { leg_id: "s1", relation: "c_1", text: "The rule starts the guard.", claims: claim },
   {
     leg_id: "s2",
-    relation: "h_1",
+    relation: "c_3",
     text: "What the rule starts stops the request.",
     claims: claim,
     reaches_target: true,
@@ -250,7 +248,7 @@ ok(
     JSON.stringify([
       [1, "c_1", "Argument", SENTENCES[0]],
       [2, "c_2", "Argument", SENTENCES[1]],
-      [3, "h_1", "CentralClaim", SENTENCES[2]],
+      [3, "c_3", "CentralClaim", SENTENCES[2]],
     ]),
   `(a) the sentences are not the Arguments then the CentralClaim, each Role written by its name: ${JSON.stringify(rec.sentences)}`,
 );
