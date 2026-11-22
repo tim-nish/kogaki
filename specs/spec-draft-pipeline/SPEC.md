@@ -3208,10 +3208,13 @@ for the reader, as on Level-of-detail's `Detail` and `General`. Five calls of th
 Playground row `smp_rank_senses`, each handed the numbered sentences and that
 list, give per pair the three Senses that fit best, best first, each with
 `played_by` and `holds`; an answer is refused naming the place, and a reading
-refused twice stops the run with nothing counted. Code then counts: a reason or
-result part of `Asynchronous`, `Cause`, `Cause+Belief` or `Cause+SpeechAct`
-played by the earlier sentence is counted as its opposite played by the later
-one; a pair's answers are ordered by how many readings name them, then the
+refused twice stops the run with nothing counted. Code then counts: a part that
+`src/sme/senses.json` declares one of two opposites, played by the earlier
+sentence, is counted as its opposite played by the later one, and those are the
+two parts of `Asynchronous`, the reason and result parts of `Cause`,
+`Cause+Belief` and `Cause+SpeechAct`, `Cond` and `Consequent` of `Condition`,
+and `Detail` and `General` of `Level-of-detail`; a pair's answers are ordered
+by how many readings name them, then the
 lower sum of places, then the list's order; and the answer most often in place
 1 is kept. Its Edge is carried by the Segment playing its part, or the later
 Segment where it has none, as `{ sense, rel_type: null, to: [<the other>] }`;

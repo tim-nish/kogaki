@@ -128,6 +128,14 @@ ok(
   handed.length === 22 && ownNamed.length === 0,
   `(c12) the text a reading is handed holds ${handed.length} entries and names ${ownNamed.join(", ") || "no own Sense"}`,
 );
+// The line of Condition holds its two part words, each with what the sentence playing it does, and Condition's
+// rationale after them (kogaki#1938).
+const conditionLine = handed.find((l) => l.startsWith("Condition."));
+ok(
+  conditionLine ===
+    "Condition.Cond / Condition.Consequent: one presents a situation as not yet real which, once real, would lead to the situation the other describes. Cond: this sentence is the condition. Consequent: this sentence is what follows once the condition is real. The reader sees a situation that is not yet real and what follows once it is, so they can apply it to cases the text does not name.",
+  `(c12) the line of Condition a reading is handed is not its two parts, each with its text, and its rationale: ${conditionLine}`,
+);
 
 // (e) every Move file under `moves/` carries both fields on every Segment, with listed Senses.
 const names = readdirSync(LIB)

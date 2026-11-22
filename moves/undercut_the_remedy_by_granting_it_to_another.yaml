@@ -31,7 +31,7 @@ segments:
   - manner: the reply is voiced as a likely guess rather than asserted outright
     bind: 2
     edges:
-      - sense: Condition.Cond
+      - sense: Condition.Consequent
         to: [2]
         hypophora: true
   - bind: 3

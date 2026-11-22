@@ -371,6 +371,15 @@ ok(
   cause.length === 1 && cause[0].sense === "Cause.Result" && cause[0].played_by === 3 && cause[0].among === 5,
   `(e) Cause.Reason by 2 and Cause.Result by 3 are not counted as one answer: ${JSON.stringify(cause)}`,
 );
+// Condition's two parts are each other's opposite, and Condition+SpeechAct's one part has none (kogaki#1938).
+const spelled = (sense, by) => JSON.stringify(S.canonicalAnswer({ sense, played_by: by }, [2, 3], names));
+ok(
+  spelled("Condition.Cond", 2) === JSON.stringify({ sense: "Condition.Consequent", played_by: 3 }) &&
+    spelled("Condition.Consequent", 2) === JSON.stringify({ sense: "Condition.Cond", played_by: 3 }) &&
+    spelled("Condition.Consequent", 3) === JSON.stringify({ sense: "Condition.Consequent", played_by: 3 }) &&
+    spelled("Condition+SpeechAct.Cond", 2) === JSON.stringify({ sense: "Condition+SpeechAct.Cond", played_by: 2 }),
+  `(e) Condition.Cond by 2 is not counted as Condition.Consequent by 3, or a part with no opposite is rewritten: ${spelled("Condition.Cond", 2)} ${spelled("Condition.Consequent", 2)} ${spelled("Condition+SpeechAct.Cond", 2)}`,
+);
 ok(
   JSON.stringify(p2.answers.map((x) => x.sense)) ===
     JSON.stringify(["Cause.Result", "Cause+Belief.Result", "Conjunction", "Asynchronous.Succession"]),
