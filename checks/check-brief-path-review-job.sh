@@ -61,15 +61,15 @@ const fails = [];
   const CLAIM = "Guards fail open when nobody feeds them.";
   const CLAIMS = [{ id: "L1", claim: CLAIM }];
   const STRANDS = [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }];
-  // THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): `r_`, `c_` and `h_` ids beside each name, and the adopted apex
-  // the next `h_<n>`, carrying no `from`.
+  // THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): `r_` and `c_` ids beside each name, the higher-order relation in
+  // the one list, and the adopted apex the next `c_<n>`, carrying no `from`.
   const structure = withApex({
     roles: [{ id: "r_1", name: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
       { id: "r_2", name: "input", context: "What feeds the check.", attributes: [], claims: ["L1"] }],
     relations: [{ id: "c_1", name: "reads", between: ["r_1", "r_2"], holds: "{r_1} reads {r_2}.", from: "L1" },
-      { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" }],
-    higher_order: [{ id: "h_1", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] }],
-  }, { name: "apex", relates: ["h_1"], holds: CLAIM }, CLAIMS);
+      { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" },
+      { id: "c_3", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] }],
+  }, { name: "apex", relates: ["c_3"], holds: CLAIM }, CLAIMS);
   const calls = join(base, "calls.jsonl");
   const judgeText = (refuseReview) => `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
@@ -160,8 +160,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const input = JSON.parse(u.prompt.slice(u.prompt.indexOf(JUDGE_INPUT_MARKER) + JUDGE_INPUT_MARKER.length));
     const own = input.candidate_you_must_review;
     if (!own || own.candidate_id !== "reader-path" || map[u.id] !== "reader-path"
-      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, typeof l.text, "waypoints" in l])) !== '[["L1","c_1","string",false],["L2","c_2","string",false],["L3","h_1","string",false],["L4","h_2","string",false]]'
-      || !input.structure || input.structure.attains_thesis !== "h_2" || Object.hasOwn(input.structure.higher_order[1], "from")) {
+      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, typeof l.text, "waypoints" in l])) !== '[["L1","c_1","string",false],["L2","c_2","string",false],["L3","c_3","string",false],["L4","c_4","string",false]]'
+      || !input.structure || input.structure.attains_thesis !== "c_4" || Object.hasOwn(input.structure.relations[3], "from") || Object.hasOwn(input.structure, "higher_order")) {
       fails.push(`(x1) unit ${u.id}'s prompt does not hold the one Reader Path, its four derived Legs, and the structure: ${JSON.stringify({ own: own && own.candidate_id, map: map[u.id], legs: own && own.legs })}`);
     }
   }

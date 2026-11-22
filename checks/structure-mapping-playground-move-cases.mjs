@@ -37,7 +37,8 @@ const ok = (cond, msg) => {
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
-const { legStructureOf } = await imp("src/structure-mapping-playground/move-structure.mjs");
+const { legStructureOf, readBriefLeg } = await imp("src/structure-mapping-playground/move-structure.mjs");
+const { legRows } = await imp("src/sme/arguments.mjs");
 const { debugRecord } = await imp("src/structure-mapping-playground/readback.mjs");
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-move-"));
@@ -82,7 +83,7 @@ writeFileSync(
   }),
 );
 
-// ---- the Brief: three Roles, two relations, a higher-order relation and one over it ----
+// ---- the Brief: three Roles, and in the one list two relations, a higher-order relation and one over it ----
 const STRUCTURE = {
   roles: [
     { id: "r_1", name: "installer", context: "the program that copies the kit.", attributes: [], claims: ["L1"] },
@@ -92,7 +93,17 @@ const STRUCTURE = {
   relations: [
     { id: "c_1", name: "writes", between: ["r_1", "r_2"], holds: "The {r_1} writes the {r_2}.", from: "L1" },
     { id: "c_2", name: "overwrites", between: ["r_2", "r_3"], holds: "The {r_2} overwrites any {r_3}.", from: "L2" },
+    { id: "c_3", name: "ownership", relates: ["c_1", "c_2"], holds: "The {r_2} is the {r_1}'s.", from: ["L1", "L2"] },
+    { id: "c_4", name: "reach", relates: ["c_3", "c_1"], holds: "What the {r_1} writes is its own.", from: ["L1"] },
   ],
+  attains_thesis: "c_4",
+  reach: ["c_1", "c_2", "c_3", "c_4"],
+  unreached: { relations: [], claims: [] },
+};
+// The same structure as a Brief stored it before the one list: `higher_order` beside `relations`, and `h_<n>` ids.
+const STORED_STRUCTURE = {
+  roles: STRUCTURE.roles,
+  relations: STRUCTURE.relations.slice(0, 2),
   higher_order: [
     { id: "h_1", name: "ownership", relates: ["c_1", "c_2"], holds: "The {r_2} is the {r_1}'s.", from: ["L1", "L2"] },
     { id: "h_2", name: "reach", relates: ["h_1", "c_1"], holds: "What the {r_1} writes is its own.", from: ["L1"] },
@@ -110,7 +121,7 @@ const LEGS = [
   },
   {
     leg_id: "s2",
-    relation: "h_2",
+    relation: "c_4",
     text: "What the installer writes is its own.",
     claims: [{ strand: "L1", proposition: "the installer copies the kit." }],
     reaches_target: true,
@@ -215,7 +226,7 @@ const READBACK = {
   ],
 };
 const ROUTE = ["--brief", brief, "--leg", "s1", "--move", MOVE, "--library", library];
-const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
+const LEG_H1 = { leg_id: "s2", relation: "c_3", text: "The copy is the installer's.", claims: LEGS[0].claims };
 const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
 const EDGES_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", EDGED, "--library", library];
 const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
@@ -341,11 +352,41 @@ for (const [name, args, want] of [
 // (e) and (f) went with the two calls whose answers they checked (kogaki#1922).
 
 // (g) the Leg's structure
+const storedBrief = writeBrief(
+  "stored-brief",
+  briefOf(STORED_STRUCTURE, [LEGS[0], { ...LEG_H1, relation: "h_1" }, { ...LEGS[1], leg_id: "s3", relation: "h_2" }]),
+);
+const storedText = readFileSync(storedBrief, "utf8");
 const LEG_S1 = legStructureOf(STRUCTURE, "c_1");
-const LEG_H2 = legStructureOf(STRUCTURE, "h_2");
-const ids = (s) => [s.roles, s.relations, s.higher_order].map((l) => l.map((x) => x.id).join(",")).join(" | ");
-ok(ids(LEG_S1) === "r_1,r_2 | c_1 | ", `(g) the Leg of c_1 reads ${ids(LEG_S1)}`);
-ok(ids(LEG_H2) === "r_1,r_2,r_3 | c_1,c_2 | h_1,h_2", `(g) the Leg of h_2 reads ${ids(LEG_H2)}`);
+const LEG_H2 = legStructureOf(STRUCTURE, "c_4");
+const ids = (s) => [s.roles, s.relations].map((l) => l.map((x) => x.id).join(",")).join(" | ");
+ok(
+  ids(LEG_S1) === "r_1,r_2 | c_1" && JSON.stringify(Object.keys(LEG_S1)) === '["roles","relations"]',
+  `(g) the Leg of c_1 reads ${ids(LEG_S1)}`,
+);
+// A Brief stored before the one list reads as the Brief stored after it: each Leg, its structure and its table rows the
+// same, the `h_<n>` ids renamed and the stored file left as it was.
+const storedLegs = ["s1", "s2", "s3"].map((leg) => [readBriefLeg(storedBrief, leg), readBriefLeg(tableBrief, leg)]);
+const rowsOf = (b) => JSON.stringify(legRows(b.record.structure, b.leg.relation));
+ok(
+  ids(LEG_H2) === "r_1,r_2,r_3 | c_1,c_2,c_3,c_4" &&
+    storedLegs.every(
+      ([was, now]) =>
+        !was.error &&
+        !now.error &&
+        JSON.stringify(was.leg) === JSON.stringify(now.leg) &&
+        JSON.stringify(was.structure) === JSON.stringify(now.structure) &&
+        JSON.stringify(was.record) === JSON.stringify(now.record) &&
+        rowsOf(was) === rowsOf(now) &&
+        JSON.stringify([...was.renamed]) === '[["h_1","c_3"],["h_2","c_4"]]' &&
+        now.renamed.size === 0,
+    ) &&
+    rowsOf(storedLegs[1][0]).includes(
+      '"symbol":"{c_3}","name":"ownership","kind":"Relation","arguments":"{c_1}, {c_2}"',
+    ) &&
+    readFileSync(storedBrief, "utf8") === storedText,
+  `(g) the Leg of c_4 reads ${ids(LEG_H2)}, or a Brief stored under \`relations\` and \`higher_order\` does not read as the same Legs and rows with its ids renamed: ${JSON.stringify(storedLegs.map(([was]) => was.error || [was.leg.relation, [...was.renamed]]))}`,
+);
 
 // (h) no call of the row `paragraph_plan_unit` (kogaki#1883), and nothing outside the run changed
 ok(
@@ -396,7 +437,7 @@ ok(
       binds: [
         { bind: 1, kind: "Argument", leg: "c_1" },
         { bind: 2, kind: "Argument", leg: "c_2" },
-        { bind: 3, kind: "CentralClaim", leg: "h_1" },
+        { bind: 3, kind: "CentralClaim", leg: "c_3" },
       ],
     }),
   `(i) pairing.yaml is not the Leg's Arguments then its CentralClaim, in order: ${JSON.stringify(tYaml("pairing.yaml"))}`,
@@ -433,12 +474,12 @@ ok(
     "| {r_3} | edit | Role |  | a change the consumer makes. |",
     "| {c_1} | writes | Relation | {r_1}, {r_2} | The {r_1} writes the {r_2}. |",
     "| {c_2} | overwrites | Relation | {r_2}, {r_3} | The {r_2} overwrites any {r_3}. |",
-    "| {h_1} | ownership | Relation | {c_1}, {c_2} | The {r_2} is the {r_1}'s. |",
-    "The CentralClaim of this paragraph is {h_1}.",
+    "| {c_3} | ownership | Relation | {c_1}, {c_2} | The {r_2} is the {r_1}'s. |",
+    "The CentralClaim of this paragraph is {c_3}.",
     "Its Arguments are {c_1}, {c_2}.",
     "1. {c_1}. Pointed to by part 2.",
     "2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. The reader is led to expect something and is then told it does not hold. Pointed to by part 3.",
-    "3. {h_1}. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect. The reader learns why a situation holds, or what it led to.",
+    "3. {c_3}. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect. The reader learns why a situation holds, or what it led to.",
   ].every((l) => tWriter.includes(l)),
   `(i) the writer's stdin does not hold the table of the Leg's structure, the symbols of its CentralClaim and Arguments and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(\| \{|The CentralClaim |Its Arguments |\d+\. )/.test(l)))}`,
 );
@@ -478,7 +519,7 @@ const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split
 ok(
   tRows.length === 3 &&
     tRows[0].includes("1 → Argument c_1") &&
-    tRows[2].includes("3 → CentralClaim h_1") &&
+    tRows[2].includes("3 → CentralClaim c_3") &&
     tRows[1].includes("Concession.Denier → 1") &&
     tRows[2].includes("Cause.Result → 2"),
   `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim and its Edges: ${tRows.join(" | ")}`,
@@ -497,7 +538,7 @@ ok(
 );
 const readingDir = join(root, "reading");
 mkdirSync(readingDir);
-const tSentences = legSentences(STRUCTURE, "h_1");
+const tSentences = legSentences(STRUCTURE, "c_3");
 writeFileSync(
   join(readingDir, "leg-senses-run.json"),
   JSON.stringify({ brief: { leg: "s2", path: relFromRepo(tableBrief) }, sentences: tSentences, state: "finished" }),
@@ -538,7 +579,17 @@ ok(
   const MOVE_ID = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
   const contract = parseYaml(readFileSync(`moves/${MOVE_ID}.yaml`, "utf8"), MOVE_ID);
   const x = L.readLegSensesFolder(READING, resolve(repo, BRIEF), "L4");
-  ok(x.reading && x.reading.pairs.length === 3, `(i) the saved reading was not read: ${JSON.stringify(x.error)}`);
+  // The saved reading was made of a Brief stored before the one list and names its CentralClaim `h_1`; read with the
+  // renaming the Brief's reader gives, that sentence carries the id the Brief's Leg now names.
+  const xRenamed = L.readLegSensesFolder(READING, resolve(repo, BRIEF), "L4", new Map([["h_1", "c_6"]]));
+  const sentenceIds = (r) => ((r.reading || {}).sentences || []).map((s) => s.id).join(",");
+  ok(
+    x.reading &&
+      x.reading.pairs.length === 3 &&
+      sentenceIds(x) === "c_2,c_3,h_1" &&
+      sentenceIds(xRenamed) === "c_2,c_3,c_6",
+    `(i) the saved reading was not read, or not read under the ids its Brief now carries: ${JSON.stringify(x.error)} ${sentenceIds(xRenamed)}`,
+  );
   const pairing = { binds: x.reading.sentences.map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })) };
   const edges = x.reading ? L.trialEdges(L.edgeSegments(contract), x.reading, pairing) : [];
   const args = (L.legSensesSection(x.reading, edges).split("<tr>")[2] || "").split("</tr>")[0];

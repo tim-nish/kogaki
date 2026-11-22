@@ -168,7 +168,6 @@ export const PLAN_STRUCTURE = {
   relations: [
     { id: "writes", name: "writes", between: ["kit", "tree"], holds: "The installer writes {kit} into {tree}." },
   ],
-  higher_order: [],
 };
 export const PLAN_PARTS = [
   { bind: 1, edges: [] },

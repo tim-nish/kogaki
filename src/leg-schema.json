@@ -81,7 +81,7 @@
     "relation": {
       "required": false,
       "type": "string",
-      "description": "The id of the relation or higher-order relation of the Brief's `structure` this Leg serves, `c_<n>` or `h_<n>` (kogaki#1775): the Legs are derived one per relation and higher-order relation the apex reaches. Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
+      "description": "The id of the relation or higher-order relation of the Brief's `structure` this Leg serves, `c_<n>` (kogaki#1775, kogaki#1937): the Legs are derived one per relation and higher-order relation the apex reaches. Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
     },
     "reaches_target": {
       "required": false,

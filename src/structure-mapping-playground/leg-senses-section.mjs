@@ -35,8 +35,9 @@ const readJson = (path) => {
 };
 
 // THE FOLDER, read and refused before any call: `{ reading }`, or `{ error }` naming the flag and the folder.
-// `briefPath` and `legId` are the Trial's own.
-export function readLegSensesFolder(folder, briefPath, legId) {
+// `briefPath` and `legId` are the Trial's own; `renamed` the ids the Brief's reader renamed (kogaki#1937), each
+// sentence of the reading read under the id its Brief now carries.
+export function readLegSensesFolder(folder, briefPath, legId, renamed = new Map()) {
   const dir = resolve(folder);
   const at = `\`--${LEG_SENSES_FLAG} ${folder}\``;
   const run = existsSync(join(dir, RUN_FILE)) ? readJson(join(dir, RUN_FILE)) : null;
@@ -48,7 +49,10 @@ export function readLegSensesFolder(folder, briefPath, legId) {
     };
   const counts = existsSync(join(dir, COUNTS_FILE)) ? readJson(join(dir, COUNTS_FILE)) : null;
   if (!counts || !Array.isArray(counts.pairs)) return { error: `${at} holds no ${COUNTS_FILE} with \`pairs\`` };
-  return { reading: { path: relFromRepo(dir), sentences: run.sentences, pairs: counts.pairs } };
+  const sentences = Array.isArray(run.sentences)
+    ? run.sentences.map((s) => (s && renamed.has(s.id) ? { ...s, id: renamed.get(s.id) } : s))
+    : run.sentences;
+  return { reading: { path: relFromRepo(dir), sentences, pairs: counts.pairs } };
 }
 
 // The Move's Segments as `compareMove` takes them: each Segment's `bind` and `edges`, from the Move file (kogaki#1880).

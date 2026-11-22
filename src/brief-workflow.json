@@ -128,7 +128,7 @@
     {
       "id": "adopt_thesis",
       "kind": "compute",
-      "does": "Reads the owner's captured answer at the thesis-determination gate, validates it against the option set it was offered, refuses the premise negation by name, and settles the adopted (Thesis, name) pair onto the run state, with the structure the adopted Thesis's apex completes: the apex appended to `higher_order` and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived from it (kogaki#1768). Binds `src/brief.mjs`'s `adopt` case. THE ANSWER IS READ AND NEVER RECEIVED AS AN ARGUMENT (kogaki#891): the capture is the harness's own row, written by `.claude/hooks/write-gate-capture.py` at the moment of the click.",
+      "does": "Reads the owner's captured answer at the thesis-determination gate, validates it against the option set it was offered, refuses the premise negation by name, and settles the adopted (Thesis, name) pair onto the run state, with the structure the adopted Thesis's apex completes: the apex appended to `relations` under the next `c_<n>` id and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived from it (kogaki#1768). Binds `src/brief.mjs`'s `adopt` case. THE ANSWER IS READ AND NEVER RECEIVED AS AN ARGUMENT (kogaki#891): the capture is the harness's own row, written by `.claude/hooks/write-gate-capture.py` at the moment of the click.",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,

@@ -16,6 +16,8 @@ import { parseYaml } from "../yaml.mjs";
 import { strandClaims } from "../brief/run-state.mjs";
 import { proofSheetCss } from "../structure-mapping-playground/sheet.mjs";
 import { elementLabel, readHolds } from "../compose/structure.mjs";
+import { briefAsOneList } from "../compose/record.mjs";
+import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 
 // THE BRIEF SHEET'S PARTS, in order (kogaki#1776, kogaki#1805).
@@ -107,10 +109,10 @@ function structureGraph(structure, claims) {
   const quote = (s) => `"${String(s).replace(/"/g, "#quot;")}"`;
   const left = unreachedIds(structure);
   const lines = ["flowchart TB"];
-  for (const x of [...structure.roles, ...structure.relations, ...structure.higher_order])
+  for (const x of [...structure.roles, ...relationsAmongRoles(structure), ...relationsAmongRelations(structure)])
     lines.push(`  ${x.id}[${quote(elementLabel(structure, x.id, claims))}]`);
-  for (const r of structure.relations) for (const role of r.between) lines.push(`  ${r.id} --- ${role}`);
-  for (const h of structure.higher_order) for (const id of h.relates) lines.push(`  ${h.id} ==> ${id}`);
+  for (const r of relationsAmongRoles(structure)) for (const role of r.between) lines.push(`  ${r.id} --- ${role}`);
+  for (const h of relationsAmongRelations(structure)) for (const id of h.relates) lines.push(`  ${h.id} ==> ${id}`);
   lines.push(
     "  classDef apex fill:#2b5fa8,stroke:#9cc2ff,color:#ffffff",
     "  classDef unreached fill:#8a2626,stroke:#ff9a9a,color:#ffffff",
@@ -123,11 +125,12 @@ function structureGraph(structure, claims) {
 
 function unreachedIds(structure) {
   const u = structure.unreached || {};
-  const left = new Set([...(u.relations || []), ...(u.higher_order || [])].map((x) => x.id));
-  for (const r of structure.relations)
+  const left = new Set((u.relations || []).map((x) => x.id));
+  const among = relationsAmongRoles(structure);
+  for (const r of among)
     if (left.has(r.id))
       for (const role of r.between) {
-        if (!structure.relations.some((o) => !left.has(o.id) && o.between.includes(role))) left.add(role);
+        if (!among.some((o) => !left.has(o.id) && o.between.includes(role))) left.add(role);
       }
   return left;
 }
@@ -207,13 +210,13 @@ export function renderBriefSheet({ brief, claims }) {
         ) +
         heading(3, "Relations") +
         elements(
-          structure.relations,
+          relationsAmongRoles(structure),
           (r) => holds(r.holds),
           (r) => esc(r.from ?? ""),
         ) +
         heading(3, "Higher-order relations") +
         elements(
-          structure.higher_order,
+          relationsAmongRelations(structure),
           (h) => holds(h.holds),
           (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))),
           considered ? connectedWhy : null,
@@ -249,7 +252,8 @@ function renderOrExit(briefPath) {
     process.exit(1);
   }
   const text = readFileSync(briefPath, "utf8");
-  const brief = parseYaml(text, briefPath);
+  // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
+  const brief = briefAsOneList(parseYaml(text, briefPath)).record;
   try {
     return { text, html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }) };
   } catch (e) {

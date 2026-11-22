@@ -41,10 +41,10 @@ const S1775 = {
   roles: [{ id: "r_1", name: "check", context: "A check reads what it is handed.", attributes: [], claims: ["L1"] },
     { id: "r_2", name: "input", context: "What is handed over.", attributes: [], claims: ["L2"] }],
   relations: [{ id: "c_1", name: "reading", between: ["r_1", "r_2"], holds: "A {r_1} reads its {r_2}.", from: "L1" },
-    { id: "c_2", name: "missing", between: ["r_1", "r_2"], holds: "A {r_1} misses what no {r_2} carries.", from: "L2" }],
-  higher_order: [{ id: "h_1", name: "handed", relates: ["c_1", "c_2"], holds: "A {r_1} is only as good as its {r_2}." }],
-  attains_thesis: "h_1",
-  reach: ["c_1", "c_2", "h_1"],
+    { id: "c_2", name: "missing", between: ["r_1", "r_2"], holds: "A {r_1} misses what no {r_2} carries.", from: "L2" },
+    { id: "c_3", name: "handed", relates: ["c_1", "c_2"], holds: "A {r_1} is only as good as its {r_2}." }],
+  attains_thesis: "c_3",
+  reach: ["c_1", "c_2", "c_3"],
 };
 const C1775 = [{ id: "L1", claim: "A check reads what it is handed." }, { id: "L2", claim: "A check misses what it is not handed." }];
 const fails = [];
@@ -269,7 +269,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
   const legs = structureLegs(S1775, C1775);
   const got = legs.map((l) => [l.leg_id, l.relation, l.text, l.claims.map((c) => c.strand).join(","), l.reaches_target === true]);
   const want = [["L1", "c_1", "A check reads its input.", "L1,L2", false], ["L2", "c_2", "A check misses what no input carries.", "L1,L2", false],
-    ["L3", "h_1", "A check is only as good as its input.", "L1,L2", true]];
+    ["L3", "c_3", "A check is only as good as its input.", "L1,L2", true]];
   if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`(ay1) the derived Legs are not one per reached relation, bottom-up, the apex's alone marked: ${JSON.stringify(got)}`);
   if (legs.some((l) => "waypoints" in l || "move" in l)) fails.push("(ay1) a derived Leg carries `waypoints` or `move`");
 

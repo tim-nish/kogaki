@@ -19,7 +19,7 @@ const CLAIMS = [
   { id: "c3", claim: "A team reads a green run as covering every file." },
   { id: "c4", claim: "A team keeps the run's log for ninety days." },
 ];
-// THE BRIEF'S READ: four relations, two higher-order relations, and the connections weighed, by name.
+// THE BRIEF'S READ: four relations and two higher-order relations in the one list, and the connections weighed, by name.
 const READ = {
   roles: [
     { name: "rules", context: "A set of checks that runs without anyone choosing.", attributes: [], claims: ["c1"] },
@@ -33,8 +33,6 @@ const READ = {
     { name: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "c2" },
     { name: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as complete.", from: "c3" },
     { name: "p4", between: ["team", "log"], holds: "{team} keeps {log} for ninety days.", from: "c4" },
-  ],
-  higher_order: [
     {
       name: "h1",
       relates: ["p1", "p2"],
@@ -74,7 +72,7 @@ const verdict = (s) => {
 const MINTED = mintStructure(READ).structure;
 ok(!verdict(READ).text, `(m) a read carrying its considered rows was refused: ${JSON.stringify(verdict(READ))}`);
 ok(
-  JSON.stringify(MINTED.considered.map((c) => c.relations)) === '[["c_1","c_2"],["h_1","c_3"],["c_4","c_3"]]',
+  JSON.stringify(MINTED.considered.map((c) => c.relations)) === '[["c_1","c_2"],["c_5","c_3"],["c_4","c_3"]]',
   `(m) the considered rows' names were not minted to ids: ${JSON.stringify(MINTED.considered)}`,
 );
 for (const [what, s, word] of [
@@ -82,7 +80,7 @@ for (const [what, s, word] of [
   [
     "a higher-order relation with no connected row",
     read((s) => s.considered.splice(1, 1)),
-    '"h2" (h_2) carries no `connected` row',
+    '"h2" (c_6) carries no `connected` row',
   ],
   ["a relation in no row", read((s) => s.considered.splice(2, 1)), '"p4" (c_4) stands in no row'],
   [
@@ -108,10 +106,10 @@ const sheet = renderBriefSheet({ brief: { ...brief, structure: MINTED }, claims:
 const map = sheet.slice(sheet.indexOf("<h2>Structure Mapping</h2>"), sheet.indexOf("<h2>Legs</h2>"));
 const higher = map.slice(map.indexOf("<h3>Higher-order relations</h3>"), map.indexOf("<h3>Not connected</h3>"));
 ok(
-  /<tr><td>h_1<\/td><td>h1<\/td><td>[^<]*<\/td><td>c2<\/td><td>WHY-H1 the rules read only the walk\.<\/td><\/tr>/.test(
+  /<tr><td>c_5<\/td><td>h1<\/td><td>[^<]*<\/td><td>c2<\/td><td>WHY-H1 the rules read only the walk\.<\/td><\/tr>/.test(
     higher,
   ) &&
-    /<tr><td>h_2<\/td><td>h2<\/td><td>[^<]*<\/td><td>c3<\/td><td>WHY-H2 the team trusts the run\.<\/td><\/tr>/.test(
+    /<tr><td>c_6<\/td><td>h2<\/td><td>[^<]*<\/td><td>c3<\/td><td>WHY-H2 the team trusts the run\.<\/td><\/tr>/.test(
       higher,
     ),
   "(m) the Brief sheet does not render each connected row's why beside its higher-order relation",

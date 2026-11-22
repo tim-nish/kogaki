@@ -9,17 +9,24 @@
 #       relation relating three (kogaki#1874), one relating itself through another, a written `reach` and
 #       a missing `attains_thesis`, naming each; the apex with no `from` and a higher-order relation relating a
 #       higher-order relation pass. The ids are minted
-#       (kogaki#1772): an answer writing an `id` is refused, every element carries its `name` and the id `r_<n>`, `c_<n>`
-#       or `h_<n>` in order of appearance, an element with no `name` or an id out of that order is refused naming it, an
+#       (kogaki#1772): an answer writing an `id` is refused, every element carries its `name` and the id `r_<n>` or
+#       `c_<n>` in order of appearance, the relations among Roles and the higher-order relations in the one list
+#       `relations`, an element with no `name` or an id out of that order is refused naming it, an
 #       apex carrying `from` is refused naming the apex, and `withReach` over the apex with no `from` is the same reach.
+#       A relation carrying both `between` and `relates`, or neither, is refused naming it, as are a written
+#       `higher_order` and a list holding no relation among Roles or no higher-order relation.
 
 #   (d) `structureLegs` derives five Legs in post-order -- each higher-order relation after what it relates -- each `text` its
 #       relation's `holds` with the Role names substituted, the apex's Leg alone marked `reaches_target`.
 #   (j) over four claims whose fourth is the `from` of a relation the apex does not reach, `withReach` lists that relation,
-#       the higher-order relation over it and the claim under `unreached`, and no Leg serves the unreached relation.
+#       the higher-order relation over it and the claim under `unreached`, the relations of both sorts in one list, and
+#       no Leg serves the unreached relation. A structure stored under `relations` and `higher_order` with `h_<n>` ids is
+#       read by `asOneList` as the one list the same reading mints, each `h_<n>` renamed `c_<R+n>` with every reference
+#       to it, the record in hand unchanged, and a structure already in one list is returned as it is.
 #   (k) the Brief sheet (kogaki#1776): `sheet.mjs brief` over a Brief of that structure and its Legs renders with no model
 #       call, the graph first labelled by name, the Legs last, no retired word, every table under a <thead> of one
-#       heading per column, the Claims table id, claim and reached with no cite, and the apex's `from` empty.
+#       heading per column, the Claims table id, claim and reached with no cite, and the apex's `from` empty. A Brief
+#       stored under the two lists renders the sheet of the same Brief stored under one, and is not written back.
 
 #   (l) the Brief sheet's owner act (kogaki#1788): `sheet.mjs show` over the Brief of (k) writes
 #       <root>/runs/brief-plan-playground/<slug>/sheet.html beside brief.sha256 and prints its file:// URL, the skill

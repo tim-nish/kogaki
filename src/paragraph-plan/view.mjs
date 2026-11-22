@@ -63,12 +63,7 @@ export function legRefusals(job, unitId, axisIds = []) {
 function sentencesOf(brief, leg) {
   const st = brief.record.structure;
   try {
-    return st
-      ? legSentences(
-          { roles: st.roles || [], relations: st.relations || [], higher_order: st.higher_order || [] },
-          leg.relation,
-        )
-      : [];
+    return st ? legSentences({ roles: st.roles || [], relations: st.relations || [] }, leg.relation) : [];
   } catch {
     return [];
   }

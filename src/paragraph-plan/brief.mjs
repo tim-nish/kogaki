@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  briefAsOneList,
   briefLegs,
   briefStructureRefusal,
   parseBriefRecord,
@@ -18,7 +19,7 @@ import { REPO } from "../workflow/run-record.mjs";
 // ---------------------------------------------------------------------------
 // THE BRIEF THIS STAGE READS. An adopted Brief — no slot awaiting composition — whose Legs each
 // carry their relation's `holds` as `text` (kogaki#1775, kogaki#1777).
-// Returns `{ text, record, legs }` or `{ error }`.
+// Returns `{ text, record, legs, renamed }` or `{ error }`, `renamed` the ids `briefAsOneList` renamed.
 export function readAdoptedBrief(briefPath) {
   let text;
   try {
@@ -28,6 +29,9 @@ export function readAdoptedBrief(briefPath) {
   }
   const parsed = parseBriefRecord(text, briefPath);
   if (parsed.error) return { error: parsed.error };
+  // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
+  const { record, renamed } = briefAsOneList(parsed.record);
+  parsed.record = record;
   const open = unfilledSlots(parsed.record);
   if (open.length) {
     return {
@@ -56,7 +60,7 @@ export function readAdoptedBrief(briefPath) {
   // `relation` BINDS ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
   const unbound = briefStructureRefusal(legs, parsed.record.structure, `the Brief at ${briefPath}`);
   if (unbound) return { error: unbound };
-  return { text, record: parsed.record, legs };
+  return { text, record: parsed.record, legs, renamed };
 }
 
 // The Audience the Brief was composed for: the Brief's own `compose_path`, or the one

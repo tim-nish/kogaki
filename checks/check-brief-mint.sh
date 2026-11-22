@@ -11,7 +11,7 @@
 #        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
 #        (dj) the candidate constraint, single-top apex, depth line and bound (#1773).
 
-#   (dn) the apex answered by its name with no `id` or `from`, minted h_<n> at
+#   (dn) the apex answered by its name with no `id` or `from`, minted c_<n> at
 #        adoption, and no bare minted id on the Thesis gate (kogaki#1772).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
@@ -163,7 +163,7 @@ const DD_STRANDS = [{ display_id: "L1", slug: "a-strand", address: "coding::less
 // two relations under one higher-order relation -- a single top, so that top is the apex (kogaki#1773) --
 // so two Thesis candidates, the first the one whose home (dh) collides; `keep` then leaves the second offered.
 const DD_CLAIMS = [{ id: "L1", claim: "guards fail open when nobody feeds them" }];
-// THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): `r_`, `c_` and `h_` ids beside each name, and each apex answered
+// THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): `r_` and `c_` ids beside each name, the higher-order relations in the one list, and each apex answered
 // by its name alone, carrying no `id` and no `from`.
 const DD_STRUCTURE = {
   roles: [{ id: "r_1", name: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
@@ -173,9 +173,9 @@ const DD_STRUCTURE = {
   relations: [{ id: "c_1", name: "reads", between: ["r_1", "r_2"], holds: "{r_1} reads {r_2}.", from: "L1" },
     { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" },
     { id: "c_3", name: "keeps", between: ["r_3", "r_4"], holds: "{r_3} keeps {r_4}.", from: "L1" },
-    { id: "c_4", name: "serves_stale", between: ["r_3", "r_4"], holds: "{r_3} serves {r_4} after it changes.", from: "L1" }],
-  higher_order: [{ id: "h_1", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] },
-    { id: "h_2", name: "goes_stale", relates: ["c_3", "c_4"], holds: "Because {r_3} keeps {r_4}, it serves {r_4} stale.", from: ["L1"] }],
+    { id: "c_4", name: "serves_stale", between: ["r_3", "r_4"], holds: "{r_3} serves {r_4} after it changes.", from: "L1" },
+    { id: "c_5", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] },
+    { id: "c_6", name: "goes_stale", relates: ["c_3", "c_4"], holds: "Because {r_3} keeps {r_4}, it serves {r_4} stale.", from: ["L1"] }],
 };
 const DD_HOLDS = ["Guards fail open when nobody feeds them.", "Caches serve stale answers when nobody evicts them."];
 const ddApexes = (ks) => ks.map((k, i) => ({ component: k.component, name: `apex_${i + 1}`, relates: [...k.top], holds: DD_HOLDS[i] }));
@@ -183,7 +183,7 @@ const ddCandidates = () => {
   const ks = componentsOf(DD_STRUCTURE, DD_CLAIMS);
   return composeThesisCandidates([], ks, DD_CLAIMS, DD_STRUCTURE);
 };
-// (dn) kogaki#1772: the apex answer carries a `name` and no `id` or `from`, the adoption mints the next `h_<n>` and
+// (dn) kogaki#1772: the apex answer carries a `name` and no `id` or `from`, the adoption mints the next `c_<n>` and
 // writes no `from`, and the Thesis gate prints no bare minted id.
 {
   const ks = componentsOf(DD_STRUCTURE, DD_CLAIMS);
@@ -196,20 +196,20 @@ const ddCandidates = () => {
     if (!v.text || !want.test(v.text)) fails.push(`(dn) an apex carrying ${what} was not refused naming the apex: ${JSON.stringify(v)}`);
   }
   const c = ddCandidates();
-  // A WRITTEN APEX IS APPENDED UNDER THE NEXT `h_<n>`; a single top is named under the id it already carries
+  // A WRITTEN APEX IS APPENDED TO `relations` UNDER THE NEXT `c_<n>`; a single top is named under the id it already carries
   // (kogaki#1773) and nothing is appended.
   const adopted = withApex(DD_STRUCTURE, ddApexes(ks)[0], DD_CLAIMS);
-  const apex = adopted.higher_order[2];
-  if (adopted.attains_thesis !== "h_3" || !apex || apex.id !== "h_3" || apex.name !== "apex_1" || Object.hasOwn(apex, "from")
-    || JSON.stringify(adopted.reach) !== '["c_1","c_2","h_1","h_3"]') {
-    fails.push(`(dn) the adopted apex is not h_3 named apex_1 with no \`from\`, reaching its component: ${JSON.stringify(adopted)}`);
+  const apex = adopted.relations[6];
+  if (adopted.attains_thesis !== "c_7" || !apex || apex.id !== "c_7" || apex.name !== "apex_1" || Object.hasOwn(apex, "from") || Object.hasOwn(adopted, "higher_order")
+    || JSON.stringify(adopted.reach) !== '["c_1","c_2","c_5","c_7"]') {
+    fails.push(`(dn) the adopted apex is not c_7 named apex_1 with no \`from\`, appended to \`relations\` and reaching its component: ${JSON.stringify(adopted)}`);
   }
   const named = withApex(DD_STRUCTURE, c[0].apex, DD_CLAIMS);
-  if (named.attains_thesis !== "h_1" || named.higher_order.length !== DD_STRUCTURE.higher_order.length) {
-    fails.push(`(dn) a single-top adoption did not name h_1 under the id it carries: ${JSON.stringify([named.attains_thesis, named.higher_order.map((h) => h.id)])}`);
+  if (named.attains_thesis !== "c_5" || named.relations.length !== DD_STRUCTURE.relations.length) {
+    fails.push(`(dn) a single-top adoption did not name c_5 under the id it carries: ${JSON.stringify([named.attains_thesis, named.relations.map((h) => h.id)])}`);
   }
   const labels = thesisGate(c, DD_STRANDS).options.map((o) => o.label).join("\n");
-  if (/\b[rch]_\d+\b/.test(labels)) fails.push(`(dn) the Thesis gate prints a bare minted id: ${labels}`);
+  if (/\b[rc]_\d+\b/.test(labels)) fails.push(`(dn) the Thesis gate prints a bare minted id: ${labels}`);
 }
 const ddHome = (thesesDir, slug, thesis, cite) => {
   mkdirSync(join(thesesDir, slug), { recursive: true });
@@ -259,7 +259,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
 // ordinary relation and no higher-order relation, so it is not offered and is reported instead.
 const DJ_CLAIMS = ["L1", "L2", "L3", "L4"].map((id) => ({ id, claim: `claim ${id}` }));
 // THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): the read answers each element by its `name` and `mintStructure`
-// assigns `r_<n>`, `c_<n>` and `h_<n>` in order of appearance.
+// assigns `r_<n>` and `c_<n>` in order of appearance, the higher-order relations after the relations among Roles in the one list.
 const DJ_STRUCTURE = mintStructure({
   roles: [["gate", "L1"], ["feed", "L1"], ["check_root", "L2"], ["log", "L3"], ["reader", "L3"], ["clock", "L3"], ["tick", "L3"], ["note", "L4"], ["page", "L4"]]
     .map(([name, c]) => ({ name, context: `A ${name}.`, attributes: [], claims: [c] })),
@@ -271,8 +271,7 @@ const DJ_STRUCTURE = mintStructure({
     { name: "kept_for", between: ["log", "reader"], holds: "{log} is kept for {reader}.", from: "L3" },
     { name: "stamps", between: ["clock", "log"], holds: "{clock} stamps {log}.", from: "L3" },
     { name: "counts", between: ["clock", "tick"], holds: "{clock} counts {tick}.", from: "L3" },
-    { name: "sits_on", between: ["note", "page"], holds: "{note} sits on {page}.", from: "L4" }],
-  higher_order: [
+    { name: "sits_on", between: ["note", "page"], holds: "{note} sits on {page}.", from: "L4" },
     { name: "reads_what_it_is_under", relates: ["reads", "under_root"], holds: "{gate} reads {feed} because it lives under {check_root}.", from: ["L1"] },
     { name: "every_gate_reads_listed", relates: ["reads_what_it_is_under", "listed"], holds: "Every {gate} under {check_root} reads a listed {feed}.", from: ["L2"] },
     { name: "log_for_reader", relates: ["read_by", "kept_for"], holds: "{log} exists for {reader}.", from: ["L3"] },
@@ -280,9 +279,9 @@ const DJ_STRUCTURE = mintStructure({
 }).structure;
 {
   const ks = componentsOf(DJ_STRUCTURE, DJ_CLAIMS);
-  const { connected, unconnected } = partitionComponents(ks);
+  const { connected, unconnected } = partitionComponents(ks, DJ_STRUCTURE);
   if (JSON.stringify(connected.map((k) => k.claims)) !== '[["L1","L2"],["L3"]]' || JSON.stringify(unconnected.map((k) => k.claims)) !== '[["L4"]]') {
-    fails.push(`(dj) the components were not split into connected [L1,L2],[L3] and unconnected [L4]: ${JSON.stringify(ks.map((k) => [k.claims, k.higher_order]))}`);
+    fails.push(`(dj) the components were not split into connected [L1,L2],[L3] and unconnected [L4]: ${JSON.stringify(ks.map((k) => [k.claims, k.relations]))}`);
   }
   const k2 = connected.find((k) => k.claims[0] === "L3");
   const written = { component: k2.component, name: "ax_log", relates: [...k2.top], holds: "A log and a clock are both kept for whoever reads them later." };
@@ -291,10 +290,10 @@ const DJ_STRUCTURE = mintStructure({
   const multi = c.find((x) => x.claims.includes("L3"));
   if (c.length !== 2 || c[0] !== single) fails.push(`(dj) the candidates are not two, deepest first: ${JSON.stringify(c.map((x) => [x.id, x.depth]))}`);
   if (!single || single.apex.name !== "every_gate_reads_listed" || Object.keys(single.apex).length !== 1 || single.thesis !== "Every gate under check root reads a listed feed.") {
-    fails.push(`(dj) the single-top candidate's apex is not its top h_2 with its holds in Role names: ${JSON.stringify(single)}`);
+    fails.push(`(dj) the single-top candidate's apex is not its top c_10 with its holds in Role names: ${JSON.stringify(single)}`);
   }
   if (!multi || multi.apex.name !== "ax_log" || multi.depth !== 2 || single.depth !== 2) {
-    // both are depth 2: h2 over h1, and the written apex over h3/h4; a tie keeps the components. order
+    // both are depth 2: c_10 over c_9, and the written apex over c_11/c_12; a tie keeps the components. order
     fails.push(`(dj) the depths are not 2 and 2, the written apex over its tops: ${JSON.stringify(c.map((x) => [x.id, x.depth]))}`);
   }
   const opts = thesisGateOptions(c);
@@ -302,20 +301,20 @@ const DJ_STRUCTURE = mintStructure({
     || !opts[1].label.includes("— depth 2, 4 relations over 1 Strand; leaves L1, L2, L4 — Brief: ")) {
     fails.push(`(dj) the option labels do not carry the depth line: ${JSON.stringify(opts.map((o) => o.label))}`);
   }
-  const shallow = { ...DJ_STRUCTURE, higher_order: DJ_STRUCTURE.higher_order.filter((h) => h.name !== "every_gate_reads_listed") };
-  const sk = partitionComponents(componentsOf(shallow, DJ_CLAIMS)).connected;
+  const shallow = { ...DJ_STRUCTURE, relations: DJ_STRUCTURE.relations.filter((h) => h.name !== "every_gate_reads_listed") };
+  const sk = partitionComponents(componentsOf(shallow, DJ_CLAIMS), shallow).connected;
   const sc = composeThesisCandidates([written], sk, DJ_CLAIMS, shallow);
   if (JSON.stringify(sc.map((x) => x.depth)) !== "[2,1]" || !sc[0].claims.includes("L3")) {
     fails.push(`(dj) the candidates are not ordered deepest first: ${JSON.stringify(sc.map((x) => [x.claims, x.depth]))}`);
   }
 
   const adoptedSingle = withApex(DJ_STRUCTURE, single.apex, DJ_CLAIMS);
-  if (adoptedSingle.attains_thesis !== "h_2" || adoptedSingle.higher_order.length !== DJ_STRUCTURE.higher_order.length) {
-    fails.push(`(dj) a single-top adoption wrote an apex rather than naming h_2: ${JSON.stringify([adoptedSingle.attains_thesis, adoptedSingle.higher_order.map((h) => h.id)])}`);
+  if (adoptedSingle.attains_thesis !== "c_10" || adoptedSingle.relations.length !== DJ_STRUCTURE.relations.length) {
+    fails.push(`(dj) a single-top adoption wrote an apex rather than naming c_10: ${JSON.stringify([adoptedSingle.attains_thesis, adoptedSingle.relations.map((h) => h.id)])}`);
   }
   const adoptedMulti = withApex(DJ_STRUCTURE, multi.apex, DJ_CLAIMS);
-  if (adoptedMulti.attains_thesis !== "h_5" || !adoptedMulti.higher_order.some((h) => h.id === "h_5" && h.name === "ax_log" && !Object.hasOwn(h, "from"))) {
-    fails.push(`(dj) a multi-top adoption did not carry the written apex: ${JSON.stringify(adoptedMulti.higher_order.map((h) => h.id))}`);
+  if (adoptedMulti.attains_thesis !== "c_13" || !adoptedMulti.relations.some((h) => h.id === "c_13" && h.name === "ax_log" && !Object.hasOwn(h, "from"))) {
+    fails.push(`(dj) a multi-top adoption did not carry the written apex: ${JSON.stringify(adoptedMulti.relations.map((h) => h.id))}`);
   }
   const cov = unreachedCoverage(adoptedSingle);
   const l4 = cov.find((e) => e.strand === "L4");
@@ -327,8 +326,8 @@ const DJ_STRUCTURE = mintStructure({
   const minted = composeBrief({ slug: "dj", strands: DJ_CLAIMS.map((x) => ({ display_id: x.id, slug: x.id.toLowerCase(), cite: `coding::lesson/${x.id}@abc` })),
     thesis: single.thesis, composePath: "audiences/dev-to-zenn.md", claims: DJ_CLAIMS.map((x) => x.claim), structure: adoptedSingle });
   const rec = compose.parseBriefRecord(minted, "dj.yaml");
-  if (rec.error || rec.record.structure.attains_thesis !== "h_2" || !(rec.record.strand_coverage || []).some((e) => e.strand === "L4")) {
-    fails.push(`(dj) the minted Brief does not carry attains_thesis h_2 and L4 under strand_coverage: ${rec.error || JSON.stringify(rec.record.strand_coverage)}`);
+  if (rec.error || rec.record.structure.attains_thesis !== "c_10" || !(rec.record.strand_coverage || []).some((e) => e.strand === "L4")) {
+    fails.push(`(dj) the minted Brief does not carry attains_thesis c_10 and L4 under strand_coverage: ${rec.error || JSON.stringify(rec.record.strand_coverage)}`);
   }
 
   // The unconnected material, rendered above the Thesis question.
@@ -364,7 +363,7 @@ const DJ_STRUCTURE = mintStructure({
     const d = mkdtempSync(join(tmpdir(), "kogaki-dj-apex-"));
     const rs = join(d, "run.json");
     const longHolds = `${Array.from({ length: 35 }, (_, i) => `w${i}`).join(" ")} {r_1}`;
-    const structure = { ...DJ_STRUCTURE, higher_order: DJ_STRUCTURE.higher_order.map((h) => (h.id === "h_2" ? { ...h, holds: longHolds } : h)) };
+    const structure = { ...DJ_STRUCTURE, relations: DJ_STRUCTURE.relations.map((h) => (h.id === "c_10" ? { ...h, holds: longHolds } : h)) };
     writeFileSync(rs, JSON.stringify({ strands: DJ_CLAIMS.map((x) => ({ display_id: x.id, slug: x.id.toLowerCase(), address: `coding::lesson/${x.id}` })),
       strand_renderings: Object.fromEntries(DJ_CLAIMS.map((x) => [x.id.toLowerCase(), { found: true, headline: x.claim }])), structure }) + "\n");
     const apexFile = join(d, "apex.json");

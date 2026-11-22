@@ -10,6 +10,7 @@ import { resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import {
   opensSectionRefusal,
+  briefAsOneList,
   parseBriefRecord,
   unfilledSlots,
   briefLegs,
@@ -54,7 +55,8 @@ export function readBrief(text, path = "<brief>") {
   const refusals = [];
   const parsed = parseBriefRecord(text, path);
   if (parsed.error) return { refusals: [parsed.error], text, legs: [], strands: [] };
-  const record = parsed.record;
+  // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
+  const record = briefAsOneList(parsed.record).record;
 
   // A template is refused BY FIELD (AC1): the first slot still awaiting
   // composition names the field the refusal carries.

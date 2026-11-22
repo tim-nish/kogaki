@@ -37,7 +37,8 @@ import {
   validateOwnerAnswer,
 } from "../compose.mjs";
 import { resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
-import { componentsOf, depthOf, holdsInRoleNames, withApex } from "../compose/structure.mjs";
+import { componentsOf, depthOf, holdsInRoleNames, partitionComponents, withApex } from "../compose/structure.mjs";
+import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims } from "./run-state.mjs";
 
 // The inputs the mint reads, and no others: an input it does not name is
@@ -58,14 +59,9 @@ const COMPOSE_BRIEF_INPUTS = Object.freeze([
 // A claim of a component no higher-order relation connects carries that reason instead (kogaki#1773).
 export function unreachedCoverage(structure) {
   const left = (structure.unreached && structure.unreached.claims) || [];
-  const ks = componentsOf(structure, left);
-  const joined = new Set(ks.filter((k) => k.higher_order.length > 0).flatMap((k) => k.claims));
-  const loose = new Set(
-    ks
-      .filter((k) => k.higher_order.length === 0)
-      .flatMap((k) => k.claims)
-      .filter((id) => !joined.has(id)),
-  );
+  const { connected, unconnected } = partitionComponents(componentsOf(structure, left), structure);
+  const joined = new Set(connected.flatMap((k) => k.claims));
+  const loose = new Set(unconnected.flatMap((k) => k.claims).filter((id) => !joined.has(id)));
   return left.map((c) => ({
     strand: c.id,
     not_carried: loose.has(c.id)
@@ -223,7 +219,8 @@ function sentence(text) {
 // candidate carries its `depth` and its relation count, and the list is ordered deepest first.
 export function composeThesisCandidates(apexes, components, claims, structure) {
   const ids = claims.map((c) => c.id);
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const higher = new Map(relationsAmongRelations(structure).map((h) => [h.id, h]));
+  const amongRoles = new Set(relationsAmongRoles(structure).map((r) => r.id));
   return components
     .map((k) => {
       const single = k.top.length === 1 && higher.has(k.top[0]);
@@ -239,7 +236,7 @@ export function composeThesisCandidates(apexes, components, claims, structure) {
           component: k.component,
           apex: single ? { name: apex.name } : { name: apex.name, relates: [...apex.relates], holds: apex.holds },
           depth: single ? depthOf(structure, apex.id) : 1 + Math.max(0, ...k.top.map((id) => depthOf(structure, id))),
-          relation_count: k.relations.length,
+          relation_count: k.relations.filter((id) => amongRoles.has(id)).length,
           claims: [...k.claims],
           reaches: ids.filter((id) => k.claims.includes(id)),
           leaves: ids.filter((id) => !k.claims.includes(id)),
@@ -675,7 +672,7 @@ export function cmdAdopt(args) {
     );
   }
   // THE ADOPTED STRUCTURE (kogaki#1768): the adopted component's apex appended to
-  // `higher_order` and named `attains_thesis`, the other apexes discarded, and
+  // `relations` and named `attains_thesis`, the other apexes discarded, and
   // `reach` and `unreached` derived from it.
   if (!state.structure || !hit.apex || typeof hit.apex.name !== "string") {
     fail(

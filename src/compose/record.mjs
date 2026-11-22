@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { relFromRepo } from "../workflow/run-record.mjs";
 import { READER_STATE_DIMENSIONS, readerStateDimensionLine } from "./leg-schema.mjs";
+import { asOneList, oneListIds } from "../sme/structure.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -82,6 +83,24 @@ export function legRecord(s) {
   if (s.opens_section !== undefined) out.opens_section = s.opens_section;
   if (s.reaches_target === true) out.reaches_target = true;
   return out;
+}
+
+// A BRIEF STORED BEFORE THE ONE LIST, READ AS ONE (kogaki#1937): its `structure` read by `asOneList`, and each Leg's
+// `relation` renamed with it. Returns `{ record, renamed }`, `renamed` the ids `oneListIds` gives — empty, and the
+// record as it is, for a Brief in one list. The record in hand is not changed.
+export function briefAsOneList(record) {
+  const renamed = oneListIds(record && record.structure);
+  if (!renamed.size) return { record, renamed };
+  const relation = (l) =>
+    l && typeof l === "object" && renamed.has(l.relation) ? { ...l, relation: renamed.get(l.relation) } : l;
+  return {
+    record: {
+      ...record,
+      structure: asOneList(record.structure),
+      ...(Array.isArray(record.reader_path) ? { reader_path: record.reader_path.map(relation) } : {}),
+    },
+    renamed,
+  };
 }
 
 // The record's Legs back to the in-memory shape every reader of a Leg reads (kogaki#1775).

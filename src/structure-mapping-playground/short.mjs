@@ -838,10 +838,11 @@ export function runMoveTrial({
   if (existsSync(join(outDir, TRIAL_FILE)))
     fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
   const briefPath = resolve(brief);
-  // A finished reading of the same Brief's Leg, shown on the sheet with no model call (kogaki#1875).
-  const ls = legSenses ? readLegSensesFolder(legSenses, briefPath, legId) : null;
-  if (ls && ls.error) fail(`${ls.error}. Nothing was started.`);
   const b = readBriefLeg(briefPath, legId);
+  // A finished reading of the same Brief's Leg, shown on the sheet with no model call (kogaki#1875), its sentences
+  // under the ids the Brief's reader gives (kogaki#1937).
+  const ls = legSenses ? readLegSensesFolder(legSenses, briefPath, legId, b.renamed) : null;
+  if (ls && ls.error) fail(`${ls.error}. Nothing was started.`);
   if (b.error) fail(`${b.error}. Nothing was started.`);
   const libraryDir = resolve(REPO, library || "moves");
   const lib = loadMoveContracts(libraryDir);

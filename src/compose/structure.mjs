@@ -9,7 +9,13 @@
 //   RelationalStructure, The Leg-Planning Playground
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { keysRefusal, ID_PREFIX, ELEMENT_NAME as NAME } from "../sme/structure.mjs";
+import {
+  keysRefusal,
+  ID_PREFIX,
+  ELEMENT_NAME as NAME,
+  relationsAmongRoles as among,
+  relationsAmongRelations as over,
+} from "../sme/structure.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -27,8 +33,8 @@ export function readHolds(structure, holds) {
 export function elementLabel(structure, id, claims = null) {
   const s = structure || {};
   const role = (s.roles || []).find((x) => x.id === id);
-  const rel = (s.relations || []).find((x) => x.id === id);
-  const ho = (s.higher_order || []).find((x) => x.id === id);
+  const rel = among(s).find((x) => x.id === id);
+  const ho = over(s).find((x) => x.id === id);
   const x = role || rel || ho;
   if (!x) return String(id);
   const ids = role
@@ -37,14 +43,14 @@ export function elementLabel(structure, id, claims = null) {
       ? [rel.from]
       : Array.isArray(ho.from) && ho.from.length
         ? ho.from
-        : servesOf(s, [id], claims || [...new Set((s.relations || []).map((r) => r.from))].map((c) => ({ id: c })));
+        : servesOf(s, [id], claims || [...new Set(among(s).map((r) => r.from))].map((c) => ({ id: c })));
   return `${x.name ?? id} (${ids.join(", ")})`;
 }
 
 // THE IDS THE APEX REACHES: `attains_thesis` and every relation and higher-order relation its `relates` names, closed,
-// in the structure's order, relations first.
+// the relations among Roles first, then the higher-order relations, each in the order of the list.
 export function reachOf(structure) {
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
   const reached = new Set();
   const walk = (id) => {
     if (reached.has(id)) return;
@@ -52,20 +58,25 @@ export function reachOf(structure) {
     for (const x of (higher.get(id) || { relates: [] }).relates) walk(x);
   };
   walk(structure.attains_thesis);
-  return [...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)].filter((id) =>
-    reached.has(id),
-  );
+  return [...among(structure).map((r) => r.id), ...over(structure).map((h) => h.id)].filter((id) => reached.has(id));
 }
 
-// THE STRUCTURE WITH ITS REACH: `reach`, and `unreached` — the relations, higher-order relations and claims outside it,
-// each with `reached_by`, the ids that would have reached it.
+// THE STRUCTURE WITH ITS REACH: `reach`, and `unreached` — the relations of either sort, in the order of the list, and
+// the claims outside it, each with `reached_by`, the ids that would have reached it.
 export function withReach(structure, claims) {
   const reach = reachOf(structure);
   const inReach = new Set(reach);
-  const relatedBy = (id) => structure.higher_order.filter((h) => h.relates.includes(id)).map((h) => h.id);
+  const relatedBy = (id) =>
+    over(structure)
+      .filter((h) => h.relates.includes(id))
+      .map((h) => h.id);
   const statedBy = (c) => [
-    ...structure.relations.filter((r) => r.from === c).map((r) => r.id),
-    ...structure.higher_order.filter((h) => (h.from || []).includes(c)).map((h) => h.id),
+    ...among(structure)
+      .filter((r) => r.from === c)
+      .map((r) => r.id),
+    ...over(structure)
+      .filter((h) => (h.from || []).includes(c))
+      .map((h) => h.id),
   ];
   const reachedClaims = new Set(claims.map((c) => c.id).filter((c) => statedBy(c).some((id) => inReach.has(id))));
   const read = Object.fromEntries(Object.entries(structure).filter(([k]) => k !== "reach" && k !== "unreached"));
@@ -76,9 +87,6 @@ export function withReach(structure, claims) {
       relations: structure.relations
         .filter((r) => !inReach.has(r.id))
         .map((r) => ({ id: r.id, reached_by: relatedBy(r.id) })),
-      higher_order: structure.higher_order
-        .filter((h) => !inReach.has(h.id))
-        .map((h) => ({ id: h.id, reached_by: relatedBy(h.id) })),
       claims: claims.filter((c) => !reachedClaims.has(c.id)).map((c) => ({ id: c.id, reached_by: statedBy(c.id) })),
     },
   };
@@ -87,8 +95,8 @@ export function withReach(structure, claims) {
 // THE CLAIM IDS A CARRIED ID SERVES: a relation's `from`, and for a higher-order relation the `from` of every relation
 // at the bottom of its `relates`, closed, in claim order.
 export function servesOf(structure, carries, claims) {
-  const relation = new Map(structure.relations.map((r) => [r.id, r]));
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const relation = new Map(among(structure).map((r) => [r.id, r]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
   const from = new Set();
   const seen = new Set();
   const walk = (id) => {
@@ -107,8 +115,8 @@ export function servesOf(structure, carries, claims) {
 // higher-order relation's `from`, an ordinary relation's Roles' claims, and for the apex, which carries no `from`, the
 // claims its `relates` reaches. The apex's Leg alone carries `reaches_target`.
 export function structureLegs(structure, claims) {
-  const relation = new Map(structure.relations.map((r) => [r.id, r]));
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const relation = new Map(among(structure).map((r) => [r.id, r]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
   const apex = structure.attains_thesis;
   const order = [];
   const seen = new Set();
@@ -141,11 +149,11 @@ export function structureLegs(structure, claims) {
 
 // THE STRUCTURE'S CONNECTED COMPONENTS (kogaki#1768): two relations are connected when they share a Role or a
 // higher-order relation relates both, and a component is the closure. Each component carries its id (`k<n>`, in the
-// order of its first relation), its relations, its higher-order relations, `top` -- the higher-order relations no
-// other relates, or its relations where it has none -- and the claims its relations and higher-order relations are
-// `from`, in claim order.
+// order of its first relation), `relations` -- its relations among Roles, then its higher-order relations (kogaki#1937)
+// --, `top` -- the higher-order relations no other relates, or its relations where it has none -- and the claims its
+// relations are `from`, in claim order.
 export function componentsOf(structure, claims) {
-  const parent = new Map(structure.relations.map((r) => [r.id, r.id]));
+  const parent = new Map(among(structure).map((r) => [r.id, r.id]));
   const find = (x) => (parent.get(x) === x ? x : find(parent.get(x)));
   const join = (a, b) => {
     const ra = find(a);
@@ -153,41 +161,46 @@ export function componentsOf(structure, claims) {
     if (ra !== rb) parent.set(rb, ra);
   };
   const byRole = new Map();
-  for (const r of structure.relations) {
+  for (const r of among(structure)) {
     for (const role of r.between) {
       if (byRole.has(role)) join(byRole.get(role), r.id);
       else byRole.set(role, r.id);
     }
   }
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
   const bottom = (id, seen = new Set()) => {
     if (seen.has(id)) return [];
     seen.add(id);
     return higher.has(id) ? higher.get(id).relates.flatMap((x) => bottom(x, seen)) : [id];
   };
-  for (const h of structure.higher_order) {
+  for (const h of over(structure)) {
     const rs = bottom(h.id).filter((id) => parent.has(id));
     for (const r of rs.slice(1)) join(rs[0], r);
   }
   const groups = new Map();
-  for (const r of structure.relations) {
+  for (const r of among(structure)) {
     const root = find(r.id);
     if (!groups.has(root)) groups.set(root, []);
     groups.get(root).push(r.id);
   }
-  const related = new Set(structure.higher_order.flatMap((h) => h.relates));
+  const related = new Set(over(structure).flatMap((h) => h.relates));
   return [...groups.values()].map((relations, i) => {
     const inside = new Set(relations);
-    const hos = structure.higher_order.filter((h) => bottom(h.id).some((id) => inside.has(id))).map((h) => h.id);
+    const hos = over(structure)
+      .filter((h) => bottom(h.id).some((id) => inside.has(id)))
+      .map((h) => h.id);
     const tops = hos.filter((id) => !related.has(id));
     const from = new Set([
-      ...structure.relations.filter((r) => inside.has(r.id)).map((r) => r.from),
-      ...structure.higher_order.filter((h) => hos.includes(h.id)).flatMap((h) => h.from || []),
+      ...among(structure)
+        .filter((r) => inside.has(r.id))
+        .map((r) => r.from),
+      ...over(structure)
+        .filter((h) => hos.includes(h.id))
+        .flatMap((h) => h.from || []),
     ]);
     return {
       component: `k${i + 1}`,
-      relations,
-      higher_order: hos,
+      relations: [...relations, ...hos],
       top: tops.length ? tops : relations,
       claims: claims.map((c) => c.id).filter((id) => from.has(id)),
     };
@@ -195,18 +208,21 @@ export function componentsOf(structure, claims) {
 }
 
 // A COMPONENT IS A THESIS CANDIDATE ONLY WHERE A HIGHER-ORDER RELATION CONNECTS ITS CLAIMS (kogaki#1773): `connected`
-// carries a higher-order relation, `unconnected` carries ordinary relations alone and is reported, never offered.
-export function partitionComponents(components) {
+// carries a higher-order relation of `structure`, `unconnected` carries ordinary relations alone and is reported,
+// never offered.
+export function partitionComponents(components, structure) {
+  const higher = new Set(over(structure).map((h) => h.id));
+  const connected = (k) => k.relations.some((id) => higher.has(id));
   return {
-    connected: components.filter((k) => k.higher_order.length > 0),
-    unconnected: components.filter((k) => k.higher_order.length === 0),
+    connected: components.filter(connected),
+    unconnected: components.filter((k) => !connected(k)),
   };
 }
 
 // THE DEPTH OF `id` (kogaki#1773): 0 for an ordinary relation, and for a higher-order relation one more than the
 // deepest id it relates -- the longest chain of higher-order relations down to an ordinary relation.
 export function depthOf(structure, id) {
-  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
   const walk = (x, seen) => {
     const h = higher.get(x);
     if (!h || seen.has(x)) return 0;
@@ -233,7 +249,7 @@ export function validateApex(answer, components, structure) {
   const b = keysRefusal(answer, ["apexes"], "the answer");
   if (b) return shape(b);
   if (!Array.isArray(answer.apexes)) return shape("the answer's `apexes` is not a list");
-  const taken = new Set([...structure.roles, ...structure.relations, ...structure.higher_order].map((x) => x.name));
+  const taken = new Set([...structure.roles, ...structure.relations].map((x) => x.name));
   const seen = new Set();
   for (const [i, a] of answer.apexes.entries()) {
     if (isMap(a) && Object.hasOwn(a, "from"))
@@ -277,8 +293,8 @@ export function validateApex(answer, components, structure) {
   return {};
 }
 
-// THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `higher_order` under the next `h_<n>` id
-// (kogaki#1772) and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived as
+// THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `relations` under the next `c_<n>` id
+// (kogaki#1772, kogaki#1937) and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived as
 // \`withReach\` derives them.
 // An apex whose `name` is already a higher-order relation's is a single top (kogaki#1773): it is named
 // `attains_thesis` under the id it already carries and nothing is appended.
@@ -286,13 +302,13 @@ export function withApex(structure, apex, claims) {
   const read = Object.fromEntries(
     Object.entries(structure).filter(([k]) => !["reach", "unreached", "attains_thesis"].includes(k)),
   );
-  const top = structure.higher_order.find((h) => h.name === apex.name);
+  const top = over(structure).find((h) => h.name === apex.name);
   if (top) return withReach({ ...read, attains_thesis: top.id }, claims);
-  const id = `${ID_PREFIX.higher_order}_${structure.higher_order.length + 1}`;
+  const id = `${ID_PREFIX.relations}_${structure.relations.length + 1}`;
   return withReach(
     {
       ...read,
-      higher_order: [...structure.higher_order, { id, name: apex.name, relates: [...apex.relates], holds: apex.holds }],
+      relations: [...structure.relations, { id, name: apex.name, relates: [...apex.relates], holds: apex.holds }],
       attains_thesis: id,
     },
     claims,

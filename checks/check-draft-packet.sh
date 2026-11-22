@@ -209,8 +209,8 @@ const sResolve = (planText) => {
     relations: [
       { id: "writes", name: "writes", between: ["kit", "tree"], holds: "The installer writes {kit} into {tree}." },
       { id: "overwrites", name: "overwrites", between: ["kit", "tree"], holds: "The next run overwrites an edit to {kit} in {tree}." },
+      { id: "lost", name: "lost", relates: ["writes", "overwrites"], holds: "An edit to {kit} in {tree} is lost." },
     ],
-    higher_order: [{ id: "lost", name: "lost", relates: ["writes", "overwrites"], holds: "An edit to {kit} in {tree} is lost." }],
   };
   const ROWS = ["| {kit} | the kit | Role |  | The files the installer copies. |", "| {tree} | the consumer's tree | Role |  | The directory the copy lands in. |", "| {writes} | writes | Relation | {kit}, {tree} | The installer writes {kit} into {tree}. |", "| {overwrites} | overwrites | Relation | {kit}, {tree} | The next run overwrites an edit to {kit} in {tree}. |", "| {lost} | lost | Relation | {writes}, {overwrites} | An edit to {kit} in {tree} is lost. |"];
   const WANT_PARTS = wantParts("writes", "overwrites", "lost");
