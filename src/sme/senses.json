@@ -54,7 +54,11 @@
       "sense": "Condition",
       "meaning": "one presents a situation as not yet real which, once real, would lead to the situation the other describes.",
       "rationale": "The reader sees a situation that is not yet real and what follows once it is, so they can apply it to cases the text does not name.",
-      "parts": [{ "part": "Cond", "plays": "this sentence is the condition." }]
+      "parts": [
+        { "part": "Cond", "plays": "this sentence is the condition." },
+        { "part": "Consequent", "plays": "this sentence is what follows once the condition is real." }
+      ],
+      "opposite": ["Cond", "Consequent"]
     },
     {
       "sense": "Condition+SpeechAct",

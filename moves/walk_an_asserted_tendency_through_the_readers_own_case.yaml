@@ -39,7 +39,7 @@ segments:
     edges:
       - sense: Cause.Result
         to: [4]
-      - sense: Condition.Cond
+      - sense: Condition.Consequent
         to: [2]
   - bind: null
     edges:
@@ -49,7 +49,7 @@ segments:
     edges:
       - sense: Cause.Result
         to: [5]
-      - sense: Condition.Cond
+      - sense: Condition.Consequent
         to: [2]
         hypophora: true
   - bind: null
