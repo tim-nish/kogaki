@@ -867,7 +867,7 @@ export function runMoveTrial({
     );
     if (!taken)
       fail(
-        `no Move of the library ${relFromRepo(libraryDir)} is a candidate for the Leg ${legId}: every Move has more Bind targets than its ${sentences} Arguments and CentralClaim. Nothing was started.`,
+        `no Move of the library ${relFromRepo(libraryDir)} is a candidate for the Leg ${legId}: no Move whose Segments carry \`bind\` and \`edges\` has at most its ${sentences} Arguments and CentralClaim as Bind targets. Nothing was started.`,
       );
     contract = lib.moves.find((m) => m.id === taken.move.id);
     choice = { by: "chosen", filling: taken.filling, met: taken.met, compared: taken.compared };
@@ -1049,7 +1049,6 @@ export function runMoveTrial({
         move: moveId,
         moveStructure,
         pairing,
-        segments,
         choice,
         sentences: legSentences(structure, b.leg.relation),
         legSenses: ls ? { reading: ls.reading, edges: trialEdges(segments, ls.reading, pairingGiven) } : null,
@@ -1106,7 +1105,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k) && !(k === "move" && chosen));
     if (missing)
       fail(
-        `\`--${missing}\` is required beside \`--${given[0]}\`: the Brief-Leg route takes --brief, --leg and --move together. Nothing was started. ${USAGE}`,
+        `\`--${missing}\` is required beside \`--${given[0]}\`: the Brief-Leg route takes --brief and --leg with --move, with --leg-senses, or with both. Nothing was started. ${USAGE}`,
       );
     for (const k of ["proposition", "structure", "mapper", "compose", "rbs-file"])
       if (Object.hasOwn(args, k))
