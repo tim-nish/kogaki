@@ -1,0 +1,14 @@
+Answer from the text below only. Do not use any tool, do not read any file, do not search. Your whole reply must be the one JSON record asked for at the end, with nothing before or after it.
+
+Below is one step of an article: its Roles and the relations it states. In a relation's sentence, {r_n} stands for the Role with that id. The article is written for a reader who knows nothing of its subject.
+
+Give two base domains. A base domain is one field of everyday life that any adult reader already knows, in which every relation below holds as it is stated. Take the two from different fields of everyday life.
+
+For each base domain give a short name and one sentence describing it. Give every Role one thing of that base domain, named in one short noun phrase. Give every relation one sentence that states that relation of those things, in the words of the base domain, using the things as you named them.
+
+A thing names nothing of the article's own subject.
+
+Answer as exactly this JSON record and nothing else:
+{ "bases": [ { "name": "<a short name>", "description": "<one sentence>", "roles": [ { "role": "<the Role's id>", "thing": "<a noun phrase>" }, ... one per Role ], "relations": [ { "relation": "<the relation's id>", "sentence": "<one sentence>" }, ... one per relation ] }, ... exactly two ] }
+
+The step:
