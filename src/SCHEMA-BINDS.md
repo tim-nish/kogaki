@@ -45,6 +45,7 @@ it does not read, and empty where the stage does not read the schema at all.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `leg_id` | unread | copied | copied | unread | unread |  |  |  |  |  |  |  |
 | `relation` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
+| `base` | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |
 | `reaches_target` | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
 | `text` | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |
 | `claims` | unread | excluded | excluded | unread | unread |  | content |  |  | excluded |  |  |

@@ -8,7 +8,8 @@
 //   no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and `edges`, a
 //   Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing written.
 //   Cases (e) and (f) went with the two calls whose answers they checked (kogaki#1922), and case (k) with its call
-//   (kogaki#1876). (l) the `readback` stage and its debugging file (kogaki#1905).
+//   (kogaki#1876). (l) the `readback` stage and its debugging file (kogaki#1905). (q) the Base the Trial takes, under
+//   `--base` and without it (kogaki#1959).
 import {
   mkdtempSync,
   mkdirSync,
@@ -232,6 +233,22 @@ const READBACK = {
 const ROUTE = ["--brief", brief, "--leg", "s1", "--move", MOVE, "--library", library];
 const LEG_H1 = { leg_id: "s2", relation: "c_3", text: "The copy is the installer's.", claims: LEGS[0].claims };
 const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
+// Two Bases beside it that tell the Leg s2 (kogaki#1959): its Move under (p) and (q) has a Segment of domain `both`.
+const SITUATION = (id, word) => ({
+  id,
+  name: `the ${word}`,
+  description: `A ${word} the reader keeps.`,
+  roles: { r_1: `the ${word}'s keeper`, r_2: `the ${word}'s stock`, r_3: `a change to the ${word}` },
+  relations: {
+    c_1: `The keeper fills the ${word}.`,
+    c_2: `The stock replaces any change.`,
+    c_3: `The ${word}'s stock is the keeper's.`,
+  },
+});
+writeFileSync(
+  join(dirname(tableBrief), "analogy.yaml"),
+  stringifyYaml({ bases: [SITUATION("b_1", "pantry"), SITUATION("b_2", "library")] }),
+);
 const EDGES_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", EDGED, "--library", library];
 const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
 
@@ -747,7 +764,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
   ok(
     same(debugBinds(p2), [null, 3, 1]) &&
       p2Writer.some((l) => l.startsWith("2. {c_3}.")) &&
-      p2Writer.some((l) => l.startsWith("3. {c_1}.")) &&
+      p2Writer.some((l) => l.startsWith("3. {c_1}, in the article's subject and in the situation.")) &&
       segsOf(p2).includes(
         "The Move was chosen from the reading of the Leg's Senses, as /paragraph-plan chooses it. Under it the Leg meets 1 of the Move's 1 compared Edges.",
       ) &&
@@ -785,6 +802,44 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     `(p) a run with neither --move nor --leg-senses was not refused naming --move: ${p5.said}`,
   );
   ok(snapshot() === before, "(p) a file under moves/ or theses/ changed");
+}
+
+// (q) the Base the Trial takes (kogaki#1959): with no `--base` the first Base that tells the Leg, with `--base` that
+// Base, handed to the Writer with the mark on the `both` part's line and named on the sheet under the Segments; a
+// `--base` naming no Base, and one given off the Brief-Leg route, are refused before anything is started.
+{
+  const env = { SMP_TABLE: JSON.stringify(TABLE_H1) };
+  const writerOf = (r) => ((r.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
+  const sheetOf = (r) => (existsSync(join(r.o, "sheet.html")) ? readFileSync(join(r.o, "sheet.html"), "utf8") : "");
+  const q1 = run("base-first", swapRoute, env);
+  const q2 = run("base-named", [...swapRoute, "--base", "b_2"], env);
+  const holds = (r, id, word) =>
+    r.res.status === 0 &&
+    (r.rec || {}).base?.id === id &&
+    writerOf(r).includes(`The situation is this: A ${word} the reader keeps.`) &&
+    writerOf(r).includes(`| {c_3} | The ${word}'s stock is the keeper's. |`) &&
+    writerOf(r).some((l) => l.startsWith("3. {c_2}, in the article's subject and in the situation.")) &&
+    sheetOf(r).includes(`<p>Base taken: ${id}, the ${word} — A ${word} the reader keeps.</p>`);
+  ok(
+    holds(q1, "b_1", "pantry") && holds(q2, "b_2", "library"),
+    `(q) the Trial did not hand the Writer the first Base, or the one --base names, with the part's mark, or the sheet does not name it: ${q1.said} ${q2.said} ${writerOf(
+      q2,
+    )
+      .filter((l) => /^\d+\. /.test(l))
+      .join(" | ")}`,
+  );
+  const q3 = run("base-none", [...swapRoute, "--base", "b_9"], env);
+  const q4 = run("base-off-route", ["--proposition", brief, "--structure", brief, "--compose", "--base", "b_1"]);
+  ok(
+    q3.res.status === 1 &&
+      q3.said.includes("its `base` b_9 names no Base of analogy.yaml") &&
+      q3.said.includes("Nothing was started") &&
+      !existsSync(q3.o) &&
+      q4.res.status !== 0 &&
+      q4.said.includes("`--base` is a flag of the Brief-Leg route") &&
+      !existsSync(q4.o),
+    `(q) a --base naming no Base, or one off the Brief-Leg route, was not refused before anything was started: ${q3.said} ${q4.said}`,
+  );
 }
 
 // (l) the `readback` stage under `--move-edges` (kogaki#1882): one call, packet-debug.json (kogaki#1905) and one row per
@@ -960,4 +1015,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(d), (g)-(j), (l)-(n), (p)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(d), (g)-(j), (l)-(n), (p), (q)`);

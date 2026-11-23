@@ -152,6 +152,7 @@
         "leg": [
           "leg_id",
           "relation",
+          "base",
           "reaches_target",
           "text",
           "claims",
@@ -184,6 +185,7 @@
       "binds_unread": {
         "leg": [
           "relation",
+          "base",
           "reaches_target",
           "text",
           "opens_section"
@@ -277,7 +279,8 @@
         "reaches_target",
         "text",
         "opens_section",
-        "relation"
+        "relation",
+        "base"
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1301), on the ground `leg_sections` above states for itself: the path-review Detached Job's units run inside `review_path`'s own in-process code, never as a separately-executed flow state. `src/brief.mjs`'s `review_path` handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer every judgment state uses.",
@@ -296,6 +299,7 @@
         "claims",
         "opens_section",
         "relation",
+        "base",
         "text"
       ]
     },
@@ -331,6 +335,7 @@
         "claims",
         "opens_section",
         "relation",
+        "base",
         "text"
       ]
     },

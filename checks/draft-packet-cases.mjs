@@ -1,6 +1,8 @@
 // The cases of `checks/check-draft-packet.sh` on the table of the plan block, over the Writer's input rendered for a Leg
-// on a HigherOrderRelation of a `structure` that holds more than the Leg's relation reaches.
-import { readFileSync } from "node:fs";
+// on a HigherOrderRelation of a `structure` that holds more than the Leg's relation reaches, and on the Base a Leg
+// takes (kogaki#1959).
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -9,6 +11,7 @@ const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const { readBriefText, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { legSentences } = await imp("src/sme/arguments.mjs");
+const { stringifyYaml } = await imp("src/yaml.mjs");
 const fails = [];
 let cases = 0;
 const ok = (cond, msg) => {
@@ -142,8 +145,113 @@ ok(
   `(r) a part's line does not open with a symbol in braces or with \`Neither.\`, or a line of the input opens a part with \`Argument \` or \`CentralClaim.\`, or part 4 does not hold the text of its Edge's kind of Hypophora and of no other: ${JSON.stringify({ parts, labelled, answer: part4(r.packet), question: asked.error || part4(asked.packet) })}`,
 );
 
+// THE BASE A LEG TAKES (kogaki#1959), read from analogy.yaml beside the Brief. b_1 and b_2 tell `caught`; b_3 does not.
+const dir = mkdtempSync(join(tmpdir(), "draft-packet-base-"));
+const BASE = (id, word, extra = {}) => ({
+  id,
+  name: `the ${word}`,
+  description: `A ${word} the reader keeps.`,
+  roles: { kit: `the ${word}'s list`, tree: `the ${word}'s shelf`, ledger: `the ${word}'s card` },
+  relations: {
+    caught: `The ${word}'s card shows which entry was lost.`,
+    lost: `A ${word} entry is lost.`,
+    audits: `The ${word}'s card names each thing on the shelf.`,
+    ...extra,
+  },
+});
+const BASES = [BASE("b_1", "pantry", { writes: "The list is copied onto the shelf." }), BASE("b_2", "library")];
+const writeBases = (bases) => writeFileSync(join(dir, "analogy.yaml"), stringifyYaml({ bases }));
+const placed = { ...brief, path: join(dir, "brief.yaml") };
+const domains = (list) => SEGMENTS.map((g, i) => ({ bind: g.bind, domain: list[i], edges: g.edges }));
+const renderLeg = (segments, extra = {}, b = placed) =>
+  renderPacket({
+    brief: b,
+    leg: { ...planned, segments, ...extra },
+    priorSections: [],
+    section: sectionOfLeg(b.legs).get(planned.leg_id),
+    sections: sectionsOf(b.legs),
+  });
+const lines = (packet) => (packet || "").split("\n");
+const partOpen = (packet, n) =>
+  ((lines(packet).find((l) => l.startsWith(`${n}. `)) || "").match(/^\d+\. [^.]*/) || [""])[0];
+writeBases([...BASES, { ...BASE("b_3", "garden"), relations: { audits: "The card names each bed." } }]);
+
+// (s) a Leg with an `apart` and a `both` Segment and a Base that tells it holds the second table with that Base's
+// description, things and sentences, and those parts' lines open with their marks.
+const mixed = renderLeg(domains(["own", "apart", "both", "neither"]));
+const want = [
+  "### The same structure in a situation the reader knows",
+  "The situation is this: A pantry the reader keeps.",
+  "| symbol | in the situation |",
+  "| {kit} | the pantry's list |",
+  "| {ledger} | the pantry's card |",
+  "| {writes} | The list is copied onto the shelf. |",
+  "| {caught} | The pantry's card shows which entry was lost. |",
+];
+const opens = [1, 2, 3, 4].map((n) => partOpen(mixed.packet, n));
+ok(
+  !mixed.error &&
+    want.every((w) => lines(mixed.packet).includes(w)) &&
+    !lines(mixed.packet).some((l) => l.startsWith("| {overwrites} | The")) &&
+    JSON.stringify(opens) ===
+      JSON.stringify([
+        "1. {lost}",
+        "2. Neither, in the situation",
+        "3. {audits}, in the article's subject and in the situation",
+        "4. {caught}",
+      ]),
+  `(s) the Packet of a Leg with an apart and a both Segment does not hold the Base's table, or its parts do not open with their marks: ${mixed.error || JSON.stringify(opens)}`,
+);
+
+// (t) a Leg whose Segments are all `own` or `neither` renders, with analogy.yaml there and with none, the Packet the same
+// Leg renders with no `domain` on its Segments, as a plan written before kogaki#1959 has them.
+const plain = renderLeg(domains(["own", "neither", "own", "own"]));
+const undomained = renderLeg(SEGMENTS);
+rmSync(join(dir, "analogy.yaml"));
+const bare = renderLeg(domains(["own", "neither", "own", "own"]));
+ok(
+  !plain.error &&
+    plain.packet === undomained.packet &&
+    bare.packet === undomained.packet &&
+    plain.packet === r.packet &&
+    !plain.packet.includes("in the situation"),
+  `(t) a Leg of own and neither Segments does not render the Packet it renders with no domain, with and without analogy.yaml: ${plain.error || bare.error || "the bytes differ"}`,
+);
+
+// (u) a Leg with an `apart` Segment and no Base that tells it is refused naming the Leg: with no analogy.yaml, with one
+// whose Bases do not tell it, and with a `base` naming a Base that does not tell it.
+const none = renderLeg(domains(["apart", "own", "own", "own"]));
+writeBases([{ ...BASE("b_3", "garden"), relations: { audits: "The card names each bed." } }]);
+const untold = renderLeg(domains(["apart", "own", "own", "own"]));
+writeBases([...BASES, { ...BASE("b_3", "garden"), relations: { audits: "The card names each bed." } }]);
+const wrong = renderLeg(domains(["apart", "own", "own", "own"]), { base: "b_3" });
+const refusedNaming = (x) => typeof x.error === "string" && x.error.includes("Leg s1") && !x.packet;
+ok(
+  refusedNaming(none) &&
+    none.error.includes("node src/analogy.mjs propose") &&
+    refusedNaming(untold) &&
+    refusedNaming(wrong) &&
+    wrong.error.includes("b_3"),
+  `(u) a Leg with an apart Segment and no Base that tells it is not refused naming the Leg: ${JSON.stringify([none.error, untold.error, wrong.error])}`,
+);
+
+// (v) where two Bases tell the Leg, its `base` decides, and with none the first in the file is taken.
+const first = renderLeg(domains(["apart", "own", "own", "own"]));
+const second = renderLeg(domains(["apart", "own", "own", "own"]), { base: "b_2" });
+const situation = (x) => lines(x.packet).find((l) => l.startsWith("The situation is this: ")) || x.error;
+ok(
+  situation(first) === "The situation is this: A pantry the reader keeps." &&
+    situation(second) === "The situation is this: A library the reader keeps." &&
+    first.base.id === "b_1" &&
+    second.base.id === "b_2",
+  `(v) the Leg's \`base\` does not decide between two Bases, or with none the first is not taken: ${JSON.stringify([situation(first), situation(second)])}`,
+);
+rmSync(dir, { recursive: true, force: true });
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`draft-packet: ${cases} case(s) pass, (q) and (r) over a Leg on a HigherOrderRelation`);
+console.log(
+  `draft-packet: ${cases} case(s) pass, (q) and (r) over a Leg on a HigherOrderRelation, (s) to (v) on its Base`,
+);

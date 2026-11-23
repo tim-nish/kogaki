@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { figureKinds } from "./figure.mjs";
 import { isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord } from "./render.mjs";
-import { HYPOPHORA_KINDS, looseSegment, oneLine } from "./record.mjs";
+import { HYPOPHORA_KINDS, SEGMENT_DOMAINS, looseSegment, oneLine } from "./record.mjs";
 import { moveConstraintsRefusal } from "../move-validate.mjs";
 
 // ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
@@ -353,8 +353,9 @@ function figureBlockRefusal(block, at) {
 // other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
 // A record the ingest has just written from an Extraction carries no `bind` and no `edges` (kogaki#1926).
 export const SEGMENT_FIELDS = Object.freeze(["bind", "domain", "edges"]);
-// The values a Segment's `domain` is taken from (kogaki#1946). No call reads the key.
-export const SEGMENT_DOMAINS = Object.freeze(["own", "apart", "both", "neither"]);
+// The values a Segment's `domain` is taken from (kogaki#1946), held in ./record.mjs beside the plan file's reader that
+// also reads them (kogaki#1959).
+export { SEGMENT_DOMAINS };
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 

@@ -139,3 +139,41 @@ export function appendBases(path, current, bases) {
   }
   writeFileSync(path, stringifyYaml(want, { width: WIDTH, header: HEADER }));
 }
+
+// THE BASE A LEG TAKES (kogaki#1959), read only for a Leg whose Segments hold one of domain `apart` or `both`: the
+// Base its `base` names, or with none the first Base of the file that tells it. Returns `{ base }`, `{ base: null }`
+// for a Leg with no such Segment, or `{ error }` naming the Leg.
+export const SITUATED_DOMAINS = Object.freeze(["apart", "both"]);
+export const legIsSituated = (segments) => (segments || []).some((s) => SITUATED_DOMAINS.includes(s && s.domain));
+export function legBase(briefPath, structure, leg, chosen = leg.base) {
+  if (!legIsSituated(leg.segments)) return { base: null };
+  const at = `Leg ${leg.leg_id}`;
+  const propose = `\`node src/analogy.mjs propose --brief ${relFromRepo(resolve(briefPath))} --leg ${leg.leg_id}\``;
+  const a = readAnalogy(briefPath, structure);
+  if (a.error) return { error: `${at}: ${a.error}` };
+  const bases = a.absent ? [] : a.record.bases;
+  const tells = (b) => baseTellsRelation(b, structure, leg.relation);
+  if (chosen !== undefined && chosen !== null) {
+    const named = bases.find((b) => b.id === chosen);
+    if (!named) return { error: `${at}: its \`base\` ${chosen} names no Base of ${ANALOGY_FILE}` };
+    if (!tells(named))
+      return { error: `${at}: its \`base\` ${chosen} names a Base that does not tell its relation ${leg.relation}` };
+    return { base: named };
+  }
+  const first = bases.find(tells);
+  if (!first)
+    return {
+      error: `${at} has a Segment of domain apart or both, and no Base of ${ANALOGY_FILE} tells its relation ${leg.relation} — ${propose} proposes two`,
+    };
+  return { base: first };
+}
+
+// A Leg's `base` against the file, for the Brief's check: an error string or null.
+export function legBaseRefusal(record, structure, leg) {
+  if (leg.base === undefined) return null;
+  const named = ((record && record.bases) || []).find((b) => b.id === leg.base);
+  if (!named) return `Leg ${leg.leg_id}: its \`base\` ${JSON.stringify(leg.base)} names no Base of ${ANALOGY_FILE}`;
+  if (!baseTellsRelation(named, structure, leg.relation))
+    return `Leg ${leg.leg_id}: its \`base\` ${leg.base} names a Base that does not tell its relation ${leg.relation}`;
+  return null;
+}

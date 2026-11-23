@@ -31,6 +31,7 @@ import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, legSentences, edgesMoveStructure, pairByFilling, inOrder } from "./move-structure.mjs";
 import { bindTargetsOf, fitOf, chooseMove, fittedSegments } from "../paragraph-plan/move-choice.mjs";
+import { legBase } from "../compose/analogy.mjs";
 import { senseNames, loadSenses } from "../sme/edges.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 import * as RB from "./readback.mjs";
@@ -58,6 +59,8 @@ export const MOVE_ROUTE_FLAGS = ["brief", "leg", "move"];
 // A Move's Bind targets and Edges are read from its Move file (kogaki#1880); `--move-table` is refused by name.
 // `--move-edges` is accepted beside the route's three flags and changes nothing (kogaki#1922).
 export const MOVE_EDGES_FLAG = "move-edges";
+// `--base <Base id>` stands for the Leg's `base` in the Trial (kogaki#1959), a flag of the Brief-Leg route alone.
+export const BASE_FLAG = "base";
 export const RETIRED_MOVE_TABLE_FLAG = "move-table";
 export const MOVE_STRUCTURE_FILE = "move-structure.yaml";
 export const PAIRING_FILE = "pairing.yaml";
@@ -76,7 +79,7 @@ const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> --structure <file> " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
-  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> [--move <Move id>] [--move-edges] [--leg-senses <folder>] " +
+  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> [--move <Move id>] [--move-edges] [--leg-senses <folder>] [--base <Base id>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -428,9 +431,9 @@ export function correspondenceRefusal(answer, structure) {
 }
 
 // THE PARAGRAPHS: one Packet over a one-Leg Brief, and the writer called once (kogaki#1784, kogaki#1883). On the Brief-Leg
-// route the Brief's `structure` and the Leg's `relation` give the plan block, and the Move's `segments` give the parts
-// (kogaki#1859, kogaki#1880, kogaki#1922).
-export function shortPacket({ leg, audiencePath, structure = null, relation = null, segments = null }) {
+// route the Brief's `structure` and the Leg's `relation` give the plan block, the Move's `segments` give the parts
+// (kogaki#1859, kogaki#1880, kogaki#1922), and `base` is the Base the Trial resolved for the Leg (kogaki#1959).
+export function shortPacket({ leg, audiencePath, structure = null, relation = null, segments = null, base = null }) {
   // Under a plan the Trial hands the Writer no claims block: the table of the plan block holds the claim.
   const packetLeg = {
     ...leg,
@@ -449,6 +452,7 @@ export function shortPacket({ leg, audiencePath, structure = null, relation = nu
     priorSections: [],
     section: sectionOfLeg(brief.legs).get(leg.leg_id),
     sections: sectionsOf(brief.legs),
+    base,
   });
 }
 
@@ -830,6 +834,7 @@ export function runMoveTrial({
   leg: legId,
   move: named = null,
   legSenses = null,
+  base: baseId = null,
   out,
   audience = null,
   library = null,
@@ -888,6 +893,16 @@ export function runMoveTrial({
       : { by: "named", filling: inOrder(bindTargetsOf(contract)), met: null, compared: null };
   }
   const segments = edgeSegments(contract);
+  // The plan's Segments as /paragraph-plan fits them, each with its `domain` (kogaki#1953, kogaki#1959), and the Base
+  // the Leg takes: `--base`, else the Leg's `base`, else the first Base of analogy.yaml that tells it.
+  const fitted = fittedSegments(contract, choice.filling);
+  const taken = legBase(
+    briefPath,
+    b.record.structure,
+    { leg_id: b.leg.leg_id, relation: b.leg.relation, segments: fitted },
+    baseId ?? b.leg.base,
+  );
+  if (taken.error) fail(`${taken.error}. Nothing was started.`);
   const pairingGiven = pairByFilling(b.structure, b.leg.relation, choice.filling);
   const table = readTable();
   const audiencePath = audience ? resolve(REPO, audience) : audiencePathOf(b.record);
@@ -922,6 +937,7 @@ export function runMoveTrial({
     structure: { ...fileRecord(structurePath), author: "brief" },
     leg_senses: ls ? ls.reading.path : null,
     move_choice: choice,
+    base: taken.base,
     move_structure: { path: null, sha256: null },
     pairing: { path: null, sha256: null },
     rbs: { variant: RBS_COMPOSED, path: null, sha256: null },
@@ -1023,8 +1039,8 @@ export function runMoveTrial({
     paragraphs = listed;
   }
   // The Writer and the Readback are handed the Segments as /paragraph-plan fits them: each `bind` the number of the
-  // Leg's sentence the filling gives it (kogaki#1953).
-  const plan = { structure, relation: b.leg.relation, segments: fittedSegments({ segments }, choice.filling) };
+  // Leg's sentence the filling gives it (kogaki#1953), and the Base the Leg takes (kogaki#1959).
+  const plan = { structure, relation: b.leg.relation, segments: fitted, base: taken.base };
   stage(RB.READBACK_STAGE, (d, env) =>
     readbackStage({ dir: d, env, cli, leg, audiencePath, plan, move: moveId, record }),
   );
@@ -1099,6 +1115,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     );
   if (Object.hasOwn(args, LEG_SENSES_FLAG) && !str(LEG_SENSES_FLAG))
     fail(`\`--${LEG_SENSES_FLAG}\` takes a folder. Nothing was started. ${USAGE}`);
+  if (Object.hasOwn(args, BASE_FLAG) && !given.length)
+    fail(
+      `\`--${BASE_FLAG}\` is a flag of the Brief-Leg route: it is given with --brief and --leg. Nothing was started. ${USAGE}`,
+    );
+  if (Object.hasOwn(args, BASE_FLAG) && !str(BASE_FLAG))
+    fail(`\`--${BASE_FLAG}\` takes the id of a Base of the Brief's analogy.yaml. Nothing was started. ${USAGE}`);
   if (given.length) {
     // `--move` may be left out where a reading of the Leg's Senses is given (kogaki#1953): the Move is then chosen.
     const chosen = !Object.hasOwn(args, "move") && str(LEG_SENSES_FLAG) !== null;
@@ -1118,6 +1140,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       leg: str("leg"),
       move: str("move"),
       legSenses: str(LEG_SENSES_FLAG),
+      base: str(BASE_FLAG),
       out: str("out"),
       audience: str("audience"),
       library: str("library"),

@@ -83,6 +83,11 @@
       "type": "string",
       "description": "The id of the relation or higher-order relation of the Brief's `structure` this Leg serves, `c_<n>` (kogaki#1775, kogaki#1937): the Legs are derived one per relation and higher-order relation the apex reaches. Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
     },
+    "base": {
+      "required": false,
+      "type": "string",
+      "description": "The id of one Base of `analogy.yaml` beside the Brief (kogaki#1959), which the Packet takes for this Leg where its Segments hold one of domain `apart` or `both`. Absent, the Packet takes the first Base of the file that tells the Leg. Edited by hand; no Call writes it."
+    },
     "reaches_target": {
       "required": false,
       "type": "boolean",

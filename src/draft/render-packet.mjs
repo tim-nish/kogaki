@@ -17,6 +17,7 @@ import { resolveLegJourneys, packetPersonaPath, personaPriorKnowledge } from "./
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
 import { legSentences, legRows } from "../sme/arguments.mjs";
 import { SENSES_FILE, senseNames, loadSenses, loadOwnSenses, loadHypophora } from "../sme/edges.mjs";
+import { legBase } from "../compose/analogy.mjs";
 import {
   REALIZATION_LANGUAGES,
   langOf,
@@ -33,8 +34,9 @@ import {
 // part carries `bound`, the symbol of that entry, `stands`, one text of the Senses file for each Edge, toward the
 // parts that Edge names taken together and ending in its rationale, and `pointed`, the later parts whose Edges point
 // to it; no Sense name is handed on. `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
-// names no relation.
-export function planValues(structure, leg) {
+// names no relation. With `base`, the Base the Leg takes (kogaki#1959), `base` carries its description and one row per
+// row of the table the Base gives a thing or a sentence, and a part of domain `apart` or `both` carries its mark.
+export function planValues(structure, leg, base = null) {
   if (!structure || typeof leg.relation !== "string") return null;
   const whole = { roles: structure.roles || [], relations: structure.relations || [] };
   if (!whole.relations.some((r) => r.id === leg.relation)) return null;
@@ -68,12 +70,30 @@ export function planValues(structure, leg) {
     return {
       number: i + 1,
       ...(b ? { bound: label(b) } : {}),
+      ...(base && g.domain === "apart" ? { apart: true } : {}),
+      ...(base && g.domain === "both" ? { both: true } : {}),
       stands: stands[i],
       ...(pointed.length ? { pointed: listOf(pointed) } : {}),
     };
   });
+  const rows = legRows(whole, leg.relation);
+  const told = (symbol) => {
+    const id = symbol.slice(1, -1);
+    const t = (base.roles || {})[id] ?? (base.relations || {})[id];
+    return t === undefined ? undefined : String(t).replace(/\s+/g, " ").trim().replace(/\|/g, "\\|");
+  };
   return {
-    rows: legRows(whole, leg.relation),
+    rows,
+    ...(base
+      ? {
+          base: {
+            description: base.description,
+            rows: rows
+              .filter((r) => told(r.symbol) !== undefined)
+              .map((r) => ({ symbol: r.symbol, text: told(r.symbol) })),
+          },
+        }
+      : {}),
     arguments: listOf(sentences.slice(0, -1).map((s) => ({ symbol: label(s) }))),
     central_claim: label(sentences[sentences.length - 1]),
     ...(segments.length ? { segments } : {}),
@@ -117,6 +137,7 @@ export function renderPacket({
   sections,
   language: languageOverride = null,
   languageBlock = null,
+  base = undefined,
 }) {
   const unbounded = [WRITER_PROMPT, PACKET_PASSAGE].flatMap((name) =>
     templateCriteriaFailures(readFileSync(promptFilePath(name), "utf8")).map((f) => `prompts/${name}.prompt ${f}`),
@@ -153,7 +174,21 @@ export function renderPacket({
 
   // THE JOURNEY A LEG DRAWS ON (kogaki#1111) as its served TEXT, the address beside it (kogaki#1250); a caller
   // that skipped resolution gets the same `need()` refusal as any absent block.
-  const plan = planValues(brief.record?.structure ?? null, leg);
+  // THE BASE THE LEG TAKES (kogaki#1959), read from analogy.yaml beside the Brief only for a Leg whose Segments hold
+  // one of domain `apart` or `both`; a caller that resolved it already hands it as `base`.
+  const structure = brief.record?.structure ?? null;
+  const taken =
+    base !== undefined
+      ? { base }
+      : structure && typeof leg.relation === "string"
+        ? legBase(brief.path ?? "", structure, leg)
+        : { base: null };
+  if (taken.error) {
+    return {
+      error: `the Packet for ${leg.leg_id} cannot be rendered: ${taken.error}. Nothing stands in for a missing Base`,
+    };
+  }
+  const plan = planValues(structure, leg, taken.base);
   if (plan?.error) missing.push(plan.error);
   const journeys = leg.journeys || [];
   const unresolved = journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === "");
@@ -194,7 +229,7 @@ export function renderPacket({
         `it refuses by NAME rather than rendering an empty slot (the Leg Packet).`,
     };
   }
-  return { packet: renderPromptFile(WRITER_PROMPT, values), values };
+  return { packet: renderPromptFile(WRITER_PROMPT, values), values, base: taken.base };
 }
 
 // THE PACKET RENDER, FACTORED SO THE HARNESS CAN DRIVE IT (kogaki#811,

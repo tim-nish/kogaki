@@ -59,25 +59,25 @@ ok(a.calls.length === 10, `(a) the stage made ${a.calls.length} calls, not five 
 ok(a.briefSame, "(a) the Brief changed under the stage");
 const planTextA = existsSync(a.planPath) ? readFileSync(a.planPath, "utf8") : "";
 ok(planTextA !== "" && !/z_fewer|a_more/.test(planTextA), `(a) the plan file holds a Move's id: ${planTextA}`);
-// z_fewer's Move file carries `domain` on every Segment (kogaki#1946): the plan's Segments are `{ bind, edges }` all
-// the same, and neither the plan file nor any file of the run directory, the Moves the job was handed and each call's
-// input among them, holds the key.
-const runTextA = readdirSync(a.dir, { recursive: true, withFileTypes: true })
-  .filter((f) => f.isFile())
+// z_fewer's Move file carries `domain` on every Segment (kogaki#1946): the plan's Segments are `{ bind, domain, edges }`
+// with each Segment's `domain` as the Move file has it (kogaki#1959), and no call's prompt or input holds the key.
+const promptTextA = readdirSync(a.dir, { recursive: true, withFileTypes: true })
+  .filter((f) => f.isFile() && ["prompt.md", "input.json"].includes(f.name))
   .map((f) => readFileSync(join(f.parentPath, f.name), "utf8"))
   .join("\n");
 ok(
   legsA.length === 2 &&
     JSON.stringify(legsA[0].segments) ===
       JSON.stringify([
-        { bind: 1, edges: [] },
-        { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
-        { bind: null, edges: [{ sense: null, to: [2], hypophora: "answer" }] },
+        { bind: 1, domain: "own", edges: [] },
+        { bind: 2, domain: "both", edges: [{ sense: "Conjunction", to: [1] }] },
+        { bind: null, domain: "neither", edges: [{ sense: null, to: [2], hypophora: "answer" }] },
       ]) &&
     /bind: 1\n\s+domain: own/.test(readFileSync(join(MOVES, "z_fewer.yaml"), "utf8")) &&
-    runTextA.includes('"id": "z_fewer"') &&
-    !/domain/.test(planTextA + runTextA),
-  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling, or the plan file or a file of the run directory holds a Segment's domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
+    /bind: 1\n\s+domain: own/.test(planTextA) &&
+    promptTextA !== "" &&
+    !/domain/.test(promptTextA),
+  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling with each Segment's domain, or a call's prompt or input holds a Segment's domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
 );
 const draftRead = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
 ok(

@@ -2,7 +2,8 @@
 // (a) `propose` over a Brief of three Legs writes six Bases, two telling each Leg; (b) run again, it keeps the six and
 // appends six more; (c) an answer lacking a sentence is asked three times and the Leg gets no Base; (d) every call is
 // kept; (e) the `check` verb with no file, with the written file, and each refusal of the file; (f) a ParagraphPlan
-// made before a Base's sentence is edited is not found stale. A stub stands in for the model.
+// made before a Base's sentence is edited is not found stale; (g) a Leg's `base` checked against the file (kogaki#1959).
+// A stub stands in for the model.
 import {
   mkdtempSync,
   mkdirSync,
@@ -288,6 +289,40 @@ for (const [label, edit, names] of REFUSALS) {
   writeFileSync(ap, readFileSync(ap, "utf8").replace("It holds c_1 1.", "It holds the first relation, edited."));
   const view = paragraphPlanView(planPath);
   ok(!view.error, `(f) the view found a plan made before a Base's edit stale: ${view.error}`);
+}
+
+// (g) A LEG'S `base` (kogaki#1959): naming a Base that tells it passes; naming one that does not tell it, naming no Base
+// of the file, or given with no file, is refused naming the Leg and the id.
+{
+  const withBase = (base, bases) => {
+    const dir = join(root, "theses", `b${++n}`);
+    mkdirSync(dir, { recursive: true });
+    const atG = join(dir, "brief.yaml");
+    const t = C.briefFileTexts({
+      ...RECORD,
+      reader_path: RECORD.reader_path.map((l) => (l.leg_id === "s1" ? { ...l, base } : l)),
+    });
+    writeFileSync(atG, t.brief);
+    writeFileSync(join(dir, "structure.yaml"), t.structure);
+    writeFileSync(join(dir, "reader-path.yaml"), t.readerPath);
+    if (bases) writeFileSync(A.analogyPathFor(atG), stringifyYaml({ bases }));
+    return check(atG);
+  };
+  const told = withBase("b_2", one.bases);
+  ok(
+    told.status === 0 && told.out.includes("\tbases: b_1, b_2\n"),
+    `(g) a Leg naming a Base that tells it was refused: ${told.err}`,
+  );
+  const refused = [
+    ["a Base that does not tell it", withBase("b_3", one.bases), ["s1", "b_3", "does not tell"]],
+    ["no Base of the file", withBase("b_9", one.bases), ["s1", "b_9", "names no Base"]],
+    ["a Base with no file", withBase("b_1", null), ["s1", "b_1", "names no Base"]],
+  ];
+  for (const [label, r, names] of refused)
+    ok(
+      r.status === 1 && names.every((x) => r.err.includes(x)),
+      `(g) a Leg naming ${label} was not refused naming ${names.join(", ")}: ${r.status} ${r.err}`,
+    );
 }
 
 rmSync(root, { recursive: true, force: true });
