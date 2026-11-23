@@ -25,23 +25,24 @@ breaks:
     whole contrast collapses into more of the same, and nothing later has
     anything to rest on
 segments:
-  - operation: >-
-      sets a later span against an earlier one and names the difference as a
-      change of kind rather than of amount
-  - operation: offers instances that make a stated difference easy to picture
-    relation: >-
-      supplies concrete cases for the difference the step before stated in the
-      abstract
-  - operation: >-
-      restates the difference as a counted pair of features of the later span
-    relation: >-
-      returns from the instances to a plainer statement of the same difference,
-      adding a second feature alongside the first
-  - operation: >-
-      draws the consequence of the stated difference as the ground on which a
-      way of looking came to attract attention
-    relation: >-
-      takes the features just named as a cause and states what they produced
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: null
+    domain: own
+    edges:
+      - sense: Instantiation.Instance
+        to: [1]
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Cause.Result
+        to: [3]
 takes: []
 leaves:
   - kind: explain

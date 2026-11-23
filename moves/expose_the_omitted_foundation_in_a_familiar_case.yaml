@@ -24,35 +24,29 @@ breaks:
     is handed over instead of being made, and the next stretch has nothing left
     to arrive at
 segments:
-  - operation: >-
-      proposes an analogy drawn from a familiar everyday case, announcing it as
-      a likeness before the case is told
-    manner: >-
-      opened with an explicit likeness marker that frames the whole case as a
-      figure for the subject and promises a mapping back, the case named in one
-      phrase the reader pictures at once
-  - operation: >-
-      lays out the standard account of the case, naming the variable factors it
-      credits with the outcome
-    relation: >-
-      fills the proposed analogy in with the account the case is ordinarily
-      given
-  - operation: >-
-      labels the account just built as the conventional one and stops there
-    relation: >-
-      closes off the account of the step before by naming its status rather than
-      extending it
-    manner: a terse one-line verdict set down without elaboration
-  - operation: >-
-      names the aspect the conventional account leaves untouched because it is
-      too obvious to mention
-    relation: supplies exactly what the step before stopped short of
-  - operation: >-
-      identifies the newly named aspect as the effect of a universal condition
-      and as the most fundamental determinant of the outcome
-    relation: >-
-      grounds the aspect the step before named, and ranks it above the factors
-      listed earlier
+  - bind: 1
+    domain: apart
+    edges: []
+  - bind: null
+    domain: apart
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [1]
+  - bind: null
+    domain: neither
+    edges: []
+  - bind: 2
+    domain: apart
+    edges:
+      - sense: MetaDiscourse
+        to: [3]
+      - sense: Contrast
+        to: [2]
+  - bind: 3
+    domain: apart
+    edges:
+      - sense: Cause.Reason
+        to: [4]
 takes: []
 leaves:
   - kind: carry

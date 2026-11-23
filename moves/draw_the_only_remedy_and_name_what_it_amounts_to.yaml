@@ -1,0 +1,74 @@
+id: draw_the_only_remedy_and_name_what_it_amounts_to
+description: >-
+  Draws from a diagnosed absence the one remedy that would supply it, restates
+  it under the name it amounts to, shows how it would do the missing work, then
+  names a figure of standing who proposed it.
+breaks:
+  - >-
+    drop the restating second step and keep only the mechanical description —
+    the reader never meets the familiar name the remedy amounts to, and its
+    scale stays abstract
+  - >-
+    present the remedy without marking it as what the diagnosed lack implies —
+    it reads as the writer's own preference rather than the only thing that
+    would fit
+  - >-
+    add a paragraph weighing whether the remedy is attainable — the reader is
+    answered before they have felt the remedy's size, and the question the next
+    step needs is already spent
+  - >-
+    hedge the remedy with qualifications as it is named — the flatness that
+    makes the reader take it as forced rather than merely favoured is lost
+  - >-
+    reverse the two steps so the named institution comes first — the reader has
+    to judge a label before the reasoning that makes it inevitable has reached
+    them
+  - >-
+    cut the outside attribution — the arrangement reads as the writer's own
+    invention and carries no weight beyond their say-so
+  - >-
+    assert only that the arrangement would work, without naming what it would
+    establish and what would act on breaches — the reader cannot see it
+    supplying the capacity shown to be missing
+  - >-
+    expand the attribution into an account of the figure and their reasoning —
+    the borrowed weight thins out and the argument stalls just before its turn
+  - >-
+    put the attribution ahead of the working-out — the reader meets a name with
+    nothing yet for it to attach to
+  - >-
+    state the arrangement as settled fact rather than as a conditional — the
+    reader stops reading it as a proposal and starts doubting the writer's grip
+    on things
+segments:
+  - bind: 1
+    domain: both
+    edges: []
+  - bind: null
+    domain: both
+    edges:
+      - sense: Equivalence
+        to: [1]
+  - bind: 2
+    domain: both
+    edges:
+      - sense: Cause+Belief.Reason
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Cause+Belief.Reason
+        to: [3]
+takes:
+  - kind: answer
+    what: a lack raised earlier, awaiting the remedy that would answer it
+leaves:
+  - kind: apply
+    what: a remedy stated in general form, awaiting work on a case
+    segment: 1
+  - kind: apply
+    what: a conditional general claim about an arrangement, awaiting a case
+    segment: 3
+  - kind: explain
+    what: an earlier authority invoked but not yet accounted for
+    segment: 4

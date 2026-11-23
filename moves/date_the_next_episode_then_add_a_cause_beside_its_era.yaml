@@ -18,18 +18,19 @@ breaks:
     describe the period at length before the case is dated — the reader loses
     their place in the series and has to rebuild where this stretch sits
 segments:
-  - operation: >-
-      marks the trend's resumption after a lapse and places it in its period
-  - operation: >-
-      characterises the dated period by the conditions prevailing in it and
-      carries them to a concrete instance showing how far they went
-    relation: fills in the period that the step before it had only dated
-  - operation: >-
-      grants a condition already set out as one part of the cause and adds a
-      further factor of a different kind, hedged as the speaker's inference
-    relation: >-
-      turns from the condition the step before it had built up to a cause that
-      lies outside conditions altogether
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Synchronous
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Cause.Result
+        to: [2]
 takes:
   - kind: explain
     what: a development already named, its resumption and period left to be set out

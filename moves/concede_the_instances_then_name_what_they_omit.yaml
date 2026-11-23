@@ -21,21 +21,19 @@ breaks:
     name a third kind of account alongside the two the distinction sets against
     each other — the clean opposition blurs and the gap stops being one thing
 segments:
-  - operation: >-
-      affirms without reservation the worth of the instances already laid out
-  - operation: >-
-      voices a first-person reservation about the same instances just credited
-    relation: >-
-      turns against the concession just made, keeping the same objects in view
-    manner: >-
-      a shift into the speaker's own voice, stated as a personal residue rather
-      than a verdict
-  - operation: >-
-      grounds the reservation by distinguishing the means an account shows from
-      the purpose it leaves unexplained, and places the instances on the means
-      side
-    relation: >-
-      supplies the reason the reservation was withheld from in the step before
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Concession.Denier
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Cause.Reason
+        to: [2]
 takes:
   - kind: explain
     what: items already set out, taken up and credited before assessment

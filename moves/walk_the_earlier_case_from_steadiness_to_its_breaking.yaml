@@ -23,22 +23,19 @@ breaks:
     the present case the parallel was raised to explain, and the return to it
     reads as a change of subject
 segments:
-  - operation: >-
-      asserts that the same kind of configuration obtained in the earlier case
-  - operation: >-
-      bounds the earlier stretch in time and sets out the arrangement that kept
-      it steady
-    relation: >-
-      fills in the earlier case the step before it only pointed to, giving its
-      span and how it worked
-    manner: >-
-      a received appellation for the stretch, voiced as a name others use
-  - operation: >-
-      names a challenger rising late in the stretch and traces from it the
-      shaking of the holder's standing and the end of the steadiness
-    relation: >-
-      turns against the steadiness just described, showing the arrangement
-      giving way under a new pressure
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Concession.Denier
+        to: [2]
 takes:
   - kind: carry
     what: an arrangement already set out, to be carried onto an earlier case

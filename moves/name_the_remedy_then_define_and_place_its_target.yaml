@@ -24,32 +24,30 @@ breaks:
     definition — an unexplained label sits open while the reader is asked to
     accept claims about it
 segments:
-  - operation: >-
-      poses a question asking by what means a general rule is put into practice
-  - operation: >-
-      answers the question with one named measure, introducing a term for what
-      the measure acts on
-    relation: it supplies the answer to the question just posed
-    manner: a brief direct statement that carries the whole answer in one clause
-  - operation: >-
-      defines the term just introduced by the condition that qualifies a case
-      for it
-    relation: >-
-      it glosses the term the step before used before anything is done with that
-      term
-  - operation: >-
-      applies the definition to a case already in play by assigning it a figure
-      that meets the condition
-    relation: >-
-      it tests the definition just given on material the reader has already
-      worked through
-  - operation: >-
-      grounds the assignment by noting that the case is still matched for now
-      yet would pass the limit if its trend held
-    relation: it gives the reason the figure in the step before qualifies
-    manner: >-
-      spoken as a continuation of the preceding sentence rather than as a
-      self-standing one
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: null
+        to: [1]
+        hypophora: true
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [2]
+  - bind: null
+    domain: own
+    edges:
+      - sense: Instantiation.Instance
+        to: [3]
+  - bind: null
+    domain: own
+    edges:
+      - sense: Cause.Reason
+        to: [4]
 takes:
   - kind: apply
     what: a general rule already stated, standing to be put into practice

@@ -19,24 +19,19 @@ breaks:
     the item's own treatment is buried, and the reader loses the brisk pattern
     the remaining items will follow
 segments:
-  - operation: >-
-      places one episode of the trend in its period and characterises the
-      conditions then prevailing
-  - operation: >-
-      proposes a cause for the item's rise, marked as inference rather than as
-      established fact
-    relation: >-
-      supplies the causal link that the preceding description of the period only
-      implied
-  - operation: >-
-      names the reversal that ended the episode and the ground on which the
-      subject was rejected
-    relation: >-
-      turns from the rise just explained to its collapse, the same item's other
-      side
-    manner: >-
-      the ground of the rejection is given in a borrowed phrase rather than in
-      the speaker's own words
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Cause.Result
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Asynchronous.Succession
+        to: [2]
 takes:
   - kind: apply
     what: a general trend given earlier, to be shown in one dated episode

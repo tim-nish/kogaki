@@ -22,18 +22,20 @@ breaks:
     hedge the cause with several contributing factors — nothing is given to
     carry forward, and the question the paragraph voiced stays open
 segments:
-  - operation: puts the question at issue as a direct question
-  - operation: names the foremost cause as the answer
-    relation: >-
-      settles the question just put, taking it up immediately rather than
-      approaching it
-    manner: a short declarative that takes no elaboration
-  - operation: >-
-      denies a recent origin and generalises the cause into a pattern that has
-      recurred over past time
-    relation: >-
-      widens the answer just given from the present case into a repeated one, so
-      the cause holds beyond the moment
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Cause.Reason
+        to: [1]
+        hypophora: true
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Instantiation.Instance
+        to: [2]
 takes: []
 leaves:
   - kind: apply
