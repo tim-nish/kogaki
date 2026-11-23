@@ -24,6 +24,7 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { readParagraphPlanBeside, readBriefFiles, validateMoveRecord } = await imp("src/compose.mjs");
 const P = await imp("src/paragraph-plan.mjs");
+const { fitOf } = await imp("src/paragraph-plan/move-choice.mjs");
 const S = { ...(await imp("src/sme/edges.mjs")), ...(await imp("src/sme/arguments.mjs")) };
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
@@ -71,13 +72,13 @@ ok(
     JSON.stringify(legsA[0].segments) ===
       JSON.stringify([
         { bind: 1, edges: [] },
-        { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
+        { bind: 3, edges: [{ sense: "Conjunction", to: [1] }] },
         { bind: null, edges: [{ sense: null, to: [2], hypophora: "answer" }] },
       ]) &&
     /bind: 1\n\s+domain: own/.test(readFileSync(join(MOVES, "z_fewer.yaml"), "utf8")) &&
     runTextA.includes('"id": "z_fewer"') &&
     !/domain/.test(planTextA + runTextA),
-  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling, or the plan file or a file of the run directory holds a Segment's domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
+  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling giving the CentralClaim a Segment (kogaki#1960), or the plan file or a file of the run directory holds a Segment's domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
 );
 const draftRead = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
 ok(
@@ -230,6 +231,37 @@ ok(
   zero && zero.move.id === "n" && zero.met === 0 && zero.compared === 1,
   `(g) a Move whose count is 0 was not taken: ${JSON.stringify(zero)}`,
 );
+// The CentralClaim in a Segment (kogaki#1960): a Move of two Bind targets whose one Edge is met only between the Leg's
+// two Arguments is filled with the CentralClaim, the Edge not met, by `chooseMove` and by `fitOf`.
+{
+  const only12 = S.countPairs(
+    [
+      {
+        pairs: [
+          { pair: [1, 2], senses: [{ sense: "Conjunction", played_by: null }] },
+          { pair: [1, 3], senses: [{ sense: "Contrast", played_by: null }] },
+          { pair: [2, 3], senses: [{ sense: "Contrast", played_by: null }] },
+        ],
+      },
+    ],
+    3,
+    names,
+    3,
+  );
+  const two = move("two", [seg(1), seg(2, [{ sense: "Conjunction", to: [1] }])]);
+  const kept = P.chooseMove([two], only12, 3, names);
+  const fit = fitOf(two, only12, 3, names);
+  ok(
+    kept &&
+      Object.values(kept.filling).includes(3) &&
+      kept.met === 0 &&
+      kept.compared === 1 &&
+      fit &&
+      Object.values(fit.filling).includes(3) &&
+      fit.met === 0,
+    `(g) a filling leaving the CentralClaim in no Segment was taken: ${JSON.stringify([kept && kept.filling, fit])}`,
+  );
+}
 ok(pick([WIDE]) === null, "(g) a Move with more Bind targets than sentences was a candidate");
 ok(pick([]) === null, "(g) an empty library gave a Move");
 
@@ -254,7 +286,7 @@ ok(
 );
 ok(
   /\| Segment \| Bound \| Edges \|/.test(viewText) &&
-    /\| 2 \| 2\. /.test(viewText) &&
+    /\| 2 \| 3\. /.test(viewText) &&
     /Conjunction to 1/.test(viewText),
   `(i) the view shows no Segment row: ${viewText}`,
 );
