@@ -687,12 +687,15 @@ section 3 to copy from, or where the model's own record already carried a
 Bind target of the Move from 1 to 3. Bind targets are numbered from 1 in the
 order in which their first Segments stand. `edges` lists the Segment's Edges.
 An Edge keeps one `sense` and names in `to` the earlier Segments it points to.
-It carries `hypophora: true` where the earlier Segment puts a question that
-this Segment answers. A `sense` is a name of the list of Senses (§4.20.3),
+It carries `hypophora` where the Edge carries Hypophora, and the value is one
+of its two kinds (kogaki#1950): `answer` where the earlier Segment puts a
+question that this Segment answers, and `question` where the earlier Segment
+prompts a question that this Segment asks. An Edge written `hypophora: true`,
+as before kogaki#1950, is refused naming the two kinds. A `sense` is a name of the list of Senses (§4.20.3),
 written with its part, or one of Kogaki's own, `MetaDiscourse` and
 `FrameSetting`, whose meanings stand in the `own` of
 `src/sme/senses.json` (kogaki#1881). It is null only beside
-`hypophora: true`. The first Segment
+`hypophora`. The first Segment
 carries no Edge. A later Segment need carry none of its own where a later
 Segment's Edge points to it (kogaki#1946): the maintainer's rule is the one the
 next sentence states, and the sentence that every later Segment carries at
@@ -1781,8 +1784,9 @@ line carries `To part <n>:`, or `To part <n> and part <m> together:` where the
 Edge points to several earlier parts, and the text `src/sme/senses.json` holds
 for the Edge's Sense, its part word's text after `Here`, then the `rationale`
 of that part or, where the part has none, of the Sense, which says what the two
-sentences do for the reader, and, where the Edge carries Hypophora, that file's
-`hypophora` text and its `rationale` toward the same parts. An Edge that points
+sentences do for the reader, and, where the Edge carries Hypophora, the text
+and the `rationale` that file's `hypophora` holds for the Edge's kind
+(kogaki#1950), toward the same parts. An Edge that points
 to several parts is written once, since those parts together are the sentence
 pointed to. The line then ends with `Pointed to by`
 and the later parts whose Edges point to it. No Sense name, no Move name and no
@@ -3220,8 +3224,9 @@ number that is not a whole number from 1 to the number of paragraphs, a Move of
 one Segment, a paragraph whose sentence count is not the Move's Segment count,
 and an `--out` outside the Playground's runs or already holding a run.
 
-**The readings.** The 22 Senses, each with its meaning, its part words and its
-`rationale`, are the `senses` of `src/sme/senses.json`. A `rationale` stands on
+**The readings.** The 21 Senses, each with its meaning, its part words and its
+`rationale`, are the `senses` of `src/sme/senses.json`. Manner, the
+twenty-second of the manual's list, left the file at kogaki#1950. A `rationale` stands on
 the Sense, or on each of its parts where the two directions do different things
 for the reader, as on Level-of-detail's `Detail` and `General`. Five calls of the
 Playground row `smp_rank_senses`, each handed the numbered sentences and that

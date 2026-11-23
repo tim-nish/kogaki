@@ -1,5 +1,6 @@
 // The cases of `checks/check-draft-packet.sh` on the table of the plan block, over the Writer's input rendered for a Leg
 // on a HigherOrderRelation of a `structure` that holds more than the Leg's relation reaches.
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -65,7 +66,7 @@ const SEGMENTS = [
   { bind: 1, edges: [] },
   { bind: null, edges: [{ sense: "Conjunction", to: [1] }] },
   { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }] },
-  { bind: 3, edges: [{ sense: null, to: [3], hypophora: true }] },
+  { bind: 3, edges: [{ sense: null, to: [3], hypophora: "answer" }] },
 ];
 const OPENERS = ["{lost}.", "Neither.", "{audits}.", "{caught}."];
 
@@ -114,10 +115,31 @@ ok(
 // (r) each part's line opens with a symbol in braces or with `Neither.`, and none with the labels the symbols replaced.
 const parts = plan.filter((l) => /^\d+\. /.test(l));
 const labelled = input.filter((l) => /^\d+\. (Argument |CentralClaim\.)/.test(l));
+// Inside (r) (kogaki#1950): part 4's Edge carries Hypophora of the kind `answer`, and its line holds that kind's text
+// from src/sme/senses.json and not the other kind's; the same Leg with the kind `question` there holds that kind's.
+const HYP = JSON.parse(readFileSync(join(REPO, "src/sme/senses.json"), "utf8")).hypophora;
+const asking = SEGMENTS.map((g, i) => (i === 3 ? { ...g, edges: [{ ...g.edges[0], hypophora: "question" }] } : g));
+const asked = renderPacket({
+  brief,
+  leg: { ...planned, segments: asking },
+  priorSections: [],
+  section: sectionOfLeg(brief.legs).get(planned.leg_id),
+  sections: sectionsOf(brief.legs),
+});
+const part4 = (packet) => (packet || "").split("\n").find((l) => /^4\. /.test(l)) || "";
+const holds = (line, kind) => line.includes(HYP[kind].meaning) && line.includes(HYP[kind].rationale);
+const kinds =
+  holds(part4(r.packet), "answer") &&
+  !holds(part4(r.packet), "question") &&
+  !asked.error &&
+  holds(part4(asked.packet), "question") &&
+  !holds(part4(asked.packet), "answer");
 ok(
   JSON.stringify(parts.map((l) => (l.match(/^\d+\. (\{[^{} ]+\}\.|Neither\.)/) || [])[1] || l)) ===
-    JSON.stringify(OPENERS) && labelled.length === 0,
-  `(r) a part's line does not open with a symbol in braces or with \`Neither.\`, or a line of the input opens a part with \`Argument \` or \`CentralClaim.\`: ${JSON.stringify({ parts, labelled })}`,
+    JSON.stringify(OPENERS) &&
+    labelled.length === 0 &&
+    kinds,
+  `(r) a part's line does not open with a symbol in braces or with \`Neither.\`, or a line of the input opens a part with \`Argument \` or \`CentralClaim.\`, or part 4 does not hold the text of its Edge's kind of Hypophora and of no other: ${JSON.stringify({ parts, labelled, answer: part4(r.packet), question: asked.error || part4(asked.packet) })}`,
 );
 
 if (fails.length) {

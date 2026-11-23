@@ -8,6 +8,7 @@ const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveRecord, SEGMENT_DOMAINS } = await imp("src/compose/moves.mjs");
+const { HYPOPHORA_KINDS } = await imp("src/compose/record.mjs");
 const { loadMoveContracts } = await imp("src/compose.mjs");
 const { bindMoveInput } = await imp("src/structure-mapping-playground/short.mjs");
 const { fittedSegments } = await imp("src/paragraph-plan/move-choice.mjs");
@@ -57,7 +58,7 @@ const EDGES = [
     bind: 2,
     edges: [
       { sense: "FrameSetting", to: [2] },
-      { sense: null, to: [1], hypophora: true },
+      { sense: null, to: [1], hypophora: "answer" },
     ],
   },
 ];
@@ -82,12 +83,19 @@ ok(
 // The same record with `domain` on every Segment passes too, and the record the Adapter returns holds it on each
 // Segment (kogaki#1946).
 const returned = validateMoveRecord(VALUED, LIB, "p1.yaml");
+// Inside (c10b) (kogaki#1950): an Edge may carry Hypophora of the kind `question` as of the kind `answer`, with no
+// Sense, and one that carries `true`, as a Move file written before did, is refused naming the two kinds.
+const asks = refusal(second([{ sense: null, to: [1], hypophora: "question" }]));
+const olden = refusal(second([{ sense: null, to: [1], hypophora: true }]));
 ok(
   refusal(EDGED) === "" &&
     edgeFailures(EDGED).length === 0 &&
+    asks === "" &&
+    olden ===
+      'move "p1" (p1.yaml): `segments` Segment 2: `edges` entry 1: `hypophora` is true — it is one of `answer`, `question`' &&
     !returned.error &&
     JSON.stringify(returned.segments) === JSON.stringify(EDGES.map(valuedSegment)),
-  `(c10b) a record carrying both fields with listed Senses, or one carrying \`domain\` beside them, does not pass and come back whole: ${[refusal(EDGED), ...edgeFailures(EDGED), returned.error || JSON.stringify(returned.segments)].join(" | ")}`,
+  `(c10b) a record carrying both fields with listed Senses, or one carrying \`domain\` beside them, does not pass and come back whole, or an Edge's kind of Hypophora is not held to \`answer\` and \`question\`: ${[refusal(EDGED), ...edgeFailures(EDGED), asks || "question admitted", olden || "true admitted", returned.error || JSON.stringify(returned.segments)].join(" | ")}`,
 );
 ok(
   edgeFailures(second([{ sense: "Because", to: [1] }])).includes(
@@ -159,12 +167,21 @@ for (const [i, s] of loadOwnSenses().entries())
     `(c11) \`own\` entry ${i + 1} does not carry exactly \`sense\`, \`meaning\`, \`rationale\` and \`parts\` with a one-line \`meaning\` and \`rationale\`: ${JSON.stringify(s)}`,
   );
 
-// (c12) the text a reading is handed holds the 22 Senses of the manual and neither of Kogaki's own (kogaki#1881).
+// (c12) the text a reading is handed holds the 21 Senses of the list, Manner not among them (kogaki#1950), and neither
+// of Kogaki's own (kogaki#1881).
 const handed = sensesText(loadSenses());
 const ownNamed = SENSES_FILE.own.map((s) => s.sense).filter((n) => handed.some((l) => l.includes(n)));
 ok(
-  handed.length === 22 && ownNamed.length === 0,
-  `(c12) the text a reading is handed holds ${handed.length} entries and names ${ownNamed.join(", ") || "no own Sense"}`,
+  handed.length === 21 &&
+    !handed.some((l) => l.startsWith("Manner")) &&
+    ownNamed.length === 0 &&
+    JSON.stringify(Object.keys(SENSES_FILE.hypophora)) === JSON.stringify(HYPOPHORA_KINDS) &&
+    HYPOPHORA_KINDS.every((k) =>
+      [SENSES_FILE.hypophora[k].meaning, SENSES_FILE.hypophora[k].rationale].every(
+        (x) => typeof x === "string" && x.trim() !== "" && !x.includes("\n"),
+      ),
+    ),
+  `(c12) the text a reading is handed holds ${handed.length} entries, ${handed.some((l) => l.startsWith("Manner")) ? "Manner among them, " : ""}and names ${ownNamed.join(", ") || "no own Sense"}; the kinds of Hypophora the file holds: ${Object.keys(SENSES_FILE.hypophora).join(", ")}`,
 );
 // The line of Condition holds its two part words, each with what the sentence playing it does, and Condition's
 // rationale after them (kogaki#1938).

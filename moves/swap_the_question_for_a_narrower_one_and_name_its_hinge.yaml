@@ -33,7 +33,7 @@ segments:
     edges:
       - sense: Cause.Reason
         to: [2]
-        hypophora: true
+        hypophora: answer
 takes: []
 leaves:
   - kind: answer

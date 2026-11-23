@@ -712,7 +712,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
   const alone = debugRecord(
     "m",
     [
-      { bind: null, edges: [{ sense: null, hypophora: true, to: [2] }] },
+      { bind: null, edges: [{ sense: null, hypophora: "answer", to: [2] }] },
       { bind: 1, edges: [{ sense: "Contrast", to: [1] }] },
     ],
     ["1. a", "2. b"],
@@ -722,7 +722,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       JSON.stringify({
         move: "m",
         parts: [
-          { part: 1, line: "1. a", bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
+          { part: 1, line: "1. a", bind: null, edges: [{ sense: null, to: [2], hypophora: "answer" }] },
           { part: 2, line: "2. b", bind: 1, edges: [{ sense: "Contrast", to: [1] }] },
         ],
       }),

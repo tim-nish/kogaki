@@ -29,7 +29,7 @@ segments:
     edges:
       - sense: null
         to: [1]
-        hypophora: true
+        hypophora: answer
   - bind: null
     domain: own
     edges:

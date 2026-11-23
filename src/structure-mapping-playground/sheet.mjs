@@ -312,7 +312,7 @@ function edgesStructureSection(ms) {
 }
 
 const edgeText = (e) =>
-  `${[e.sense, e.hypophora ? "Hypophora" : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`;
+  `${[e.sense, e.hypophora ? `Hypophora (${e.hypophora})` : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`;
 
 function edgesSegmentsSection(record, route) {
   const { move, segments, pairing } = route;

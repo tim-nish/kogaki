@@ -507,7 +507,7 @@ ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph<
 ok(!sheet.includes("WBS") && !jSheet.includes("WBS"), "(f) a sheet still carries `WBS`");
 const segs = moveContract(MOVE, resolve(repo, library)).segments;
 const segTables = [...section(jSheet, "segments").matchAll(/<table><caption>Paragraph \d+ [\s\S]*?<\/table>/g)].map((x) => x[0]);
-const SEG_ROW = /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>((?:[^<]|<br>)*)<\/td><\/tr>/g; const edgeCell = (sg) => sg.edges.map((e) => esc(`${[e.sense, e.hypophora ? "Hypophora" : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`)).join("<br>") || "none";
+const SEG_ROW = /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>((?:[^<]|<br>)*)<\/td><\/tr>/g; const edgeCell = (sg) => sg.edges.map((e) => esc(`${[e.sense, e.hypophora ? `Hypophora (${e.hypophora})` : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`)).join("<br>") || "none";
 const segRows = [...(segTables[0] || "").matchAll(SEG_ROW)];
 ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(String(sg.bind ?? "none"))
   && segRows[n][3] === edgeCell(sg)),

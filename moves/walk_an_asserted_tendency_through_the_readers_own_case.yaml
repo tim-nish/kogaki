@@ -58,7 +58,7 @@ segments:
         to: [5]
       - sense: Condition.Consequent
         to: [2]
-        hypophora: true
+        hypophora: answer
   - bind: null
     domain: apart
     edges:

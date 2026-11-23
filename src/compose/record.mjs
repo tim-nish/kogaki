@@ -252,6 +252,9 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
   return null;
 }
 
+// The kinds of Hypophora an Edge may carry, the keys of `hypophora` in src/sme/senses.json (kogaki#1950).
+export const HYPOPHORA_KINDS = Object.freeze(["answer", "question"]);
+
 // The number of the first Segment with nothing bound that stands at neither end of an Edge (kogaki#1902), or 0.
 export function looseSegment(segments) {
   const pointed = new Set(segments.flatMap((s) => (Array.isArray(s.edges) ? s.edges : []).flatMap((e) => e.to)));
@@ -279,6 +282,8 @@ function planLegRefusal(l, at) {
       if (!isMap(e) || undeclaredKey(e, ["sense", "to", "hypophora"])) return `${atE} is not \`{ sense, to }\``;
       if (e.sense !== null && (typeof e.sense !== "string" || !e.sense.trim()))
         return `${atE}'s \`sense\` is not a Sense or null`;
+      if (Object.hasOwn(e, "hypophora") && !HYPOPHORA_KINDS.includes(e.hypophora))
+        return `${atE}'s \`hypophora\` is ${JSON.stringify(e.hypophora)} — it is one of ${HYPOPHORA_KINDS.map((k) => `\`${k}\``).join(", ")} (kogaki#1950); a plan written before that carries \`true\`, and /paragraph-plan writes it again`;
       if (
         !Array.isArray(e.to) ||
         !e.to.length ||
