@@ -25,21 +25,26 @@ breaks:
     — the contrast with the first half collapses into a matter of degree
 segments:
   - bind: null
+    domain: own
     edges: []
   - bind: 1
+    domain: both
     edges:
       - sense: FrameSetting
         to: [1]
         hypophora: true
   - bind: 2
+    domain: both
     edges:
       - sense: Cause.Reason
         to: [2]
   - bind: null
+    domain: own
     edges:
       - sense: Instantiation.Instance
         to: [3]
   - bind: null
+    domain: own
     edges:
       - sense: Conjunction
         to: [4]

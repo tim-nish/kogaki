@@ -21,12 +21,15 @@ breaks:
     spent on method rather than on the matter
 segments:
   - bind: null
+    domain: neither
     edges: []
   - bind: 1
+    domain: own
     edges:
       - sense: MetaDiscourse
         to: [1]
   - bind: 2
+    domain: both
     edges:
       - sense: Cause.Reason
         to: [2]

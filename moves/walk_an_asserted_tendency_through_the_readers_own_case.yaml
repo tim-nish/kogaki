@@ -22,30 +22,37 @@ breaks:
     meets the abstraction before the case that would have made it their own
 segments:
   - bind: null
+    domain: neither
     edges: []
   - bind: 1
+    domain: apart
     edges:
       - sense: MetaDiscourse
         to: [1]
   - bind: null
+    domain: apart
     edges:
       - sense: Instantiation.Instance
         to: [2]
   - bind: null
+    domain: apart
     edges:
       - sense: Conjunction
         to: [3]
   - bind: 2
+    domain: apart
     edges:
       - sense: Cause.Result
         to: [4]
       - sense: Condition.Consequent
         to: [2]
   - bind: null
+    domain: apart
     edges:
       - sense: Cause.Reason
         to: [5]
   - bind: 3
+    domain: apart
     edges:
       - sense: Cause.Result
         to: [5]
@@ -53,6 +60,7 @@ segments:
         to: [2]
         hypophora: true
   - bind: null
+    domain: apart
     edges:
       - sense: Instantiation.Instance
         to: [7]
