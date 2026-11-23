@@ -325,7 +325,7 @@ function choiceLine(choice) {
     choice.by === "chosen"
       ? "The Move was chosen from the reading of the Leg's Senses, as /paragraph-plan chooses it."
       : choice.compared === null
-        ? "The Move was named by --move, and its Bind targets are given the Leg's first sentences in order."
+        ? "The Move was named by --move, and its last Bind target is given the CentralClaim and the others the Leg's first sentences in order."
         : "The Move was named by --move, and its Bind targets are given the sentences that meet the most of its compared Edges.";
   return `<p class="meta">${esc(how + fit)}</p>`;
 }

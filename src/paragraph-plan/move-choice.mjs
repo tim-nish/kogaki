@@ -94,7 +94,8 @@ export function compareMove(move, counted, sentenceCount, names) {
 
 // ---------------------------------------------------------------------------
 // THE CHOICE (kogaki#1865): a Move is a candidate for a Leg when it has no more Bind targets than the Leg has
-// sentences. Its filling is the one meeting the most compared Edges, the first tried among equals. The Move taken
+// sentences. Its filling is the one meeting the most compared Edges among those giving the CentralClaim, the Leg's last
+// sentence, to a Segment (kogaki#1960), the first tried among equals. The Move taken
 // has the highest count; among equals, the fewer compared Edges; among those, the id first in alphabetical order.
 // `moves` are `{ id, segments }`, each Segment carrying `bind` and `edges`. Returns `{ move, filling, met, compared }`
 // for the Move taken, or null where no Move is a candidate.
@@ -104,7 +105,9 @@ export function fitOf(move, counted, sentenceCount, names) {
   const compared = edgesOf(move).filter(
     (e) => e.sense !== null && move.segments[e.segment - 1].bind !== null && move.segments[e.to[0] - 1].bind !== null,
   ).length;
-  const best = c.fillings.reduce((b, f) => (b === null || f.count > b.count ? f : b), null);
+  const best = c.fillings
+    .filter((f) => f.central_claim !== null)
+    .reduce((b, f) => (b === null || f.count > b.count ? f : b), null);
   return best ? { filling: best.filling, met: best.count, compared } : null;
 }
 

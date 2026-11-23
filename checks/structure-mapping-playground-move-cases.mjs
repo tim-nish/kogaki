@@ -535,7 +535,7 @@ const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/se
 const tMove = parseYaml(readFileSync("moves/grant_the_rule_then_withdraw_its_enforcer.yaml", "utf8"));
 ok(
   tSegs.startsWith(
-    `<h2>Segments</h2><p>${tMove.description}</p><p class="meta">The Move was named by --move, and its Bind targets are given the Leg's first sentences in order.</p>`,
+    `<h2>Segments</h2><p>${tMove.description}</p><p class="meta">The Move was named by --move, and its last Bind target is given the CentralClaim and the others the Leg's first sentences in order.</p>`,
   ) &&
     tSegs.includes(SEGMENT_HEAD) &&
     !tSegs.includes("Given to no Segment") &&
@@ -686,7 +686,7 @@ for (const [name, args, want] of [
 ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
 
 // (p) the Move and its filling (kogaki#1953): a named Move of fewer Bind targets than the Leg has sentences is given the
-// first ones in order with no reading, and the sentences its reading's best filling gives with one; with a reading
+// first ones in order with no reading, its last Bind target the CentralClaim (kogaki#1960), and the sentences its reading's best filling gives with one; with a reading
 // and no `--move` the Move is the one `chooseMove` takes; the Writer and the Readback are handed the fitted Segments;
 // with no Move of the library a candidate the Trial is refused before anything is started.
 {
@@ -705,19 +705,19 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
   const p1 = run("two-targets", swapRoute, env);
   ok(
     p1.res.status === 0 &&
-      same((p1.rec || {}).move_choice, { by: "named", filling: { 1: 1, 2: 2 }, met: null, compared: null }) &&
+      same((p1.rec || {}).move_choice, { by: "named", filling: { 1: 1, 2: 3 }, met: null, compared: null }) &&
       same(yamlOf(p1, "pairing.yaml"), {
         binds: [
           { bind: 1, kind: "Argument", leg: "c_1" },
-          { bind: 2, kind: "Argument", leg: "c_2" },
+          { bind: 2, kind: "CentralClaim", leg: "c_3" },
         ],
       }) &&
-      same(debugBinds(p1), [null, 1, 2]),
-    `(p) a named Move of two Bind targets was not given the Leg's first two sentences in order: ${p1.said} ${JSON.stringify((p1.rec || {}).move_choice)}`,
+      same(debugBinds(p1), [null, 1, 3]),
+    `(p) a named Move of two Bind targets was not given the Leg's first sentence and then its CentralClaim: ${p1.said} ${JSON.stringify((p1.rec || {}).move_choice)}`,
   );
   ok(
-    segsOf(p1).includes("<p>Given to no Segment: CentralClaim c_3: The copy is the installer's.</p>") &&
-      segsOf(p1).includes("<td>3</td><td>2</td><td>Argument c_2: The copy overwrites any edit.</td><td>both</td>") &&
+    segsOf(p1).includes("<p>Given to no Segment: Argument c_2: The copy overwrites any edit.</p>") &&
+      segsOf(p1).includes("<td>3</td><td>2</td><td>CentralClaim c_3: The copy is the installer's.</td><td>both</td>") &&
       segsOf(p1).includes("<td>Segment 2</td><td>Cause.Reason</td><td>answer</td>") &&
       segsOf(p1).includes("<td>2</td><td>1</td>") &&
       segsOf(p1).includes("<td>1</td><td>none</td><td>none</td><td>neither</td>"),
@@ -818,7 +818,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     (r.rec || {}).base?.id === id &&
     writerOf(r).includes(`The situation is this: A ${word} the reader keeps.`) &&
     writerOf(r).includes(`| {c_3} | The ${word}'s stock is the keeper's. |`) &&
-    writerOf(r).some((l) => l.startsWith("3. {c_2}, in the article's subject and in the situation.")) &&
+    writerOf(r).some((l) => l.startsWith("3. {c_3}, in the article's subject and in the situation.")) &&
     sheetOf(r).includes(`<p>Base taken: ${id}, the ${word} — A ${word} the reader keeps.</p>`);
   ok(
     holds(q1, "b_1", "pantry") && holds(q2, "b_2", "library"),
