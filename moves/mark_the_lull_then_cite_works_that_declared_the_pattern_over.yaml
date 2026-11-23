@@ -22,25 +22,19 @@ breaks:
     extend the instances into a longer list of further cases — the stretch
     becomes a survey, and the lull it is placed inside stops being the point
 segments:
-  - operation: >-
-      notes the measured quantity falling away as the conditions that had
-      driven it settle
-  - operation: >-
-      dates a period in which the settled conditions gave rise to a prevailing
-      claim that the former pattern had ended for good
-    relation: >-
-      fills the space left by the falling away with what took hold in the period
-      after it
-    manner: >-
-      the prevailing claim given in the wording it circulated in rather than
-      paraphrased
-  - operation: >-
-      measures how far a prevailing claim had taken hold by naming widely
-      received instances that advanced it, their reach as the gauge of its hold
-    relation: >-
-      supplies checkable instances for the claim just dated, and their reach as
-      the gauge of its hold
-    manner: each instance placed in time
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Cause.Result
+        to: [1]
+  - bind: null
+    domain: own
+    edges:
+      - sense: Instantiation.Instance
+        to: [2]
 takes:
   - kind: explain
     what: a measured quantity already named, whose change awaits accounting

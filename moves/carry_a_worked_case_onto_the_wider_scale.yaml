@@ -32,7 +32,7 @@ segments:
   - bind: 2
     domain: own
     edges:
-      - sense: Asynchronous.Succession
+      - sense: Cause.Result
         to: [2]
   - bind: 3
     domain: own

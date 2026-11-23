@@ -21,22 +21,24 @@ breaks:
     Begin with the outcome and supply the figures afterward — the reader reads
     the arithmetic as backfill for a conclusion already fixed.
 segments:
-  - operation: >-
-      opens a bounded imagined case containing a counted number of parts
-    manner: cast as a first-person invitation rather than as an assertion
-  - operation: >-
-      assigns a definite quantity to each part of the case, chosen so the
-      arithmetic will come out the way the claim needs
-    relation: fills the case just opened with specific values
-  - operation: >-
-      combines the lesser quantities and states that the two sides of the
-      comparison do not match
-    relation: draws the arithmetic consequence of the values just assigned
-  - operation: >-
-      converts the shortfall into the concrete outcome it entails, stated as
-      unavoidable
-    relation: >-
-      takes the mismatch just established and states what it forces in practice
+  - bind: null
+    domain: apart
+    edges: []
+  - bind: 1
+    domain: apart
+    edges:
+      - sense: FrameSetting
+        to: [1]
+  - bind: 2
+    domain: apart
+    edges:
+      - sense: Cause.Result
+        to: [2]
+  - bind: 3
+    domain: apart
+    edges:
+      - sense: Cause.Result
+        to: [3]
 takes:
   - kind: apply
     what: a general claim given earlier, to be shown at work in a constructed case

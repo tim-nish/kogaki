@@ -1,0 +1,46 @@
+id: let_an_escalation_settle_into_a_named_state
+description: >-
+  Posits a point at which a mirrored escalation may cease, grounds it in each
+  side's recognition of the other's matched capacity, then names the resulting
+  condition and draws out what it rules out.
+breaks:
+  - >-
+    give the term at the opening and then explain it — the label arrives before
+    the sequence that earns it, and the reader has nothing to attach it to
+  - >-
+    state the stopping point as certain rather than as something that may come —
+    the reader loses the sense that the parties reach it themselves rather than
+    having it imposed
+  - >-
+    leave the ground of the stopping point unstated — the halt reads as fatigue
+    instead of a calculation the reader can check
+  - >-
+    insert a paragraph of real-world illustration between the stopping point and
+    its naming — the chain the reader is holding goes slack before the term
+    arrives
+segments:
+  - bind: 1
+    domain: apart
+    edges: []
+  - bind: 2
+    domain: apart
+    edges:
+      - sense: Cause.Reason
+        to: [1]
+  - bind: 3
+    domain: both
+    edges:
+      - sense: Cause.Result
+        to: [2]
+  - bind: null
+    domain: apart
+    edges:
+      - sense: Cause.Result
+        to: [3]
+takes:
+  - kind: answer
+    what: a movement set going between two sides, where it ends left open
+leaves:
+  - kind: apply
+    what: a settled condition and what it rules out, to be put to work on cases
+    segment: 4

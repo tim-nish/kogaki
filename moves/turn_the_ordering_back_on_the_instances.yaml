@@ -20,21 +20,19 @@ breaks:
     application arrives after the reader has been told the same thing twice, and
     the test loses its edge
 segments:
-  - operation: >-
-      tests one case against the graded ordering, naming the lower positions it
-      supplies and the topmost one it leaves unsupplied
-  - operation: >-
-      applies the test to a further case, naming the lower positions it supplies
-      and the same topmost one it leaves unsupplied
-    relation: >-
-      carries the examination of the step before over to the other case, so the
-      finding reads as a pattern rather than a flaw in a single one
-  - operation: >-
-      states that supplying the unsupplied level proves harder than it looks
-      once attempted
-    relation: >-
-      steps back from the two examinations to what both leave open, moving the
-      difficulty off the cases and onto anyone who attempts the answer
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Similarity
+        to: [1]
+  - bind: 3
+    domain: own
+    edges:
+      - sense: Level-of-detail.General
+        to: [2, 1]
 takes:
   - kind: apply
     what: a graded ordering given earlier, to be put to work on cases

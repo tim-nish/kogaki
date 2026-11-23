@@ -19,19 +19,19 @@ breaks:
     name the places without saying which part of the case fills each — the
     reader is left to guess the mapping and takes nothing checkable from it
 segments:
-  - operation: announces one ordinary case as the instance to be worked through.
-    manner: >-
-      cast as an invitation to think it through together rather than a flat
-      statement.
-  - operation: >-
-      assigns each part of the case its place in the ordering in a single pass.
-    relation: fills the case just named by giving each of its parts a place.
-  - operation: >-
-      restates the assignment as a sequence of requirements descending from the
-      highest place to the lowest.
-    relation: >-
-      takes the same assignment and runs it in the opposite direction, from the
-      top downward.
+  - bind: null
+    domain: neither
+    edges: []
+  - bind: 1
+    domain: apart
+    edges:
+      - sense: FrameSetting
+        to: [1]
+  - bind: 2
+    domain: apart
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [2]
 takes:
   - kind: apply
     what: an ordering given earlier, to be shown in one case

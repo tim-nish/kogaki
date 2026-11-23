@@ -1,0 +1,31 @@
+id: mirror_a_response_into_a_continuing_escalation
+description: >-
+  States the action a party in a small imagined case is driven to take, extends
+  the same reasoning to the other side, then compresses the repeated exchange
+  into one continuing movement.
+breaks:
+  - >-
+    drop the step that turns the first response back on the other side — the
+    escalation has no engine, and the settled end reads as asserted rather than
+    reached
+segments:
+  - bind: 1
+    domain: apart
+    edges: []
+  - bind: 2
+    domain: apart
+    edges:
+      - sense: Asynchronous.Succession
+        to: [1]
+  - bind: 3
+    domain: apart
+    edges:
+      - sense: Cause.Result
+        to: [2]
+takes:
+  - kind: apply
+    what: a general claim about what a party is driven to do, to be put to work on a case
+leaves:
+  - kind: answer
+    what: a movement set going between two sides, where it ends left open
+    segment: 3
