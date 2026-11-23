@@ -822,7 +822,8 @@ export function runShortTrial({
 // THE BRIEF-LEG ROUTE (kogaki#1830, kogaki#1922, kogaki#1953): a Leg of an adopted Brief under one Move, the Move's Bind
 // targets and Edges read from its Move file and grounded under `own`. The Move is the one `--move` names, or, with a
 // reading of the Leg's Senses and no `--move`, the one `chooseMove` takes. Its Bind targets are given the Leg's
-// sentences the reading's best filling gives, or, with no reading, the first ones in order;
+// sentences the reading's best filling gives, or, with no reading, the first ones in order with the last Bind target
+// given the CentralClaim (kogaki#1960);
 // specs/spec-draft-pipeline/SPEC.md, The short Trial.
 
 export function runMoveTrial({
@@ -885,7 +886,12 @@ export function runMoveTrial({
     const fit = ls ? fitOf({ segments: edgeSegments(contract) }, ls.reading.pairs, sentences, names) : null;
     choice = fit
       ? { by: "named", filling: fit.filling, met: fit.met, compared: fit.compared }
-      : { by: "named", filling: inOrder(bindTargetsOf(contract)), met: null, compared: null };
+      : {
+          by: "named",
+          filling: { ...inOrder(bindTargetsOf(contract)), [bindTargetsOf(contract)]: sentences },
+          met: null,
+          compared: null,
+        };
   }
   const segments = edgeSegments(contract);
   const pairingGiven = pairByFilling(b.structure, b.leg.relation, choice.filling);
