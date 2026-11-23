@@ -349,9 +349,12 @@ function figureBlockRefusal(block, at) {
 // The shapes moves/ROLES.json's `shapes` states for the list-valued roles,
 // read back at the Adapter (kogaki#1414, carried in YAML by kogaki#1413):
 // `breaks` a list of one-line prose tests, `segments` a list of maps carrying
-// `bind` and `edges` and no other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
+// `bind` and `edges` and, where the Move's source paragraph has been reviewed, `domain` (kogaki#1946), and no
+// other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
 // A record the ingest has just written from an Extraction carries no `bind` and no `edges` (kogaki#1926).
-export const SEGMENT_FIELDS = Object.freeze(["bind", "edges"]);
+export const SEGMENT_FIELDS = Object.freeze(["bind", "domain", "edges"]);
+// The values a Segment's `domain` is taken from (kogaki#1946). No call reads the key.
+export const SEGMENT_DOMAINS = Object.freeze(["own", "apart", "both", "neither"]);
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 
@@ -376,7 +379,6 @@ function bindAndEdgesRefusal(v, at, field) {
       return `${atS}: \`bind\` is ${b}, the Bind target of the Segment before it`;
     if (!Array.isArray(s.edges)) return `${atS}: \`edges\` is not a list`;
     if (i === 0 && s.edges.length) return `${atS}: \`edges\` carries an entry — the first Segment carries no Edge`;
-    if (i > 0 && !s.edges.length) return `${atS}: \`edges\` is empty — every Segment after the first carries an Edge`;
     for (const [j, e] of s.edges.entries()) {
       const atE = `${atS}: \`edges\` entry ${j + 1}`;
       if (!isPlainMap(e)) return `${atE} is not a map`;
@@ -402,6 +404,21 @@ function bindAndEdgesRefusal(v, at, field) {
   return null;
 }
 
+// A Segment's `domain` (kogaki#1946): on every Segment of the record or on none, one value of its set, each refusal
+// naming the Segment. `v` is the record's `segments`.
+function domainRefusal(v, at, field) {
+  const atS = (i) => `${at}: \`${field}\` Segment ${i + 1}`;
+  const first = v.findIndex((s) => Object.hasOwn(s, "domain"));
+  if (first < 0) return null;
+  const without = v.findIndex((s) => !Object.hasOwn(s, "domain"));
+  if (without >= 0)
+    return `${atS(without)} carries no \`domain\`, and Segment ${first + 1} carries one — a record carries \`domain\` on every Segment or on none`;
+  const off = v.findIndex((s) => !SEGMENT_DOMAINS.includes(s.domain));
+  if (off >= 0)
+    return `${atS(off)}: \`domain\` is ${JSON.stringify(v[off].domain)} — it is one of ${SEGMENT_DOMAINS.map((x) => `\`${x}\``).join(", ")}`;
+  return null;
+}
+
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (role === "tests") {
@@ -420,7 +437,7 @@ function optionalRoleRefusal(role, field, v, at) {
       if (extra)
         return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
     }
-    return bindAndEdgesRefusal(v, at, field);
+    return bindAndEdgesRefusal(v, at, field) || domainRefusal(v, at, field);
   }
   return null;
 }

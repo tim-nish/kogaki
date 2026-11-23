@@ -20,8 +20,10 @@ breaks:
     conclusion
 segments:
   - bind: 1
+    domain: both
     edges: []
   - bind: 2
+    domain: own
     edges:
       - sense: Cause.Result
         to: [1]

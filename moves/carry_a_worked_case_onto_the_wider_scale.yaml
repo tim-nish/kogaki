@@ -17,20 +17,25 @@ breaks:
     that the chain they just followed is the one being reused
 segments:
   - bind: null
+    domain: own
     edges: []
   - bind: 1
+    domain: both
     edges:
       - sense: FrameSetting
         to: [1]
   - bind: null
+    domain: both
     edges:
       - sense: Cause.Result
         to: [2]
   - bind: 2
+    domain: own
     edges:
       - sense: Asynchronous.Succession
         to: [2]
   - bind: 3
+    domain: own
     edges:
       - sense: Equivalence
         to: [4]

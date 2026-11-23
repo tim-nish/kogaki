@@ -693,7 +693,10 @@ written with its part, or one of Kogaki's own, `MetaDiscourse` and
 `FrameSetting`, whose meanings stand in the `own` of
 `src/sme/senses.json` (kogaki#1881). It is null only beside
 `hypophora: true`. The first Segment
-carries no Edge, and every later Segment carries at least one.
+carries no Edge. A later Segment need carry none of its own where a later
+Segment's Edge points to it (kogaki#1946): the maintainer's rule is the one the
+next sentence states, and the sentence that every later Segment carries at
+least one Edge, written here at kogaki#1871, was never the maintainer's.
 Every Segment has a Bind target or stands at one end of an Edge, and
 `validateMoveRecord` refuses a Segment with neither, naming it (kogaki#1902).
 `validateMoveRecord` refuses a record that carries the two fields on some of
@@ -705,6 +708,22 @@ carries neither of the two prose fields a Segment held before them, and
 admitted by `validateMoveRecord`, and `checks/check-move-library.sh` refuses it
 under `moves/`. A Move file whose Edges are not yet written stands under
 `graveyard/moves/`, which no stage reads.
+
+**A Segment's `domain` (kogaki#1946).** A Segment of a Move file carries one
+more key, `domain`, written after `bind` and before `edges`. A record carries
+it on every Segment or on none, and every Move file under `moves/` carries it.
+Its value is one of `own`, `apart`, `both` and `neither`, set in the
+maintainer's review of the Move's source paragraph, and no call reads it yet.
+The key says whose vocabulary the Segment uses, in the maintainer's words of
+2026-11-22: "If a Segment uses the same vocabulary domain as the bound claim, I
+would classify it as own. If it uses expressions from a different domain than
+the bound claim, I would classify it as apart." "We can generalize the
+condition for apart as 'using an analogy.'" "I intend to actively classify
+Segments that could bridge Base and Target as Both." `neither` stands on a
+Segment that "makes no vocabulary choice at all".
+`validateMoveRecord` refuses a value outside the four and a record that
+carries the key on some of its Segments and not on all, each naming the Move
+and the Segment.
 
 **Subject-independence is the default for every field (owner ruling,
 2026-09-23: "a fundamental principle of the design from the beginning").** No

@@ -21,12 +21,15 @@ breaks:
     assertion instead of something the reader works through
 segments:
   - bind: 1
+    domain: own
     edges: []
   - bind: 2
+    domain: own
     edges:
       - sense: Concession.Denier
         to: [1]
   - bind: 3
+    domain: own
     edges:
       - sense: Cause.Result
         to: [2]

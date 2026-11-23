@@ -42,6 +42,7 @@
         "after",
         "after_segment",
         "segments.bind",
+        "segments.domain",
         "segments.edges"
       ]
     },

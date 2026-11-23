@@ -79,10 +79,12 @@ export const move = (id, segments) => ({
   segments,
 });
 export const seg = (bind, edges = []) => ({ bind, edges });
+// `z_fewer`, the Move the stage takes, carries `domain` on every Segment, as a Move file under moves/ does
+// (kogaki#1946); `a_more` carries none.
 export const Z_FEWER = move("z_fewer", [
-  { bind: 1, edges: [] },
-  { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
-  { bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
+  { bind: 1, domain: "own", edges: [] },
+  { bind: 2, domain: "both", edges: [{ sense: "Conjunction", to: [1] }] },
+  { bind: null, domain: "neither", edges: [{ sense: null, to: [2], hypophora: true }] },
 ]);
 export const A_MORE = move("a_more", [
   seg(1),

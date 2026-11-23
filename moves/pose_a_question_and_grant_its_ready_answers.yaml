@@ -22,13 +22,16 @@ breaks:
     reads as a textbook
 segments:
   - bind: 1
+    domain: own
     edges: []
   - bind: null
+    domain: neither
     edges:
       - sense: null
         to: [1]
         hypophora: true
   - bind: null
+    domain: own
     edges:
       - sense: Instantiation.Instance
         to: [2]
