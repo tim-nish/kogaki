@@ -155,9 +155,12 @@ export function legBase(briefPath, structure, leg, chosen = leg.base) {
   const tells = (b) => baseTellsRelation(b, structure, leg.relation);
   if (chosen !== undefined && chosen !== null) {
     const named = bases.find((b) => b.id === chosen);
-    if (!named) return { error: `${at}: its \`base\` ${chosen} names no Base of ${ANALOGY_FILE}` };
+    if (!named)
+      return { error: `${at}: its \`base\` ${chosen} names no Base of ${ANALOGY_FILE} — ${propose} proposes two` };
     if (!tells(named))
-      return { error: `${at}: its \`base\` ${chosen} names a Base that does not tell its relation ${leg.relation}` };
+      return {
+        error: `${at}: its \`base\` ${chosen} names a Base that does not tell its relation ${leg.relation} — ${propose} proposes two`,
+      };
     return { base: named };
   }
   const first = bases.find(tells);

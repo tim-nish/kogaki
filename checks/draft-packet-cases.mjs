@@ -231,7 +231,8 @@ ok(
     none.error.includes("node src/analogy.mjs propose") &&
     refusedNaming(untold) &&
     refusedNaming(wrong) &&
-    wrong.error.includes("b_3"),
+    wrong.error.includes("b_3") &&
+    [untold, wrong].every((x) => x.error.includes("node src/analogy.mjs propose")),
   `(u) a Leg with an apart Segment and no Base that tells it is not refused naming the Leg: ${JSON.stringify([none.error, untold.error, wrong.error])}`,
 );
 
