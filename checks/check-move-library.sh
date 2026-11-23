@@ -32,8 +32,9 @@
 #       its fixtures (c10) stand in `checks/move-library-cases.mjs`, which
 #       reads both lists from `src/sme/senses.json` alone, and there
 #       (c11) every entry of its `own` carries exactly `sense`, `meaning` and
-#       `parts`, and (c12) the text a reading is handed holds the 22 of the
-#       manual and neither own name (kogaki#1881).
+#       `parts`, and (c12) the text a reading is handed holds the 21 of the
+#       list, Manner not among them (kogaki#1950), and neither own name
+#       (kogaki#1881).
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION, not behind a flag: a predicate
 # that silently stopped discriminating would otherwise report a clean library,

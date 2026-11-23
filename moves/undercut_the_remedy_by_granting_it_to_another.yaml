@@ -35,7 +35,7 @@ segments:
     edges:
       - sense: Condition.Consequent
         to: [2]
-        hypophora: true
+        hypophora: answer
   - bind: 3
     domain: apart
     edges:

@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { figureKinds } from "./figure.mjs";
 import { isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord } from "./render.mjs";
-import { looseSegment, oneLine } from "./record.mjs";
+import { HYPOPHORA_KINDS, looseSegment, oneLine } from "./record.mjs";
 import { moveConstraintsRefusal } from "../move-validate.mjs";
 
 // ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
@@ -385,10 +385,11 @@ function bindAndEdgesRefusal(v, at, field) {
       const extra = Object.keys(e).find((k) => !EDGE_KEYS.includes(k));
       if (extra)
         return `${atE} carries \`${extra}\` — an Edge carries ${EDGE_KEYS.map((k) => `\`${k}\``).join(", ")} only`;
-      if (Object.hasOwn(e, "hypophora") && e.hypophora !== true) return `${atE}: \`hypophora\` is not true`;
+      if (Object.hasOwn(e, "hypophora") && !HYPOPHORA_KINDS.includes(e.hypophora))
+        return `${atE}: \`hypophora\` is ${JSON.stringify(e.hypophora)} — it is one of ${HYPOPHORA_KINDS.map((k) => `\`${k}\``).join(", ")}`;
       const oneLine = typeof e.sense === "string" && e.sense.trim() !== "" && !/[\r\n]/.test(e.sense);
-      if (!oneLine && !(e.sense === null && e.hypophora === true))
-        return `${atE}: \`sense\` is not one non-empty line, and it is null only beside \`hypophora: true\``;
+      if (!oneLine && !(e.sense === null && Object.hasOwn(e, "hypophora")))
+        return `${atE}: \`sense\` is not one non-empty line, and it is null only beside \`hypophora\``;
       if (!Array.isArray(e.to) || !e.to.length) return `${atE}: \`to\` is not a list of one or more Segments`;
       const off = e.to.find((k) => !(Number.isInteger(k) && k >= 1 && k <= i));
       if (off !== undefined)

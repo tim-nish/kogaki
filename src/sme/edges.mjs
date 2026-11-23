@@ -43,7 +43,8 @@ export function loadOwnSenses() {
   return readSensesFile().own;
 }
 
-// The one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense (kogaki#1901).
+// The two kinds of Hypophora, `answer` and `question`, each with its text (kogaki#1950). Hypophora is no Sense: an
+// Edge may carry one kind beside its Sense or with no Sense (kogaki#1901).
 export function loadHypophora() {
   return readSensesFile().hypophora;
 }

@@ -158,7 +158,7 @@ else {
 // (b) and (l): plan files of the stage fixture's Brief, rendered through `resolve`.
 const SEGS = [{ bind: 1, edges: [] }, { bind: null, edges: [{ sense: "Conjunction", to: [1] }] },
   { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }, { sense: "Cause.Result", to: [2] }] },
-  { bind: 3, edges: [{ sense: null, to: [3], hypophora: true }] }];
+  { bind: 3, edges: [{ sense: null, to: [3], hypophora: "answer" }] }];
 const T = { C: "both bear the same relation to some other situation in the text, or contribute to it together. The reader adds one point to another of equal standing, and neither explains the other.", X: "at least two differences between the two are brought out. The reader sets two things side by side and sees where they differ.", R: "the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect. The reader learns why a situation holds, or what it led to.", H: "the sentence pointed to raises a question, and this sentence gives its answer. The reader is given the question first, so the answer arrives as something they were waiting for." }, SENSE_NAMES = /\b(Sense|Conjunction|Contrast|Cause|Result|Hypophora|hypophora|null)\b/;
 const wantParts = (a1, a2, central) => [`1. {${a1}}. Pointed to by part 2, part 3.`, `2. Neither. To part 1: ${T.C} Pointed to by part 3.`, `3. {${a2}}. To part 1 and part 2 together: ${T.X} To part 2: ${T.R} Pointed to by part 4.`, `4. {${central}}. To part 3: ${T.H}`];
 const sRoot = mkdtempSync(join(tmpdir(), "draft-packet-plan-"));

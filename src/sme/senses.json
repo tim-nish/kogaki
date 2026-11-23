@@ -1,7 +1,7 @@
 {
   "version": "1",
   "licensed_by": "kogaki#1847",
-  "note": "`senses` holds the 22 Senses of the Penn Discourse Treebank 3 annotation manual, which a reading is handed, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `rationale` says what the two sentences do for the reader; it stands on the Sense, or on each of its parts where the two directions do different things for the reader. `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881). `hypophora` holds the one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense, and a reading is not handed it.",
+  "note": "`senses` holds 21 Senses of the Penn Discourse Treebank 3 annotation manual, all of its 22 but Manner, which left the list at kogaki#1950; a reading is handed them, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `rationale` says what the two sentences do for the reader; it stands on the Sense, or on each of its parts where the two directions do different things for the reader. `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881). `hypophora` holds the two kinds of Hypophora, which is no Sense, each with its text: `answer`, where the sentence pointed to raises a question and this sentence answers it, and `question`, where the sentence pointed to prompts a question and this sentence asks it (kogaki#1950). An Edge may carry one kind beside its Sense or with no Sense, and a reading is not handed either.",
   "senses": [
     {
       "sense": "Synchronous",
@@ -156,12 +156,6 @@
       "opposite": ["Detail", "General"]
     },
     {
-      "sense": "Manner",
-      "meaning": "one presents the manner in which the other's situation happened or was done.",
-      "rationale": "The reader is told how something was done, and no reason is claimed.",
-      "parts": [{ "part": "Manner", "plays": "this sentence gives the manner." }]
-    },
-    {
       "sense": "Substitution",
       "meaning": "the two are presented as exclusive alternatives, one being ruled out.",
       "rationale": "The reader is told one alternative is ruled out and which one stands in its place.",
@@ -183,7 +177,13 @@
     }
   ],
   "hypophora": {
-    "meaning": "the sentence pointed to raises a question, and this sentence gives its answer.",
-    "rationale": "The reader is given the question first, so the answer arrives as something they were waiting for."
+    "answer": {
+      "meaning": "the sentence pointed to raises a question, and this sentence gives its answer.",
+      "rationale": "The reader is given the question first, so the answer arrives as something they were waiting for."
+    },
+    "question": {
+      "meaning": "the sentence pointed to prompts a question, and this sentence asks it.",
+      "rationale": "The reader is asked the question the sentence before leaves them with. No answer is promised."
+    }
   }
 }

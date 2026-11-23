@@ -72,7 +72,7 @@ ok(
       JSON.stringify([
         { bind: 1, edges: [] },
         { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
-        { bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
+        { bind: null, edges: [{ sense: null, to: [2], hypophora: "answer" }] },
       ]) &&
     /bind: 1\n\s+domain: own/.test(readFileSync(join(MOVES, "z_fewer.yaml"), "utf8")) &&
     runTextA.includes('"id": "z_fewer"') &&
@@ -191,7 +191,24 @@ for (const [key, at] of [
   segs.push({ bind: null, edges: [{ sense: "Conjunction", to: [n] }] });
   writeFileSync(a.planPath, stringifyYaml(rec));
   const r2 = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
-  ok(!r2.error, `(f2) a Segment a later Edge points to was refused: ${r2.error}`);
+  // Inside this case (kogaki#1950): the same Edge carrying Hypophora of the kind `question` is read, and one carrying
+  // `true`, as a plan written before did, is refused naming the two kinds and /paragraph-plan.
+  const withKind = (kind) => {
+    segs[n].edges[0].hypophora = kind;
+    writeFileSync(a.planPath, stringifyYaml(rec));
+    return readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS).error || "";
+  };
+  const asked = withKind("question");
+  const olden = withKind(true);
+  ok(
+    !r2.error &&
+      asked === "" &&
+      olden.includes(
+        `leg ${LEGS[0].leg_id}, Segment ${n + 1}, Edge 1's \`hypophora\` is true — it is one of \`answer\`, \`question\``,
+      ) &&
+      olden.includes("/paragraph-plan writes it again"),
+    `(f2) a Segment a later Edge points to was refused, or its Edge's kind of Hypophora was not held to \`answer\` and \`question\`: ${[r2.error, asked || "question read", olden || "true read"].join(" | ")}`,
+  );
   writeFileSync(a.planPath, text);
 }
 

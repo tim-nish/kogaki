@@ -84,7 +84,7 @@ export const seg = (bind, edges = []) => ({ bind, edges });
 export const Z_FEWER = move("z_fewer", [
   { bind: 1, domain: "own", edges: [] },
   { bind: 2, domain: "both", edges: [{ sense: "Conjunction", to: [1] }] },
-  { bind: null, domain: "neither", edges: [{ sense: null, to: [2], hypophora: true }] },
+  { bind: null, domain: "neither", edges: [{ sense: null, to: [2], hypophora: "answer" }] },
 ]);
 export const A_MORE = move("a_more", [
   seg(1),

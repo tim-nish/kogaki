@@ -54,7 +54,9 @@ export function planValues(structure, leg) {
     const n = e.sense === null || e.sense === undefined ? null : names.get(e.sense);
     return [
       ...(n ? [{ ...parts, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}), rationale: n.rationale }] : []),
-      ...(e.hypophora ? [{ ...parts, meaning: hypophora.meaning, rationale: hypophora.rationale }] : []),
+      ...(e.hypophora
+        ? [{ ...parts, meaning: hypophora[e.hypophora].meaning, rationale: hypophora[e.hypophora].rationale }]
+        : []),
     ];
   };
   const stands = segs.map((g) => (g.edges || []).flatMap(standsOf));

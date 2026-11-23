@@ -190,7 +190,7 @@ export async function programTexts(imp) {
     relation: "c_1",
     segments: [
       { bind: 1, edges: [] },
-      { bind: null, edges: [{ to: [1], sense: null, hypophora: true }] },
+      { bind: null, edges: [{ to: [1], sense: null, hypophora: "answer" }] },
     ],
   });
   out.set("read-back-parts", RB.readbackPrompt(packed.values));

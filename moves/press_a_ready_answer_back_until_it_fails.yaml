@@ -1,0 +1,54 @@
+id: press_a_ready_answer_back_until_it_fails
+description: >-
+  Shows that a missing level of explanation is what leaves everyday observation
+  unsatisfying, then drives the readiest answer back through further questions
+  and leaves the last one standing.
+breaks:
+  - >-
+    drop the opening statement of cost and begin from the case — the regress
+    becomes a puzzle for its own sake and the reader has no stake in it
+  - >-
+    stop at the first question rather than pressing behind the readiest answer —
+    the reader keeps that answer and never sees that it explains nothing
+  - >-
+    answer the last question here instead of leaving it standing — the gap the
+    work exists to fill closes and nothing is owed to what follows
+  - >-
+    add a second and a third case before pressing the first — the regress
+    spreads across instances and no single one is driven far enough to fail
+segments:
+  - bind: 1
+    domain: own
+    edges: []
+  - bind: 2
+    domain: own
+    edges:
+      - sense: Instantiation.Instance
+        to: [1]
+  - bind: null
+    domain: own
+    edges:
+      - sense: null
+        to: [2]
+        hypophora: question
+  - bind: 3
+    domain: own
+    edges:
+      - sense: null
+        to: [3]
+        hypophora: answer
+      - sense: Conjunction
+        to: [2]
+  - bind: null
+    domain: own
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [4]
+        hypophora: question
+takes:
+  - kind: apply
+    what: a part of an earlier division, taken up to cost its omission
+leaves:
+  - kind: answer
+    what: a question pressed behind the readiest answer, left standing
+    segment: 5

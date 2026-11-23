@@ -32,7 +32,7 @@ segments:
     edges:
       - sense: FrameSetting
         to: [1]
-        hypophora: true
+        hypophora: answer
   - bind: 2
     domain: both
     edges:
