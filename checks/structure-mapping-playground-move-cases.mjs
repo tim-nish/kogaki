@@ -286,11 +286,14 @@ const segs = partOf("segments");
 const firstTable = (segs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "";
 const rows = firstTable.split("<tr>").slice(1);
 ok(rows.length === 3, `(b) the Segments table has ${rows.length} rows, and the Move has three Segments`);
+const { SEGMENT_COLUMNS } = await imp("src/structure-mapping-playground/sheet.mjs");
+const SEGMENT_HEAD = `<thead><tr>${SEGMENT_COLUMNS.map((h) => `<th>${h}</th>`).join("")}</tr></thead>`;
 ok(
-  /<th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(segs) &&
-    rows.every((r) => (r.match(/<td>/g) || []).length === 3) &&
+  SEGMENT_COLUMNS.join() === "#,Bind target,given,domain,points to,Sense,Hypophora" &&
+    segs.includes(SEGMENT_HEAD) &&
+    rows.every((r) => (r.match(/<td>/g) || []).length === 7) &&
     !segs.includes("Unmatched"),
-  `(b) a Segments row is not the three columns #, bind and Edges, or an Unmatched table stands (kogaki#1922): ${rows[0]}`,
+  `(b) a Segments row is not the seven columns of the Move's Segments (kogaki#1953), or an Unmatched table stands (kogaki#1922): ${rows[0]}`,
 );
 ok(
   sheet.indexOf('id="move-structure"') !== -1 &&
@@ -499,16 +502,19 @@ ok(
 );
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
-// The Move's description on the sheet (kogaki#1913), above a table of #, bind and Edges; the description is handed to
-// neither the Writer nor the Readback call.
+// The Move's description on the sheet (kogaki#1913), above how the Move was taken and the table of its Segments
+// (kogaki#1953); the description is handed to neither the Writer nor the Readback call.
 const tMove = parseYaml(readFileSync("moves/grant_the_rule_then_withdraw_its_enforcer.yaml", "utf8"));
 ok(
-  tSegs.startsWith(`<h2>Segments</h2><p>${tMove.description}</p>`) &&
-    /<thead><tr><th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
+  tSegs.startsWith(
+    `<h2>Segments</h2><p>${tMove.description}</p><p class="meta">The Move was named by --move, and its Bind targets are given the Leg's first sentences in order.</p>`,
+  ) &&
+    tSegs.includes(SEGMENT_HEAD) &&
+    !tSegs.includes("Given to no Segment") &&
     !tSegs.includes("genericity") &&
     !tSegs.includes("Unmatched") &&
     !tSegs.includes("Waypoint"),
-  "(i) the sheet's Segments section does not open with the Move's description and show the three columns #, bind and Edges, or it holds genericity, an Unmatched table or a Waypoints column",
+  "(i) the sheet's Segments section does not open with the Move's description and how the Move was taken and show the seven columns, or it holds a sentence given to no Segment, genericity, an Unmatched table or a Waypoints column",
 );
 const tReadback = (ti.seen.find((x) => x.stage === "readback") || {}).prompt || "";
 ok(
@@ -518,11 +524,12 @@ ok(
 const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
 ok(
   tRows.length === 3 &&
-    tRows[0].includes("1 → Argument c_1") &&
-    tRows[2].includes("3 → CentralClaim c_3") &&
-    tRows[1].includes("Concession.Denier → 1") &&
-    tRows[2].includes("Cause.Result → 2"),
-  `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim and its Edges: ${tRows.join(" | ")}`,
+    tRows[0].includes("<td>1</td><td>1</td><td>Argument c_1: The installer writes the copy.</td><td>own</td>") &&
+    tRows[0].includes("<td>none</td><td>none</td><td>none</td>") &&
+    tRows[2].includes("<td>3</td><td>3</td><td>CentralClaim c_3: The copy is the installer's.</td>") &&
+    tRows[1].includes("<td>Segment 1</td><td>Concession.Denier</td><td>none</td>") &&
+    tRows[2].includes("<td>Segment 2</td><td>Cause.Result</td><td>none</td>"),
+  `(i) the Segments rows do not show each Bind target, the Argument or CentralClaim it is given with its sentence, its domain and each Edge's Segment, Sense and Hypophora: ${tRows.join(" | ")}`,
 );
 
 // (i) under `--leg-senses` (kogaki#1875): a finished reading of the same Leg, recorded in trial.json and shown directly after
@@ -637,11 +644,6 @@ for (const [name, args, want] of [
     `the Move ${MOVE} carries no \`bind\` and \`edges\` on its Segments`,
   ],
   ["unedged", unedgedRoute, `the Move ${MOVE} carries no \`bind\` and \`edges\` on its Segments`],
-  [
-    "e-targets",
-    [...swapRoute, "--move-edges"],
-    `the Move ${TWO_TARGETS} has 2 Bind targets, and the Leg s2 has 3 Arguments and CentralClaim`,
-  ],
   ["e-table", [...EDGES_ROUTE, "--move-table", "table.yaml"], "`--move-table` is retired"],
   ["e-table-alone", ["--move-table", "table.yaml"], "`--move-table` is retired"],
   ["e-alone", ["--move-edges"], "`--move-edges` is a flag of the Brief-Leg route"],
@@ -654,6 +656,125 @@ for (const [name, args, want] of [
   );
 }
 ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
+
+// (p) the Move and its filling (kogaki#1953): a named Move of fewer Bind targets than the Leg has sentences is given the
+// first ones in order with no reading, and the sentences its reading's best filling gives with one; with a reading
+// and no `--move` the Move is the one `chooseMove` takes; the Writer and the Readback are handed the fitted Segments;
+// with no Move of the library a candidate the Trial is refused before anything is started.
+{
+  const env = { SMP_TABLE: JSON.stringify(TABLE_H1) };
+  const yamlOf = (r, f) => (existsSync(join(r.o, f)) ? parseYaml(readFileSync(join(r.o, f), "utf8"), f) : null);
+  const segsOf = (r) => {
+    const f = join(r.o, "sheet.html");
+    const html = existsSync(f) ? readFileSync(f, "utf8") : "";
+    return (html.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
+  };
+  const debugBinds = (r) =>
+    existsSync(join(r.o, "packet-debug.json"))
+      ? JSON.parse(readFileSync(join(r.o, "packet-debug.json"), "utf8")).parts.map((x) => x.bind)
+      : null;
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const p1 = run("two-targets", swapRoute, env);
+  ok(
+    p1.res.status === 0 &&
+      same((p1.rec || {}).move_choice, { by: "named", filling: { 1: 1, 2: 2 }, met: null, compared: null }) &&
+      same(yamlOf(p1, "pairing.yaml"), {
+        binds: [
+          { bind: 1, kind: "Argument", leg: "c_1" },
+          { bind: 2, kind: "Argument", leg: "c_2" },
+        ],
+      }) &&
+      same(debugBinds(p1), [null, 1, 2]),
+    `(p) a named Move of two Bind targets was not given the Leg's first two sentences in order: ${p1.said} ${JSON.stringify((p1.rec || {}).move_choice)}`,
+  );
+  ok(
+    segsOf(p1).includes("<p>Given to no Segment: CentralClaim c_3: The copy is the installer's.</p>") &&
+      segsOf(p1).includes("<td>3</td><td>2</td><td>Argument c_2: The copy overwrites any edit.</td><td>both</td>") &&
+      segsOf(p1).includes("<td>Segment 2</td><td>Cause.Reason</td><td>answer</td>") &&
+      segsOf(p1).includes("<td>2</td><td>1</td>") &&
+      segsOf(p1).includes("<td>1</td><td>none</td><td>none</td><td>neither</td>"),
+    `(p) the Segments section does not show the sentence given to no Segment, a Segment with no Bind target, a domain and an Edge's Hypophora: ${segsOf(p1)}`,
+  );
+  // A reading under which the two-target Move's one compared Edge is met only with its Bind targets given the
+  // CentralClaim and then the first Argument: the first Argument gives the reason, stored as the CentralClaim giving
+  // the result.
+  const turned = join(root, "reading-turned");
+  mkdirSync(turned);
+  writeFileSync(
+    join(turned, "leg-senses-run.json"),
+    JSON.stringify({ brief: { leg: "s2", path: relFromRepo(tableBrief) }, sentences: tSentences, state: "finished" }),
+  );
+  writeFileSync(
+    join(turned, "counts.json"),
+    JSON.stringify({
+      pairs: pairsOf(tSentences.length).map((pair) => ({
+        pair,
+        answers: [
+          pair.join() === "1,3"
+            ? { sense: "Cause.Result", played_by: 3, named: 5, place_sum: 5, candidate: true }
+            : { sense: "Contrast", played_by: null, named: 4, place_sum: 4, candidate: true },
+        ],
+      })),
+    }),
+  );
+  const TURNED = { by: "chosen", filling: { 1: 3, 2: 1 }, met: 1, compared: 1 };
+  const chosenRoute = ["--brief", tableBrief, "--leg", "s2", "--library", library, "--leg-senses", turned];
+  const p2 = run("chosen", chosenRoute, env);
+  ok(
+    p2.res.status === 0 &&
+      (p2.rec || {}).bind.move === TWO_TARGETS &&
+      same((p2.rec || {}).move_choice, TURNED) &&
+      same(yamlOf(p2, "pairing.yaml"), {
+        binds: [
+          { bind: 1, kind: "CentralClaim", leg: "c_3" },
+          { bind: 2, kind: "Argument", leg: "c_1" },
+        ],
+      }),
+    `(p) with a reading and no --move the Move and its filling are not the ones Move choice takes: ${p2.said} ${JSON.stringify((p2.rec || {}).move_choice)}`,
+  );
+  const p2Writer = ((p2.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
+  ok(
+    same(debugBinds(p2), [null, 3, 1]) &&
+      p2Writer.some((l) => l.startsWith("2. {c_3}.")) &&
+      p2Writer.some((l) => l.startsWith("3. {c_1}.")) &&
+      segsOf(p2).includes(
+        "The Move was chosen from the reading of the Leg's Senses, as /paragraph-plan chooses it. Under it the Leg meets 1 of the Move's 1 compared Edges.",
+      ) &&
+      segsOf(p2).includes("<p>Given to no Segment: Argument c_2: The copy overwrites any edit.</p>"),
+    `(p) the Writer and the Readback were not handed the Segments under the chosen filling, or the sheet does not say how the Move was taken: ${p2Writer.filter((l) => /^\d+\. /.test(l)).join(" | ")}`,
+  );
+  const p3 = run("named-turned", [...swapRoute, "--leg-senses", turned], env);
+  ok(
+    p3.res.status === 0 &&
+      same((p3.rec || {}).move_choice, { ...TURNED, by: "named" }) &&
+      segsOf(p3).includes(
+        "The Move was named by --move, and its Bind targets are given the sentences that meet the most of its compared Edges.",
+      ),
+    `(p) a named Move under a reading is not given the reading's best filling: ${p3.said} ${JSON.stringify((p3.rec || {}).move_choice)}`,
+  );
+  const bare = join(root, "moves-bare");
+  mkdirSync(bare);
+  writeFileSync(join(bare, "ROLES.json"), readFileSync("moves/ROLES.json"));
+  writeFileSync(join(bare, `${MOVE}.yaml`), readFileSync(join(library, `${MOVE}.yaml`)));
+  const p4 = run(
+    "no-candidate",
+    chosenRoute.map((x) => (x === library ? bare : x)),
+  );
+  ok(
+    p4.res.status === 1 &&
+      p4.said.includes("is a candidate for the Leg s2") &&
+      p4.said.includes("Nothing was started") &&
+      !existsSync(p4.o) &&
+      p4.seen.length === 0,
+    `(p) a library with no candidate Move was not refused before anything was started: ${p4.said}`,
+  );
+  const p5 = run("no-move", ["--brief", tableBrief, "--leg", "s2", "--library", library]);
+  ok(
+    p5.res.status === 1 && p5.said.includes("`--move` is required beside `--brief`") && !existsSync(p5.o),
+    `(p) a run with neither --move nor --leg-senses was not refused naming --move: ${p5.said}`,
+  );
+  ok(snapshot() === before, "(p) a file under moves/ or theses/ changed");
+}
 
 // (l) the `readback` stage under `--move-edges` (kogaki#1882): one call, packet-debug.json (kogaki#1905) and one row per
 // Segment on the sheet; the Writer's input unchanged by its answer; a refused answer shown and the writer run; a null
@@ -828,4 +949,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(d), (g)-(j), (l)-(n)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(d), (g)-(j), (l)-(n), (p)`);

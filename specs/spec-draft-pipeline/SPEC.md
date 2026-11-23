@@ -3096,12 +3096,15 @@ and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
 `paragraphs`, as `bind.yaml` does, and in the composed route `base_move`,
 `case` and `inference_move` (kogaki#1700, kogaki#1719).
 
-**A Leg of a Brief and a named Move** (kogaki#1830). A second route,
+**A Leg of a Brief and one Move** (kogaki#1830, kogaki#1953). A second route,
 `node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id>
---move <Move id> --out <dir under runs/structure-mapping-playground/> [--audience <file>]
-[--library <dir>]`, holds the Move fixed and reads the Leg from an adopted
-Brief. The three flags are given together, and with them `--proposition`,
-`--structure`, `--mapper`, `--compose` and `--rbs-file` are refused by name.
+[--move <Move id>] [--leg-senses <folder>] --out <dir under
+runs/structure-mapping-playground/> [--audience <file>] [--library <dir>]`, reads the
+Leg from an adopted Brief and holds one Move fixed. `--brief` and `--leg` are
+given together with `--move`, with `--leg-senses`, or with both; a run with
+neither `--move` nor `--leg-senses` is refused naming `--move`. With them
+`--proposition`, `--structure`, `--mapper`, `--compose` and `--rbs-file` are
+refused by name.
 The proposition is the Leg's `text`, and the Leg's structure is read from the
 Brief with no model call: the relation its `relation` names with the Roles of
 its `between`, or, for a higher-order relation, that relation, the relations
@@ -3112,26 +3115,66 @@ Mapping is written. The sheet opens with `Move structure` and `Segments`.
 
 **A Move's Bind targets and Edges read from its Move file** (kogaki#1840,
 kogaki#1858, kogaki#1880, kogaki#1922). On the Brief-Leg route each Segment's
-`bind` and `edges` are read from the Move file that
-`--move` names, as `loadMoveContracts` reads it. Before any call the Trial is
-refused naming the Move where its Segments carry no `bind` and `edges`, and
-where the number of its Bind targets, `bindTargetsOf` of
-`src/paragraph-plan/move-choice.mjs`, is not the number of the Leg's Arguments and
-CentralClaim, naming both numbers. `move-reading` and `pairing` make no
-model call: the move structure is the number of Bind targets and each
-Segment's `bind`, and Bind target `k` is given entry `k` of the Leg's
-Arguments in order and then its CentralClaim, as `legSentences` lists them;
-the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed,
-for each Segment, its number, its `bind` and its `edges`, and `write` hands
-the Writer each
-Segment's `bind` and `edges` as the Move file holds them, every Edge of a
-Segment included. No call is made between `grounding`
-and `write` but the readback below (kogaki#1876, kogaki#1882, kogaki#1883).
-The sheet's
-`Segments` section opens with the Move's `description` as one paragraph,
-over a table of the columns `#`, `bind` and `Edges` (kogaki#1913): per
-Segment its number, its `bind` beside the Argument or CentralClaim it was
-given, and its Edges, each as its Sense and the Segments it points to.
+`bind` and `edges` are read from the Move file, as `loadMoveContracts` reads
+it. Before any call the Trial is refused naming the Move where the Segments
+of the Move `--move` names carry no `bind` and `edges`. `move-reading` and
+`pairing` make no model call: the move structure is the number of Bind
+targets and each Segment's `bind`, and the pairing is `binds`, one
+`{ bind, kind, leg }` for each Bind target of the Move. `grounding` is
+handed, for each Segment, its number, its `bind` and its `edges`. No call is
+made between `grounding` and `write` but the readback below (kogaki#1876,
+kogaki#1882, kogaki#1883).
+
+**The Move and its filling** (kogaki#1953). The Trial takes its Move and gives
+the Move's Bind targets their sentences as `/paragraph-plan` does (§4.20.4),
+with the functions of `src/paragraph-plan/move-choice.mjs` and no model call.
+The *filling* gives each Bind target the number of one of the Leg's
+sentences, the Arguments in order and then the CentralClaim, as
+`legSentences` lists them.
+
+- With `--leg-senses` and no `--move`, the Move and its filling are the ones
+  `chooseMove` takes over the Moves of the library whose Segments carry
+  `edges`, with the reading's counts. Where it takes none the Trial is
+  refused before anything is started, naming the library and the Leg.
+- With `--move` and `--leg-senses`, the Move is the named one and its filling
+  is the one `fitOf` gives it under the reading's counts.
+- With `--move` and no `--leg-senses`, the Move is the named one and Bind
+  target `k` is given sentence `k`.
+
+A Move may have fewer Bind targets than the Leg has sentences; a sentence the
+filling gives to no Bind target is in no Segment, the CentralClaim included.
+`trial.json` records `move_choice`: `by`, which is `chosen` or `named`; the
+`filling`; and `met` and `compared`, the compared Edges the reading's
+candidates hold under the filling and the Move's compared Edges, both null
+with no reading. `pairing.yaml` names, for each Bind target, the sentence the
+filling gives it. The stages `readback` and `write` are handed the Segments
+`fittedSegments` gives: each Segment's `bind` is the number of the sentence
+its Bind target was given, and its `edges` are as the Move file holds them,
+every Edge of a Segment included.
+
+**The Segments of the Move on the sheet** (kogaki#1913, kogaki#1953). The
+sheet's `Segments` section holds the Move's Segments as its Move file holds
+them. It opens with the Move's `description` as one paragraph and one line
+saying how the Move was taken: chosen from the reading of the Leg's Senses,
+or named by `--move`, and, with a reading, how many of the Move's compared
+Edges the Leg meets under the filling. Under them stands one table, its
+caption the Move's id, of the columns `#`, `Bind target`, `given`, `domain`,
+`points to`, `Sense` and `Hypophora`, one row per Segment:
+
+- `Bind target`: the Segment's `bind`, or `none`;
+- `given`: the Argument or CentralClaim the filling gives that Bind target,
+  as its kind, its id and its sentence, or `none`;
+- `domain`: the Segment's `domain`, or `none` where the Move file carries
+  none;
+- `points to`, `Sense` and `Hypophora`: one line per Edge of the Segment, in
+  the Move file's order: the Segments its `to` names, its `sense` or
+  `no Sense`, and its `hypophora` or `none`. A Segment with no Edge shows
+  `none` in each.
+
+Under the table one paragraph names each sentence of the Leg the filling
+gives to no Segment, as its kind, its id and its sentence; with none, no
+such paragraph stands.
+
 The flag `--move-edges` is accepted beside `--brief`, `--leg` and `--move`
 and changes nothing; alone, or with a value, it is refused naming the flag.
 The call that read a Move into Roles and Relations, and the call that paired
@@ -3145,7 +3188,7 @@ a second file, is refused by name before anything is started.
 route takes one more flag, `--leg-senses <folder>`, naming a folder that
 `leg-senses.mjs read` (§4.20.4) wrote; it adds no model call. Before anything
 is started the Trial is refused, naming the flag and the folder, where the flag
-is given without `--brief`, `--leg` and `--move`, where the folder holds no
+is given without `--brief` and `--leg`, where the folder holds no
 `leg-senses-run.json` whose `state` is `finished`, and where the Brief or the
 Leg that record names is not the Trial's. `trial.json` records the folder under
 `leg_senses`, or null. The sheet's section `The Leg's Senses` follows the
@@ -3157,8 +3200,8 @@ has one, `named N of 5`, and `not a candidate` where it is not kept; and each
 Edge of the Move, read from its Move file (kogaki#1880), that joins two
 Segments bound to that pair, with its Segment, its
 Sense and `among the candidates, named N of 5` or `not among the candidates`,
-as `compareMove` of `src/paragraph-plan/move-choice.mjs` decides for the filling the
-pairing in order gives. An Edge with nothing bound at one end is not shown.
+as `compareMove` of `src/paragraph-plan/move-choice.mjs` decides for the Trial's
+filling (kogaki#1953). An Edge with nothing bound at one end is not shown.
 With no flag the section holds the one sentence "No reading of the Leg's Senses
 was given to this Trial." and the usage line of `leg-senses.mjs read`.
 
