@@ -33,7 +33,15 @@ import { join, relative, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readerKnowledgeLedger, figureLegs } from "./compose.mjs";
 import { sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "./lint-ja.mjs";
-import { fail, argString, sha256, readBrief, readerTargetCase, foreignStrandRefusal } from "./draft/brief-reader.mjs";
+import {
+  fail,
+  argString,
+  sha256,
+  readBrief,
+  readBriefText,
+  readerTargetCase,
+  foreignStrandRefusal,
+} from "./draft/brief-reader.mjs";
 import {
   journeyIdentityKey,
   journeyTextFromSurvey,
@@ -61,6 +69,7 @@ import { writerSettings, callWriter, writerRefusal, sectionProseRefusal, parseWr
 // re-exported so no importer and no check changes when the modules move.
 export {
   readBrief,
+  readBriefText,
   readerTargetCase,
   sectionsOf,
   sectionOfLeg,

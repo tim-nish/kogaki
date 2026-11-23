@@ -354,33 +354,36 @@ export function parseBriefRecord(text, path = "<brief>") {
   } catch (e) {
     return { error: `the Brief at ${path} is not a YAML record this reader can read: ${e.message}` };
   }
+  const error = briefRecordRefusal(record, path);
+  return error ? { error } : { record };
+}
+// The same refusals over a record already read, the three files of an adopted Brief read as one (kogaki#1955).
+// Returns an error string or null.
+export function briefRecordRefusal(record, path = "<brief>") {
   if (!record || typeof record !== "object" || Array.isArray(record)) {
-    return {
-      error: `the Brief at ${path} is not a YAML map — the Brief record is one map of named keys (kogaki#1328)`,
-    };
+    return `the Brief at ${path} is not a YAML map — the Brief record is one map of named keys (kogaki#1328)`;
   }
   const decl = candidateSchemaBlock().keys;
   for (const k of Object.keys(record)) {
     if (Object.prototype.hasOwnProperty.call(RETIRED_RECORD_KEYS, k)) {
-      return { error: `the Brief at ${path} carries \`${k}\` — ${RETIRED_RECORD_KEYS[k]}` };
+      return `the Brief at ${path} carries \`${k}\` — ${RETIRED_RECORD_KEYS[k]}`;
     }
     if (!Object.prototype.hasOwnProperty.call(decl, k)) {
-      return {
-        error:
-          `the Brief at ${path} carries the key \`${k}\`, which the Brief record does not declare ` +
-          `(src/candidate-schema.json, \`brief_record\`) — a key nobody reads is refused rather than carried`,
-      };
+      return (
+        `the Brief at ${path} carries the key \`${k}\`, which the Brief record does not declare ` +
+        `(src/candidate-schema.json, \`brief_record\`) — a key nobody reads is refused rather than carried`
+      );
     }
   }
   for (const [k, d] of Object.entries(decl)) {
     if (d.required === true && !(k in record)) {
-      return { error: `the Brief at ${path} carries no \`${k}\` — ${d.description}` };
+      return `the Brief at ${path} carries no \`${k}\` — ${d.description}`;
     }
   }
   if (!Array.isArray(record.strands) || record.strands.length === 0) {
-    return { error: `the Brief at ${path} settles no Strands — \`strands\` is the closed set the mint wrote` };
+    return `the Brief at ${path} settles no Strands — \`strands\` is the closed set the mint wrote`;
   }
-  return { record };
+  return null;
 }
 export function readBriefRecord(path) {
   let text;

@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
-import { readBrief, renderPacket, sectionsOf, sectionOfLeg, readerTargetCase } from "./src/draft.mjs";
+import { readBriefText, renderPacket, sectionsOf, sectionOfLeg, readerTargetCase } from "./src/draft.mjs";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260, fixtureLeg, structureOf } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { readerTargetLegRefusal, legRecord } = compose;
@@ -105,7 +105,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
 }
 
 // (k) the mark reaches the Packet (kogaki#1231, acceptance item 4): written by legRecord,
-// read back by readBrief, and rendered under `## This Leg` on the marked Leg, the last since
+// read back by readBriefText, and rendered under `## This Leg` on the marked Leg, the last since
 // kogaki#1768, and on no Leg before it; the closing-Leg line reaches no Packet of a Brief.
 {
   const legOf = fixtureLeg;
@@ -116,8 +116,8 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
 
   const pair = [legOf("s1"), legOf("s2", { reaches_target: true })];
   const back = briefOfRecord(recordOf(pair), "k.yaml");
-  if (back.refusals.length || back.legs[1].reaches_target !== true) fails.push(`(k) readBrief did not read the mark back: ${JSON.stringify(back.refusals)}`);
-  else if (back.legs[0].reaches_target !== undefined) fails.push(`(k) readBrief read a mark off an unmarked Leg: ${JSON.stringify(back.legs[0])}`);
+  if (back.refusals.length || back.legs[1].reaches_target !== true) fails.push(`(k) readBriefText did not read the mark back: ${JSON.stringify(back.refusals)}`);
+  else if (back.legs[0].reaches_target !== undefined) fails.push(`(k) readBriefText read a mark off an unmarked Leg: ${JSON.stringify(back.legs[0])}`);
   const halfRecord = recordOf(pair);
   halfRecord.reader_path[1].reaches_target = false;
   const half = briefOfRecord(halfRecord, "k.yaml");

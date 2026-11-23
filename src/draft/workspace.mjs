@@ -91,13 +91,7 @@ export function snapshotDraft(ws, phase, seq, content) {
 
 export function loadBrief(args) {
   const path = argString(args, "brief", "this command needs --brief <path to theses/<slug>/brief.yaml>");
-  let text;
-  try {
-    text = readFileSync(path, "utf8");
-  } catch (e) {
-    fail(`the Brief at ${path} cannot be read (${e.message})`);
-  }
-  const brief = readBrief(text, path);
+  const brief = readBrief(path);
   if (brief.refusals.length) fail(brief.refusals[0]);
   // NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired, kogaki#1311).
   if (args["moves-dir"] !== undefined) {
@@ -108,7 +102,7 @@ export function loadBrief(args) {
   // /draft reads it here. A missing file, and one made from a different Brief, are refused naming both files; the
   // Brief itself names nothing downstream. The file holds each Leg's Segments, each its `bind` and its `edges`, and
   // this read opens no Move file: /draft reads the Segments that stand in the plan.
-  const plan = readParagraphPlanBeside(path, text, brief.legs);
+  const plan = readParagraphPlanBeside(path, brief.text, brief.legs);
   if (plan.error) fail(plan.error);
   const legs = brief.legs.map((leg) => {
     const segments = plan.segments.get(leg.leg_id);

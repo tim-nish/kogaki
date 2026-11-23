@@ -5,7 +5,13 @@
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText, sha256 } from "../compose.mjs";
+import {
+  paragraphPlanPathFor,
+  paragraphPlanRecord,
+  paragraphPlanRecordText,
+  readBriefFiles,
+  sha256,
+} from "../compose.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { readReaderPathJob, readerPathJobPath } from "../workflow/detached-job.mjs";
 import { DONE_FILE, START_FILE, writeJson } from "./stage.mjs";
@@ -115,7 +121,10 @@ export function finishParagraphPlan(dir) {
     return { stopped: stopLines(start, job) };
   }
   const briefPath = resolve(REPO, start.brief);
-  const briefText = readFileSync(briefPath, "utf8");
+  // THE BRIEF'S THREE FILES, read again and hashed as one (kogaki#1955).
+  const read = readBriefFiles(briefPath);
+  if (read.error) return { stopped: [`ParagraphPlan stopped: ${read.error} — nothing was written.`] };
+  const briefText = read.text;
   if (sha256(briefText) !== start.brief_sha256) {
     return {
       stopped: [

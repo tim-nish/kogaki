@@ -3,35 +3,19 @@
 // block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  briefAsOneList,
-  briefLegs,
-  briefStructureRefusal,
-  parseBriefRecord,
-  unfilledSlots,
-  undeclaredLegKeyRefusal,
-} from "../compose.mjs";
+import { briefLegs, readBriefFiles, unfilledSlots, undeclaredLegKeyRefusal } from "../compose.mjs";
 import { settingValue } from "../workflow/judge.mjs";
 import { REPO } from "../workflow/run-record.mjs";
 
 // ---------------------------------------------------------------------------
-// THE BRIEF THIS STAGE READS. An adopted Brief — no slot awaiting composition — whose Legs each
-// carry their relation's `holds` as `text` (kogaki#1775, kogaki#1777).
+// THE BRIEF THIS STAGE READS. An adopted Brief — no slot awaiting composition — read from its three files, each Leg
+// given its relation's `holds` as `text` (kogaki#1775, kogaki#1955).
 // Returns `{ text, record, legs, renamed }` or `{ error }`, `renamed` the ids `briefAsOneList` renamed.
 export function readAdoptedBrief(briefPath) {
-  let text;
-  try {
-    text = readFileSync(briefPath, "utf8");
-  } catch (e) {
-    return { error: `the Brief at ${briefPath} cannot be read (${e.message})` };
-  }
-  const parsed = parseBriefRecord(text, briefPath);
+  const parsed = readBriefFiles(briefPath);
   if (parsed.error) return { error: parsed.error };
-  // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
-  const { record, renamed } = briefAsOneList(parsed.record);
-  parsed.record = record;
+  const { text, renamed } = parsed;
   const open = unfilledSlots(parsed.record);
   if (open.length) {
     return {
@@ -43,23 +27,11 @@ export function readAdoptedBrief(briefPath) {
   const legs = briefLegs(parsed.record);
   if (!legs.length)
     return { error: `the Brief at ${briefPath} carries no Reader Path legs — there is nothing to plan` };
-  // A KEY THE LEG SCHEMA DOES NOT DECLARE IS REFUSED NAMING IT (kogaki#1885), before the Leg's `text` is read.
+  // A KEY THE LEG SCHEMA DOES NOT DECLARE IS REFUSED NAMING IT (kogaki#1885).
   for (const [i, raw] of (parsed.record.reader_path || []).entries()) {
     const bad = undeclaredLegKeyRefusal(raw, `the Brief at ${briefPath}, leg ${raw?.leg_id ?? i + 1}`);
     if (bad) return { error: bad };
   }
-  // THE LEG IS THE UNIT (kogaki#1777): a Leg is read by its `text`.
-  for (const leg of legs) {
-    const at = `the Brief at ${briefPath}, leg ${leg.leg_id}`;
-    if (typeof leg.text !== "string" || leg.text.trim() === "") {
-      return {
-        error: `${at} carries no \`text\` — a Leg says its relation's \`holds\` in its \`text\`, which this stage plans (kogaki#1775, kogaki#1777)`,
-      };
-    }
-  }
-  // `relation` BINDS ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
-  const unbound = briefStructureRefusal(legs, parsed.record.structure, `the Brief at ${briefPath}`);
-  if (unbound) return { error: unbound };
   return { text, record: parsed.record, legs, renamed };
 }
 

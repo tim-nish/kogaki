@@ -3,11 +3,11 @@
 // `bind` and `edges`, and one fake model binary that records every call by its row and answers by a mode file.
 // A mode is `ok`, `refuse-once` or `refuse-twice` for every Leg, or `refuse-twice:<leg>` or `die:<leg>` for that
 // Leg alone (kogaki#1876).
-import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { stringifyYaml, parseYaml } from "../../../src/yaml.mjs";
-import { legRecord, briefRecordText } from "../../../src/compose.mjs";
+import { legRecord, writeBriefFiles } from "../../../src/compose.mjs";
 import { legSentences } from "../../../src/sme/arguments.mjs";
 
 // ---- the Brief: two Legs of three sentences each ----
@@ -49,22 +49,21 @@ export const LEGS = [
     reaches_target: true,
   },
 ];
-export const briefOf = (structure) =>
-  briefRecordText({
-    slug: "paragraph-plan-brief",
-    compose_path: "audiences/dev-to-zenn.md",
-    strands: [
-      { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
-      { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
-    ],
-    thesis: "What the rule starts stops the request.",
-    ...(structure ? { structure } : {}),
-    reader_path: LEGS.map((l) => legRecord(l)),
-    strand_coverage: [],
-    journey_coverage: [],
-    tradeoffs: {},
-    bridged: {},
-  });
+export const briefOf = (structure) => ({
+  slug: "paragraph-plan-brief",
+  compose_path: "audiences/dev-to-zenn.md",
+  strands: [
+    { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
+    { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
+  ],
+  thesis: "What the rule starts stops the request.",
+  ...(structure ? { structure } : {}),
+  reader_path: LEGS.map((l) => legRecord(l)),
+  strand_coverage: [],
+  journey_coverage: [],
+  tradeoffs: {},
+  bridged: {},
+});
 // ---- the Move libraries ----
 // `z_fewer` and `a_more` each meet one Edge under the readings below (Conjunction between every pair); `a_more`
 // compares two, so the one with fewer compared Edges is taken although its id comes later. `wide` has four Bind
@@ -98,7 +97,9 @@ export function makeFixture(root) {
   const newBrief = (structure = STRUCTURE) => {
     const d = join(root, `brief-${++briefN}`);
     mkdirSync(d);
-    writeFileSync(join(d, "brief.yaml"), briefOf(structure));
+    // The Brief's three files (kogaki#1955); a Brief with no `structure` has no structure.yaml beside it.
+    writeBriefFiles(join(d, "brief.yaml"), briefOf(structure));
+    if (!structure) rmSync(join(d, "structure.yaml"));
     return join(d, "brief.yaml");
   };
 

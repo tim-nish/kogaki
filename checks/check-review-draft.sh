@@ -41,7 +41,7 @@ import { pathToFileURL } from "node:url";
 const fails = [];
 const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
-const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
+const { readBriefText, renderPacket, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 const { readDraft, readItems, buildJoin } = await import(pathToFileURL(join(repo, "src", "review-draft.mjs")).href);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "review-draft-"));
@@ -58,7 +58,7 @@ const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
 // (kogaki#1775, kogaki#1777): the Packet renders one numbered line per paragraph.
 const LEG_TEXT = "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.";
 const POINTS = ["The installer writes into the consumer's tree.", "The next run overwrites any edit to the copy."];
-const brief = readBrief(briefRecordText({
+const brief = readBriefText(briefRecordText({
   slug: "review-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.", reader_path: [legRecord({ leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] })],

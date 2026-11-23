@@ -18,7 +18,7 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readBrief, renderPacket, sectionsOf, sectionOfLeg,
+import { readBriefText, renderPacket, sectionsOf, sectionOfLeg,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal,
   journeyProseFromShardLines } from "./src/draft.mjs";
 // The stated absence prompts/draft/_packet.prompt renders for a Persona with no prior knowledge (kogaki#1855).

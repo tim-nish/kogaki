@@ -18,8 +18,9 @@ import {
   chmodSync,
   readdirSync,
   statSync,
+  rmSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -35,7 +36,7 @@ const ok = (cond, msg) => {
   if (!cond) fails.push(msg);
 };
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
-const { legRecord, briefRecordText } = await imp("src/compose.mjs");
+const { legRecord, writeBriefFiles } = await imp("src/compose.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { legStructureOf, readBriefLeg } = await imp("src/structure-mapping-playground/move-structure.mjs");
 const { legRows } = await imp("src/sme/arguments.mjs");
@@ -127,28 +128,31 @@ const LEGS = [
     reaches_target: true,
   },
 ];
-const briefOf = (structure, legs) =>
-  briefRecordText({
-    slug: "move-brief",
-    compose_path: "audiences/dev-to-zenn.md",
-    strands: [
-      { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
-      { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
-    ],
-    thesis: "The copy is the installer's.",
-    ...(structure ? { structure } : {}),
-    reader_path: legs.map((l) => legRecord(l)),
-    strand_coverage: [],
-    journey_coverage: [],
-    tradeoffs: {},
-    bridged: {},
-  });
-const writeBrief = (name, text) => {
+const briefOf = (structure, legs) => ({
+  slug: "move-brief",
+  compose_path: "audiences/dev-to-zenn.md",
+  strands: [
+    { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
+    { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
+  ],
+  thesis: "The copy is the installer's.",
+  ...(structure ? { structure } : {}),
+  reader_path: legs.map((l) => legRecord(l)),
+  strand_coverage: [],
+  journey_coverage: [],
+  tradeoffs: {},
+  bridged: {},
+});
+// The Brief's three files (kogaki#1955); a record with no `structure` has no structure.yaml beside it.
+const writeBrief = (name, record) => {
   const p = join(root, name, "brief.yaml");
   mkdirSync(join(root, name), { recursive: true });
-  writeFileSync(p, text);
+  writeBriefFiles(p, record);
+  if (!record.structure) rmSync(join(root, name, "structure.yaml"));
   return p;
 };
+const textsOf = (p) =>
+  ["brief.yaml", "structure.yaml", "reader-path.yaml"].map((f) => readFileSync(join(dirname(p), f), "utf8")).join("");
 const brief = writeBrief("brief", briefOf(STRUCTURE, LEGS));
 
 // ---- the answer of the grounding call ----
@@ -274,7 +278,10 @@ ok(
   `(a) trial.json's bind does not hold the named Move under case own: ${JSON.stringify(rec.bind)}`,
 );
 ok(
-  rec.route === "brief-leg" && rec.brief && rec.brief.leg === "s2" && rec.brief.sha256 === sha(tableBrief),
+  rec.route === "brief-leg" &&
+    rec.brief &&
+    rec.brief.leg === "s2" &&
+    rec.brief.sha256 === createHash("sha256").update(textsOf(tableBrief)).digest("hex"),
   `(a) trial.json does not name the Brief and its Leg: ${JSON.stringify(rec.brief)}`,
 );
 
@@ -332,11 +339,15 @@ const flat = writeBrief(
   ),
 );
 // A stored Brief whose first Leg carries a key the Leg schema does not declare (kogaki#1885).
-const wpRecord = parseYaml(briefOf(STRUCTURE, LEGS), "brief.yaml");
+const wpRecord = briefOf(STRUCTURE, LEGS);
 wpRecord.reader_path[0].waypoints = [{ point: "a point." }];
-const wp = writeBrief("waypoints", stringifyYaml(wpRecord));
+const wp = writeBrief("waypoints", wpRecord);
 for (const [name, args, want] of [
-  ["no-structure", ["--brief", flat, "--leg", "s1", "--move", MOVE, "--library", library], "carries no `structure`"],
+  [
+    "no-structure",
+    ["--brief", flat, "--leg", "s1", "--move", MOVE, "--library", library],
+    "no structure.yaml beside it",
+  ],
   [
     "leg-waypoints",
     ["--brief", wp, "--leg", "s1", "--move", MOVE, "--library", library],
@@ -359,7 +370,7 @@ const storedBrief = writeBrief(
   "stored-brief",
   briefOf(STORED_STRUCTURE, [LEGS[0], { ...LEG_H1, relation: "h_1" }, { ...LEGS[1], leg_id: "s3", relation: "h_2" }]),
 );
-const storedText = readFileSync(storedBrief, "utf8");
+const storedText = textsOf(storedBrief);
 const LEG_S1 = legStructureOf(STRUCTURE, "c_1");
 const LEG_H2 = legStructureOf(STRUCTURE, "c_4");
 const ids = (s) => [s.roles, s.relations].map((l) => l.map((x) => x.id).join(",")).join(" | ");
@@ -387,7 +398,7 @@ ok(
     rowsOf(storedLegs[1][0]).includes(
       '"symbol":"{c_3}","name":"ownership","kind":"Relation","arguments":"{c_1}, {c_2}"',
     ) &&
-    readFileSync(storedBrief, "utf8") === storedText,
+    textsOf(storedBrief) === storedText,
   `(g) the Leg of c_4 reads ${ids(LEG_H2)}, or a Brief stored under \`relations\` and \`higher_order\` does not read as the same Legs and rows with its ids renamed: ${JSON.stringify(storedLegs.map(([was]) => was.error || [was.leg.relation, [...was.renamed]]))}`,
 );
 

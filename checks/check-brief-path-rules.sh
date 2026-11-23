@@ -28,7 +28,7 @@ import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
 bindFlow(BRIEF_FLOW);
 import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
-import { readBrief, renderPacket, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
+import { readBriefText, renderPacket, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
 import { recordOf, briefOfRecord, fixtureLeg, structureOf, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 import { METHOD_VERBS } from "./src/compose/leg-schema.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
@@ -162,7 +162,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
       }
       if (path[0]?.claims?.[0]?.proposition !== long) fails.push("(av) the lengthened Claim did not read back whole after wrapping");
       // the Draft reads the adopted Legs by their text (kogaki#1775, kogaki#1777)
-      const read = readBrief(briefRecordText(r.record), "brief.yaml");
+      const read = readBriefText(briefRecordText(r.record), "brief.yaml");
       if (read.refusals.length) fails.push(`(av) the Draft's reader refused the adopted record: ${JSON.stringify(read.refusals)}`);
       else if (read.legs.some((l) => "reader_state_before" in l || "reader_state_after" in l)) fails.push("(av) the Draft's reader derived a reader state the Brief no longer carries (kogaki#1699)");
     }
@@ -251,7 +251,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     fails.push(`(ax) a Leg carrying an undeclared key was not refused naming it: ${stale}`);
   }
   if (compose.undeclaredLegKeyRefusal(derived[0], "leg L1") !== null) fails.push("(ax) a Leg of declared keys alone was refused as carrying an undeclared one");
-  const staleBrief = readBrief(briefRecordText({ ...recordOf([fixtureLeg("s1", { reaches_target: true })]), reader_path: [{ ...fixtureLeg("s1", { reaches_target: true }), waypoints: [{ point: "a point", case: "own" }] }] }), "b.yaml");
+  const staleBrief = readBriefText(briefRecordText({ ...recordOf([fixtureLeg("s1", { reaches_target: true })]), reader_path: [{ ...fixtureLeg("s1", { reaches_target: true }), waypoints: [{ point: "a point", case: "own" }] }] }), "b.yaml");
   if (!staleBrief.refusals.some((m) => m.includes("leg s1: carries `waypoints`, which is not a Leg field"))) fails.push(`(ax) the Draft's reader did not refuse a stored Leg carrying the key, naming it: ${JSON.stringify(staleBrief.refusals)}`);
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   for (const row of ["lpp_waypoints", "lpp_grounded"]) if (table[row]) fails.push(`(ax) src/brief-workflow.json still carries the \`${row}\` row`);

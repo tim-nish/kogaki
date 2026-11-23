@@ -23,7 +23,7 @@ import { pathToFileURL } from "node:url";
 
 const fails = [];
 const repo = resolve(".");
-const { legRecord, briefRecordText, paragraphPlanRecord, paragraphPlanRecordText } =
+const { legRecord, paragraphPlanRecord, paragraphPlanRecordText } =
   await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "draft-plan-pin-"));
@@ -43,16 +43,16 @@ chmodSync(writer, 0o755);
 const leg = (id) => ({ leg_id: id, text: `The relation ${id} says holds.`,
   claims: [{ strand: "L1", proposition: `the claim ${id} carries.` }] });
 const legs = [leg("G1"), leg("G2")];
-const briefText = briefRecordText({
+const briefRecord = {
   slug: "plan-pin", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.", reader_path: legs.map(legRecord),
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
-});
+};
 const dir = join(root, "theses", "plan-pin");
 mkdirSync(dir, { recursive: true });
 const briefPath = join(dir, "brief.yaml");
-writeFileSync(briefPath, briefText);
+const briefText = (await import(pathToFileURL(join(repo, "checks", "fixtures", "brief-files.mjs")).href)).writeBriefFixture(briefPath, briefRecord);
 const planPath = join(dir, "paragraph-plan.yaml");
 // Each Leg carries two Segments, and the two plans differ by the Sense of one Edge (kogaki#1876).
 const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";

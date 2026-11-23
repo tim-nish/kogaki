@@ -104,8 +104,8 @@ import { pathToFileURL } from "node:url";
 
 const fails = [];
 const repo = resolve(".");
-const { legRecord, briefRecordText, paragraphPlanRecord, paragraphPlanRecordText } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
-const { readBrief, renderPacket, sectionsOf, sectionOfLeg } =
+const { legRecord, briefRecordText, paragraphPlanRecord, paragraphPlanRecordText, writeBriefFiles } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { readBriefText, renderPacket, sectionsOf, sectionOfLeg } =
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
 const [WRITER_PROMPT_FILE, PACKET_FILE] = [join("prompts", "draft", "write-leg.prompt"), join("prompts", "draft", "_packet.prompt")];
@@ -125,7 +125,7 @@ const text = briefRecordText({
   thesis: "The fixture claim.", reader_path: [legRecord(leg)],
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
-const brief = readBrief(text, "theses/packet-brief/brief.yaml");
+const brief = readBriefText(text, "theses/packet-brief/brief.yaml");
 const render = async (templateText) => {
   const l = asRead(brief.legs[0]);
   const rp = templateText === undefined ? renderPacket : await renderPacketWith({ [PACKET_FILE]: templateText });
@@ -165,8 +165,8 @@ const sRoot = mkdtempSync(join(tmpdir(), "draft-packet-plan-"));
 const sDir = join(sRoot, "theses", "paragraph-plan-brief");
 mkdirSync(sDir, { recursive: true });
 const sBriefPath = join(sDir, "brief.yaml"), sPlanPath = join(sDir, "paragraph-plan.yaml");
-const sText = STAGE.briefOf(STAGE.STRUCTURE);
-writeFileSync(sBriefPath, sText);
+const briefFilesText = (t) => t.brief + t.structure + t.readerPath;
+const sText = briefFilesText(writeBriefFiles(sBriefPath, STAGE.briefOf(STAGE.STRUCTURE)));
 const sPlan = () => paragraphPlanRecordText(paragraphPlanRecord({ briefPath: sBriefPath, briefText: sText,
   legs: STAGE.LEGS.map((l) => ({ leg_id: l.leg_id, segments: SEGS })) }));
 let sN = 0;
@@ -296,7 +296,7 @@ if (!r.error) {
   const dir = mkdtempSync(join(tmpdir(), "draft-packet-voice-"));
   const audience = join(dir, "dev-to-zenn.md");
   writeFileSync(audience, readFileSync("audiences/dev-to-zenn.md", "utf8").replace(/\n*$/, "\n\n") + VOICE);
-  const voiced = readBrief(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
+  const voiced = readBriefText(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
   if (voiced.record?.compose_path !== audience) fails.push("(f) the fixture could not point the Brief at the pre-kogaki#1488 Audience");
   else {
     const old = renderPacket({ brief: voiced, leg: asRead(voiced.legs[0]), priorSections: [],
@@ -336,7 +336,7 @@ if (!r.error) {
   const oneSentence = shippedAudience.replace(/\nregister: \|\n(?:(?: {2}.*)?\n)*/, `\nregister: |\n  ${UNRELATED}\n\n`);
   if (oneSentence === shippedAudience) fails.push("(h) the fixture could not replace the `register` block of audiences/dev-to-zenn.md");
   writeFileSync(audience, oneSentence);
-  const other = readBrief(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
+  const other = readBriefText(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
   if (other.record?.compose_path !== audience) fails.push("(h) the fixture could not point the Brief at the one-sentence Audience");
   else {
     const o = renderPacket({ brief: other, leg: asRead(other.legs[0]), priorSections: [],
@@ -362,11 +362,11 @@ if (!r.error) {
     thesis: "The fixture claim.", reader_path: [{ ...legRecord(leg), ...extra }],
     strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   });
-  const refused = readBrief(recordWith({ introduces: [TERM] }), "theses/packet-brief/brief.yaml");
+  const refused = readBriefText(recordWith({ introduces: [TERM] }), "theses/packet-brief/brief.yaml");
   if (!(refused.refusals || []).some((m) => m.includes("carries `introduces`, which is not a Leg field"))) {
     fails.push(`(i) a Brief whose Leg carries \`introduces\` was not refused naming the field: ${JSON.stringify(refused.refusals)}`);
   }
-  const gBrief = readBrief(recordWith({}), "theses/packet-brief/brief.yaml");
+  const gBrief = readBriefText(recordWith({}), "theses/packet-brief/brief.yaml");
   const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) }
     : renderPacket({ brief: gBrief, leg: asRead(gBrief.legs[0]), priorSections: [],
       section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
@@ -389,7 +389,7 @@ if (!r.error) {
     thesis: "The fixture claim.", reader_path: [legRecord(leg)],
     strand_coverage: [], journey_coverage: [], obligations: [row], tradeoffs: {}, bridged: {},
   });
-  const ledgered = readBrief(jTextWith(opened), "theses/packet-brief/brief.yaml");
+  const ledgered = readBriefText(jTextWith(opened), "theses/packet-brief/brief.yaml");
   const jBrief = brief;
   const jRender = async (files) => {
     const rp = files === undefined ? renderPacket : await renderPacketWith(files);

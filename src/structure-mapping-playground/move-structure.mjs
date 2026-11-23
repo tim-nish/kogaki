@@ -9,6 +9,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readAdoptedBrief } from "../paragraph-plan/brief.mjs";
+import { sha256 } from "../compose/record.mjs";
 import { legSentences } from "../sme/arguments.mjs";
 import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
@@ -52,8 +53,9 @@ export function legStructureOf(structure, relationId) {
   };
 }
 
-// The Brief's Leg as this route reads it: `{ record, leg, structure, renamed }`, or `{ error }` naming the value
-// refused; `renamed` the ids of a Brief stored under two lists, as `readAdoptedBrief` renamed them (kogaki#1937).
+// The Brief's Leg as this route reads it: `{ record, leg, structure, renamed, sha256 }`, or `{ error }` naming the value
+// refused; `renamed` the ids of a Brief stored under two lists, as `readAdoptedBrief` renamed them (kogaki#1937), and
+// `sha256` the one hash of the Brief's three files (kogaki#1955).
 export function readBriefLeg(briefPath, legId) {
   const b = readAdoptedBrief(briefPath);
   if (b.error) return { error: b.error };
@@ -72,7 +74,7 @@ export function readBriefLeg(briefPath, legId) {
     return {
       error: `the Brief's Leg ${legId} names the relation ${JSON.stringify(leg.relation)}, which its \`structure\` does not carry`,
     };
-  return { record: b.record, leg, structure, renamed: b.renamed };
+  return { record: b.record, leg, structure, renamed: b.renamed, sha256: sha256(b.text) };
 }
 
 // ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ const C = await imp("checks/fixtures/prompt-files/cases.mjs");
 const { judgePrompt } = await imp("src/workflow/judge.mjs");
 const { bindFlow } = await imp("src/workflow/run-record.mjs");
 const { briefRecordText, legRecord } = await imp("src/compose.mjs");
-const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
+const { readBriefText, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { renderAndStorePacket } = await imp("src/draft/render-packet.mjs");
 const same = (name, render) => {
   cases++;
@@ -202,7 +202,7 @@ for (const [name, c] of Object.entries(C.WRITER_CASES)) {
     tradeoffs: {},
     bridged: {},
   });
-  const brief = readBrief(text, briefPath);
+  const brief = readBriefText(text, briefPath);
   brief.legs = brief.legs.map((l) =>
     l.leg_id === c.leg ? { ...l, ...c.extra } : { ...l, paragraphs: c.extra.paragraphs },
   );
@@ -243,7 +243,7 @@ rmSync(scratch, { recursive: true, force: true });
     tradeoffs: {},
     bridged: {},
   });
-  const brief = readBrief(text, briefPath);
+  const brief = readBriefText(text, briefPath);
   brief.path = briefPath;
   const leg = { ...brief.legs[0], claims: [], journeys: [], paragraphs: c.extra.paragraphs };
   delete leg.budget;
@@ -278,7 +278,7 @@ rmSync(scratch, { recursive: true, force: true });
 {
   const c = C.WRITER_CASES["write-leg-opens-the-one-section"];
   const r = C.writerBriefRecord(c);
-  const read = readBrief(
+  const read = readBriefText(
     briefRecordText({
       slug: r.slug,
       compose_path: "audiences/dev-to-zenn.md",

@@ -8,15 +8,13 @@
 //   The Brief sheet
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { parseYaml } from "../yaml.mjs";
 import { strandClaims } from "../brief/run-state.mjs";
 import { proofSheetCss } from "../structure-mapping-playground/sheet.mjs";
 import { elementLabel, readHolds } from "../compose/structure.mjs";
-import { briefAsOneList } from "../compose/record.mjs";
+import { readBriefFiles } from "../compose/brief-files.mjs";
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 
@@ -251,11 +249,15 @@ function renderOrExit(briefPath) {
     process.stderr.write(`sheet: ${briefPath} does not exist\n`);
     process.exit(1);
   }
-  const text = readFileSync(briefPath, "utf8");
-  // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
-  const brief = briefAsOneList(parseYaml(text, briefPath)).record;
+  // THE BRIEF'S THREE FILES, read through their one reader and hashed as one (kogaki#1955).
+  const read = readBriefFiles(briefPath);
+  if (read.error) {
+    process.stderr.write(`sheet: ${read.error}\n`);
+    process.exit(1);
+  }
+  const brief = read.record;
   try {
-    return { text, html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }) };
+    return { sha256: read.sha256, html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }) };
   } catch (e) {
     process.stderr.write(`sheet: ${briefPath}: ${e.message}\n`);
     process.exit(1);
@@ -271,16 +273,13 @@ function showMain(briefPath) {
     process.stderr.write(`sheet: ${briefPath} is not a theses/<slug>/brief.yaml\n`);
     process.exit(2);
   }
-  const { text, html } = renderOrExit(abs);
+  const { sha256, html } = renderOrExit(abs);
   const root = dirname(dirname(dirname(abs)));
   const home = join(root, "runs", "brief-plan-playground", slug);
   mkdirSync(home, { recursive: true });
   const out = join(home, "sheet.html");
   writeFileSync(out, html);
-  writeFileSync(
-    join(home, "brief.sha256"),
-    `${createHash("sha256").update(text).digest("hex")}  ${relative(root, abs)}\n`,
-  );
+  writeFileSync(join(home, "brief.sha256"), `${sha256}  ${relative(root, abs)}\n`);
   process.stdout.write(`${pathToFileURL(out).href}\n`);
 }
 

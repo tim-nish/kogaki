@@ -7,10 +7,10 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { composeBrief } from "../../../src/brief.mjs";
 import { legRecord, briefRecordText } from "../../../src/compose.mjs";
-import { readBrief } from "../../../src/draft.mjs";
+import { readBriefText } from "../../../src/draft.mjs";
 
 // A FIXTURE BRIEF IS A RECORD (kogaki#1328): its Legs written by `legRecord`,
-// the file's text by `briefRecordText`, and read back by `readBrief` -- the
+// the file's text by `briefRecordText`, and read back by `readBriefText` -- the
 // one reader the Draft uses -- so a fixture exercises the round trip rather
 // than an in-memory shortcut. `keys` overrides any top-level key.
 export const recordOf = (legs, keys = {}) => ({
@@ -46,7 +46,7 @@ export const structureOf = (legs) => ({
     .map((l) => ({ id: l.relation, name: l.relation, between: ["r_1", "r_2"], holds: l.text, from: "L1" })),
   attains_thesis: ((legs || []).findLast((l) => l && typeof l.relation === "string") || {}).relation,
 });
-export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
+export const briefOfRecord = (record, path = "fixture.yaml") => readBriefText(briefRecordText(record), path);
 
 export const READER_START =
   "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
