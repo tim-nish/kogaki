@@ -29,8 +29,9 @@ import { writeCallRecord, callsRoot, cliRecord, tableRecord } from "../workflow/
 import { EXTRACTION_TABLE } from "../move-extraction-playground/extract.mjs";
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
-import { readBriefLeg, legSentences, edgesMoveStructure, pairInOrder } from "./move-structure.mjs";
-import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
+import { readBriefLeg, legSentences, edgesMoveStructure, pairByFilling, inOrder } from "./move-structure.mjs";
+import { bindTargetsOf, fitOf, chooseMove, fittedSegments } from "../paragraph-plan/move-choice.mjs";
+import { senseNames, loadSenses } from "../sme/edges.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 import * as RB from "./readback.mjs";
 
@@ -75,7 +76,7 @@ const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> --structure <file> " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
-  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-edges] [--leg-senses <folder>] " +
+  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> [--move <Move id>] [--move-edges] [--leg-senses <folder>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -818,19 +819,22 @@ export function runShortTrial({
 }
 
 // ---------------------------------------------------------------------------
-// THE BRIEF-LEG ROUTE (kogaki#1830, kogaki#1922): a Leg of an adopted Brief under a named Move, the Move's Bind targets and
-// Edges read from its Move file, given the Leg's sentences in order and grounded under `own`;
+// THE BRIEF-LEG ROUTE (kogaki#1830, kogaki#1922, kogaki#1953): a Leg of an adopted Brief under one Move, the Move's Bind
+// targets and Edges read from its Move file and grounded under `own`. The Move is the one `--move` names, or, with a
+// reading of the Leg's Senses and no `--move`, the one `chooseMove` takes. Its Bind targets are given the Leg's
+// sentences the reading's best filling gives, or, with no reading, the first ones in order;
 // specs/spec-draft-pipeline/SPEC.md, The short Trial.
 
 export function runMoveTrial({
   brief,
   leg: legId,
-  move: moveId,
+  move: named = null,
   legSenses = null,
   out,
   audience = null,
   library = null,
 }) {
+  let moveId = named;
   const outDir = resolve(out);
   const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
   if (rel === "" || rel.startsWith("..") || rel.startsWith(sep))
@@ -847,21 +851,44 @@ export function runMoveTrial({
   const libraryDir = resolve(REPO, library || "moves");
   const lib = loadMoveContracts(libraryDir);
   if (lib.error) fail(`${lib.error}. Nothing was started.`);
-  const contract = lib.moves.find((m) => m.id === moveId);
-  if (!contract)
-    fail(
-      `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
-    );
-  // Each Segment's `bind` and `edges`, as the Move file holds them (kogaki#1880, kogaki#1922).
-  if (!edged(contract))
-    fail(`${unedgedRefusal(moveId)}, and the Trial reads them from the Move file. Nothing was started.`);
-  const segments = edgeSegments(contract);
-  const targets = bindTargetsOf(contract);
   const sentences = legSentences(b.structure, b.leg.relation).length;
-  if (targets !== sentences)
-    fail(
-      `the Move ${moveId} has ${targets} Bind targets, and the Leg ${legId} has ${sentences} Arguments and CentralClaim. Nothing was started.`,
+  const names = senseNames(loadSenses());
+  // THE MOVE AND ITS FILLING (kogaki#1953). `choice` is `{ by, filling, met, compared }`: `by` is `named` or `chosen`,
+  // `filling` gives each Bind target the number of one of the Leg's sentences, and `met` of `compared` are the
+  // compared Edges the reading's candidates hold under it, both null with no reading.
+  let contract;
+  let choice;
+  if (moveId === null) {
+    const taken = chooseMove(
+      lib.moves.filter(edged).map((m) => ({ id: m.id, segments: edgeSegments(m) })),
+      ls.reading.pairs,
+      sentences,
+      names,
     );
+    if (!taken)
+      fail(
+        `no Move of the library ${relFromRepo(libraryDir)} is a candidate for the Leg ${legId}: every Move has more Bind targets than its ${sentences} Arguments and CentralClaim. Nothing was started.`,
+      );
+    contract = lib.moves.find((m) => m.id === taken.move.id);
+    choice = { by: "chosen", filling: taken.filling, met: taken.met, compared: taken.compared };
+    moveId = contract.id;
+  } else {
+    contract = lib.moves.find((m) => m.id === moveId);
+    if (!contract)
+      fail(
+        `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
+      );
+    // Each Segment's `bind` and `edges`, as the Move file holds them (kogaki#1880, kogaki#1922).
+    if (!edged(contract))
+      fail(`${unedgedRefusal(moveId)}, and the Trial reads them from the Move file. Nothing was started.`);
+    // A Move has at most three Bind targets and a Leg at least three sentences, so every named Move has a filling.
+    const fit = ls ? fitOf({ segments: edgeSegments(contract) }, ls.reading.pairs, sentences, names) : null;
+    choice = fit
+      ? { by: "named", filling: fit.filling, met: fit.met, compared: fit.compared }
+      : { by: "named", filling: inOrder(bindTargetsOf(contract)), met: null, compared: null };
+  }
+  const segments = edgeSegments(contract);
+  const pairingGiven = pairByFilling(b.structure, b.leg.relation, choice.filling);
   const table = readTable();
   const audiencePath = audience ? resolve(REPO, audience) : audiencePathOf(b.record);
   const persona = readerPersona(audiencePath);
@@ -894,6 +921,7 @@ export function runMoveTrial({
     proposition: { proposition: leg.text },
     structure: { ...fileRecord(structurePath), author: "brief" },
     leg_senses: ls ? ls.reading.path : null,
+    move_choice: choice,
     move_structure: { path: null, sha256: null },
     pairing: { path: null, sha256: null },
     rbs: { variant: RBS_COMPOSED, path: null, sha256: null },
@@ -956,9 +984,8 @@ export function runMoveTrial({
     return { value: written };
   });
   const pairing = stage(MOVE_STAGES[1], () => {
-    const written = pairInOrder(structure, b.leg.relation);
-    writeYaml(PAIRING_FILE, "pairing", written);
-    return { value: written };
+    writeYaml(PAIRING_FILE, "pairing", pairingGiven);
+    return { value: pairingGiven };
   });
   const tables = stage("grounding", (d, env) => {
     const r = retriedCall({
@@ -995,7 +1022,9 @@ export function runMoveTrial({
     save();
     paragraphs = listed;
   }
-  const plan = { structure, relation: b.leg.relation, segments };
+  // The Writer and the Readback are handed the Segments as /paragraph-plan fits them: each `bind` the number of the
+  // Leg's sentence the filling gives it (kogaki#1953).
+  const plan = { structure, relation: b.leg.relation, segments: fittedSegments({ segments }, choice.filling) };
   stage(RB.READBACK_STAGE, (d, env) =>
     readbackStage({ dir: d, env, cli, leg, audiencePath, plan, move: moveId, record }),
   );
@@ -1021,12 +1050,9 @@ export function runMoveTrial({
         moveStructure,
         pairing,
         segments,
-        legSenses: ls
-          ? {
-              reading: ls.reading,
-              edges: trialEdges(edgeSegments(contract), ls.reading, pairInOrder(structure, b.leg.relation)),
-            }
-          : null,
+        choice,
+        sentences: legSentences(structure, b.leg.relation),
+        legSenses: ls ? { reading: ls.reading, edges: trialEdges(segments, ls.reading, pairingGiven) } : null,
       },
     }),
   );
@@ -1070,12 +1096,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // A reading of the Leg's Senses (kogaki#1875) is a flag of the Brief-Leg route alone, and takes a folder.
   if (Object.hasOwn(args, LEG_SENSES_FLAG) && !given.length)
     fail(
-      `\`--${LEG_SENSES_FLAG} ${str(LEG_SENSES_FLAG) ?? ""}\` is a flag of a Trial that takes its Leg from a Brief: it is given with --brief, --leg and --move. Nothing was started. ${USAGE}`,
+      `\`--${LEG_SENSES_FLAG} ${str(LEG_SENSES_FLAG) ?? ""}\` is a flag of a Trial that takes its Leg from a Brief: it is given with --brief and --leg. Nothing was started. ${USAGE}`,
     );
   if (Object.hasOwn(args, LEG_SENSES_FLAG) && !str(LEG_SENSES_FLAG))
     fail(`\`--${LEG_SENSES_FLAG}\` takes a folder. Nothing was started. ${USAGE}`);
   if (given.length) {
-    const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k));
+    // `--move` may be left out where a reading of the Leg's Senses is given (kogaki#1953): the Move is then chosen.
+    const chosen = !Object.hasOwn(args, "move") && str(LEG_SENSES_FLAG) !== null;
+    const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k) && !(k === "move" && chosen));
     if (missing)
       fail(
         `\`--${missing}\` is required beside \`--${given[0]}\`: the Brief-Leg route takes --brief, --leg and --move together. Nothing was started. ${USAGE}`,

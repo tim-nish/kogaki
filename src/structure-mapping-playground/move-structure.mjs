@@ -90,9 +90,16 @@ export function edgesMoveStructure(segments) {
   };
 }
 
-// THE PAIRING IN ORDER: Bind target k is given entry k of `legSentences`, the Arguments and then the CentralClaim.
-export function pairInOrder(legStructure, relationId) {
+// THE PAIRING A FILLING GIVES (kogaki#1953): Bind target k is given the entry of `legSentences` that `filling[k]`
+// numbers. `inOrder(t)` is the filling that gives Bind target k entry k, for a Move of `t` Bind targets.
+export const inOrder = (targets) => Object.fromEntries(Array.from({ length: targets }, (_, k) => [k + 1, k + 1]));
+
+export function pairByFilling(legStructure, relationId, filling) {
+  const sentences = legSentences(legStructure, relationId);
   return {
-    binds: legSentences(legStructure, relationId).map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })),
+    binds: Object.keys(filling)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((k) => ({ bind: k, kind: sentences[filling[k] - 1].kind, leg: sentences[filling[k] - 1].id })),
   };
 }

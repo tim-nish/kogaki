@@ -303,9 +303,9 @@ function analogySection(record) {
   );
 }
 
-// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1880, kogaki#1913, kogaki#1921, kogaki#1922): the move structure is a count of Bind
-// targets, and per Segment its Bind target beside the Argument or CentralClaim the Harness gave it and its Edges, under
-// the Move's description.
+// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1880, kogaki#1913, kogaki#1921, kogaki#1922, kogaki#1953): the move structure is a
+// count of Bind targets, and the Segments section is the Move's Segments as its Move file holds them, under the Move's
+// description and how the Move was taken.
 function edgesStructureSection(ms) {
   if (!ms) return none("The Move's Bind targets were not read.");
   return `<p>${esc(ms.binds)} Bind targets</p>`;
@@ -314,25 +314,56 @@ function edgesStructureSection(ms) {
 const edgeText = (e) =>
   `${[e.sense, e.hypophora ? `Hypophora (${e.hypophora})` : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`;
 
+// How the Move was taken and its Bind targets given their sentences (kogaki#1953), from the Trial's `move_choice`.
+function choiceLine(choice) {
+  if (!choice) return "";
+  const fit =
+    choice.compared === null
+      ? ""
+      : ` Under it the Leg meets ${choice.met} of the Move's ${choice.compared} compared Edges.`;
+  const how =
+    choice.by === "chosen"
+      ? "The Move was chosen from the reading of the Leg's Senses, as /paragraph-plan chooses it."
+      : choice.compared === null
+        ? "The Move was named by --move, and its Bind targets are given the Leg's first sentences in order."
+        : "The Move was named by --move, and its Bind targets are given the sentences that meet the most of its compared Edges.";
+  return `<p class="meta">${esc(how + fit)}</p>`;
+}
+
+export const SEGMENT_COLUMNS = ["#", "Bind target", "given", "domain", "points to", "Sense", "Hypophora"];
+
 function edgesSegmentsSection(record, route) {
-  const { move, segments, pairing } = route;
+  const { move, pairing, choice = null, sentences = [] } = route;
   if (!pairing) return none("The Move's Bind targets were not paired, so no Segment is shown.");
   const library = resolve(REPO, record.library);
   const c = moveContract(move, library);
   if (c.error) return `<p class="stop">${esc(c.error)}</p>`;
   const read = readMoveRecord(move, library);
   const given = new Map(pairing.binds.map((p) => [p.bind, p]));
-  const rows = segments.map((sg, i) => {
-    const g = sg.bind === null ? null : given.get(sg.bind);
-    const bind = g ? `${esc(sg.bind)} → ${esc(g.kind)} ${esc(g.leg)}` : "none";
-    const edges = sg.edges.map((e) => esc(edgeText(e))).join("<br>");
-    return `<tr><td>${i + 1}</td><td>${bind}</td><td>${edges || "none"}</td></tr>`;
+  const byId = new Map(sentences.map((s) => [s.id, s]));
+  const named = (kind, id) => `${esc(kind)} ${esc(id)}${byId.has(id) ? `: ${esc(byId.get(id).sentence)}` : ""}`;
+  const lines = (list) => (list.length ? list.map(esc).join("<br>") : "none");
+  const rows = c.segments.map((sg, i) => {
+    const bound = sg.bind !== null && sg.bind !== undefined;
+    const g = bound ? given.get(sg.bind) : null;
+    const edges = sg.edges || [];
+    return (
+      `<tr><td>${i + 1}</td><td>${bound ? esc(sg.bind) : "none"}</td><td>${g ? named(g.kind, g.leg) : "none"}</td>` +
+      `<td>${esc(sg.domain ?? "none")}</td>` +
+      `<td>${lines(edges.map((e) => `Segment ${e.to.join(", ")}`))}</td>` +
+      `<td>${lines(edges.map((e) => e.sense ?? "no Sense"))}</td>` +
+      `<td>${lines(edges.map((e) => e.hypophora ?? "none"))}</td></tr>`
+    );
   });
+  const taken = new Set(pairing.binds.map((p) => p.leg));
+  const left = sentences.filter((s) => !taken.has(s.id));
   return (
     `<p>${esc(read.record.description || "")}</p>` +
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>Edges</th></tr></thead><tbody>` +
+    choiceLine(choice) +
+    `<table><caption>${esc(move)}</caption><thead><tr>${SEGMENT_COLUMNS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
     rows.join("") +
-    "</tbody></table>"
+    "</tbody></table>" +
+    (left.length ? `<p>Given to no Segment: ${left.map((s) => named(s.kind, s.id)).join("<br>")}</p>` : "")
   );
 }
 
