@@ -208,13 +208,17 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     mapper: {
       module: "src/paragraph-plan/steps.mjs",
       export: "ParagraphPlanLegSteps",
-      // Each Segment's `bind` and `edges` alone: no call and no plan reads its `domain` (kogaki#1946).
+      // Each Segment's `bind`, `domain` and `edges`: no call reads its `domain`, and the plan keeps it (kogaki#1959).
       inputs: {
         legs,
         sentences,
         moves: library.moves.map((m) => ({
           id: m.id,
-          segments: m.segments.map((s) => ({ bind: s.bind, edges: s.edges })),
+          segments: m.segments.map((s) => ({
+            bind: s.bind,
+            ...(s.domain !== undefined ? { domain: s.domain } : {}),
+            edges: s.edges,
+          })),
         })),
         keep,
       },

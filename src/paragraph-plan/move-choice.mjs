@@ -123,10 +123,12 @@ export function chooseMove(moves, counted, sentenceCount, names) {
 }
 
 // The plan's Segments under the filling taken: per Segment of the Move, in order, the number of the Leg's sentence
-// the filling gives it, or null, and its Edges as the Move file writes them.
+// the filling gives it, or null, its `domain` where the Move file gives one (kogaki#1959), and its Edges as the Move
+// file writes them.
 export function fittedSegments(move, filling) {
   return move.segments.map((s) => ({
     bind: s.bind === null ? null : filling[s.bind],
+    ...(s.domain !== undefined ? { domain: s.domain } : {}),
     edges: (s.edges || []).map((e) => ({ ...e, to: [...e.to] })),
   }));
 }

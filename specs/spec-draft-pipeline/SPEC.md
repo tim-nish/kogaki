@@ -1875,6 +1875,36 @@ one: a print is read by whoever is watching, a record by whoever comes after.
 What no carrier holds: why the Packet is the model's entire input, and why an
 absence must refuse rather than render.
 
+**A Leg's Base in the Packet** (kogaki#1957). Where a Leg's Segments hold one
+of domain `apart` or `both`, the Packet carries, after the table of the
+structure, this passage and a second table of the Base the Leg takes:
+
+    ### The same structure in a situation the reader knows
+
+    The situation is this: <the Base's description>
+    Each row below says, of the row its symbol names, the same thing in that situation.
+
+    | symbol | in the situation |
+
+    A part whose line says "in the situation" states its row as this second table has it.
+    Such a part speaks only of the things of the situation, and names nothing of the first table.
+
+The line of a part made from an `apart` Segment opens with its symbol, or
+Neither, followed by `, in the situation`; that of a `both` Segment with
+`, in the article's subject and in the situation`. A Leg with no such
+Segment has the Packet it had before.
+
+**Which Base a Leg takes** (kogaki#1959). It is decided when the Packet is
+rendered, from `analogy.yaml` beside the Brief as it stands then
+(`legBase`, `src/compose/analogy.mjs`). A Leg of `reader-path.yaml` may
+carry `base`, the id of one Base, and that Base is taken; a Leg with no
+`base` takes the first Base in the file that tells it. Where the Leg has no
+Base that tells it, or its `base` names one that does not, the Packet is
+refused naming the Leg and the `propose` verb of `src/analogy.mjs`. The
+second table holds one row for each row of the first that the Base gives a
+thing or a sentence. The `check` verb of `src/brief-files.mjs` refuses a Leg
+whose `base` names no Base of the file, or one that does not tell the Leg.
+
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
 `prompts/draft/write-leg.prompt` and the shared passage it names,
@@ -2538,7 +2568,10 @@ The choice is made by code, with no model call (`chooseMove`,
   this does not arise over a valid library.
 
 The fitted Segments are `fittedSegments`: each Segment's `bind` is the sentence
-the filling gives its Bind target, and its `edges` are the Move's.
+the filling gives its Bind target, its `domain` is the Move file's
+(kogaki#1959), and its `edges` are the Move's. A plan Segment with no
+`domain`, as in a plan written before kogaki#1959, is read as `own`. No call
+reads the `domain`.
 
 #### 4.19.3 The call that wrote one text for each Segment, removed (kogaki#1876)
 
@@ -3149,8 +3182,17 @@ candidates hold under the filling and the Move's compared Edges, both null
 with no reading. `pairing.yaml` names, for each Bind target, the sentence the
 filling gives it. The stages `readback` and `write` are handed the Segments
 `fittedSegments` gives: each Segment's `bind` is the number of the sentence
-its Bind target was given, and its `edges` are as the Move file holds them,
-every Edge of a Segment included.
+its Bind target was given, its `domain` is the Move file's, and its `edges`
+are as the Move file holds them, every Edge of a Segment included.
+
+**The Base the Trial takes** (kogaki#1959). `--base <Base id>` stands for the
+Leg's `base` in that Trial, and is a flag of this route alone. The Base is
+read as §4.14 reads it, from `analogy.yaml` beside the Brief, before anything
+is started; a Leg whose Segments hold no domain `apart` or `both` takes none.
+`trial.json` records it as `base`, and the Writer and the Readback are handed
+it in the Packet. Under the Segments table the sheet names the Base taken,
+its id, name and description, with one row for each thing and sentence it
+gives, or says that none was taken.
 
 **The Segments of the Move on the sheet** (kogaki#1913, kogaki#1953). The
 sheet's `Segments` section holds the Move's Segments as its Move file holds

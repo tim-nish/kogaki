@@ -16,6 +16,22 @@ A Relation joins the rows in its Arguments column, and its sentence says how.
 
 The CentralClaim of this paragraph is {{plan.central_claim}}.
 Its Arguments are {{#each plan.arguments}}{{symbol}}{{#if more}}, {{/if}}{{/each}}.
+{{#if plan.base}}
+
+### The same structure in a situation the reader knows
+
+The situation is this: {{plan.base.description}}
+Each row below says, of the row its symbol names, the same thing in that situation.
+
+| symbol | in the situation |
+|---|---|
+{{#each plan.base.rows}}
+| {{symbol}} | {{text}} |
+{{/each}}
+
+A part whose line says "in the situation" states its row as this second table has it.
+Such a part speaks only of the things of the situation, and names nothing of the first table.
+{{/if}}
 
 ### How the paragraph uses the structure
 
@@ -58,7 +74,7 @@ Where a line holds several texts, the part is one sentence that fits all of them
 A part that later parts point to also does what each of their lines says of the sentence pointed to.
 
 {{#each plan.segments}}
-{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To {{#each parts}}part {{number}}{{#if more}} and {{/if}}{{/each}}{{#if together}} together{{/if}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}} {{rationale}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}{{#if apart}}, in the situation{{/if}}{{#if both}}, in the article's subject and in the situation{{/if}}.{{#each stands}} To {{#each parts}}part {{number}}{{#if more}} and {{/if}}{{/each}}{{#if together}} together{{/if}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}} {{rationale}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
 {{/each}}
 {{/if}}
 {{else}}

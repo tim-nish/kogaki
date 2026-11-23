@@ -16,7 +16,7 @@ import {
   readBriefTexts,
 } from "./compose.mjs";
 import { readHolds } from "./compose/structure.mjs";
-import { basesTelling, readAnalogy } from "./compose/analogy.mjs";
+import { basesTelling, legBaseRefusal, readAnalogy } from "./compose/analogy.mjs";
 import { relFromRepo } from "./workflow/run-record.mjs";
 
 const USAGE = "usage: node src/brief-files.mjs check|split --brief <theses/<slug>/brief.yaml>";
@@ -27,12 +27,17 @@ const oneLine = (s) =>
 
 // CHECK: the first refusal, or one line per Leg — its id, its relation's id and its sentence — and, where
 // analogy.yaml is there (kogaki#1957), under each a line of the ids of the Bases that tell it. Returns `{ lines }` or
-// `{ error }`.
+// `{ error }`. A Leg's `base` naming no Base of the file, or one that does not tell the Leg, is refused (kogaki#1959).
 export function checkBrief(briefPath) {
   const r = readBriefFiles(briefPath);
   if (r.error) return { error: r.error };
   const a = readAnalogy(briefPath, r.record.structure);
   if (a.error) return { error: a.error };
+  // A Leg's `base` names a Base of the file that tells it (kogaki#1959).
+  for (const l of r.record.reader_path) {
+    const bad = legBaseRefusal(a.absent ? null : a.record, r.record.structure, l);
+    if (bad) return { error: bad };
+  }
   return {
     lines: r.record.reader_path.flatMap((l) => [
       `${l.leg_id}\t${l.relation}\t${oneLine(l.text)}`,

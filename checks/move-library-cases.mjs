@@ -200,8 +200,8 @@ const lacking = names.flatMap((n) =>
   edgeFailures(parseYaml(readFileSync(join(LIB, n), "utf8"), n)).map((l) => `${n}: ${l}`),
 );
 // Inside (e) (kogaki#1946): every Move file carries `domain` on every Segment, written after `bind` and before
-// `edges`; and over the library as the Adapter loads it, neither the input of the short Trial's `bind` stage nor the
-// Segments the fitting writes into a plan hold the key.
+// `edges`; and over the library as the Adapter loads it, the input of the short Trial's `bind` stage holds no
+// `domain`, and the Segments the fitting writes into a plan hold each Segment's as its Move file has it (kogaki#1959).
 const VALUED_KEYS = JSON.stringify(["bind", "domain", "edges"]);
 const misvalued = names.flatMap((n) =>
   parseYaml(readFileSync(join(LIB, n), "utf8"), n).segments.flatMap((s, i) =>
@@ -219,6 +219,13 @@ const unloaded = loaded.flatMap((m) =>
 const holding = (value) => ["domain"].filter((k) => JSON.stringify(value).includes(`"${k}"`));
 const bindInput = bindMoveInput({}, { reader: "a reader.", prior_knowledge: "none." }, loaded, LIB);
 const planned = loaded.map((m) => fittedSegments(m, { 1: 1, 2: 2, 3: 3 }));
+const unplanned = loaded.flatMap((m, k) =>
+  m.segments.flatMap((s, i) =>
+    planned[k][i].domain === s.domain && JSON.stringify(Object.keys(planned[k][i])) === VALUED_KEYS
+      ? []
+      : [`${m.id}: the plan's Segment ${i + 1} is ${JSON.stringify(planned[k][i])}`],
+  ),
+);
 ok(
   names.length > 0 &&
     lacking.length === 0 &&
@@ -227,8 +234,8 @@ ok(
     unloaded.length === 0 &&
     bindInput.moves.length === names.length &&
     holding(bindInput).length === 0 &&
-    holding(planned).length === 0,
-  `(e) ${names.length} Move file(s) under moves/: ${[...lacking, ...misvalued, ...unloaded, ...holding(bindInput).map((k) => `the bind stage's input holds ${k}`), ...holding(planned).map((k) => `the plan's Segments hold ${k}`)].join(" | ")}`,
+    unplanned.length === 0,
+  `(e) ${names.length} Move file(s) under moves/: ${[...lacking, ...misvalued, ...unloaded, ...holding(bindInput).map((k) => `the bind stage's input holds ${k}`), ...unplanned].join(" | ")}`,
 );
 
 if (fails.length) {

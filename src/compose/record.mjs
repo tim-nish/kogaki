@@ -128,12 +128,14 @@ export function paragraphPlanPathFor(briefPath) {
 //
 // One YAML record: `version` "2", `brief` (the Brief's path and content hash), and `legs`, one per Leg in order
 // (kogaki#1865, kogaki#1876). Each Leg entry carries `leg_id` and, where a Move was fitted, the Leg's Segments
-// (`segments`, each `bind`, the number of the Leg's sentence given to it or null, and `edges`). A person may change
-// a Leg's `segments`, and /draft reads what stands there.
+// (`segments`, each `bind`, the number of the Leg's sentence given to it or null, `domain` as the Move file gives it
+// (kogaki#1959), and `edges`). A Segment with no `domain` is read as `own`. A person may change a Leg's `segments`,
+// and /draft reads what stands there.
 
 const PLAN_HEADER = [
   "The paragraph plan for one article. Under every Leg of the Brief named below: the Leg's Segments -- for each,",
-  "the number of the Leg's sentence bound to it or null, and its Edges. A Leg given no Segments carries its id alone.",
+  "the number of the Leg's sentence bound to it or null, its domain, and its Edges. A Leg given no Segments carries",
+  "its id alone.",
   "/paragraph-plan writes it from the Brief; /draft reads it beside the Brief and refuses it when the Brief has",
   "changed since.",
 ].join(" ");
@@ -154,6 +156,7 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
         ? {
             segments: l.segments.map((g) => ({
               bind: g.bind,
+              ...(g.domain !== undefined ? { domain: g.domain } : {}),
               edges: (g.edges || []).map((e) => ({ ...e, to: [...e.to] })),
             })),
           }
@@ -254,6 +257,8 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
 
 // The kinds of Hypophora an Edge may carry, the keys of `hypophora` in src/sme/senses.json (kogaki#1950).
 export const HYPOPHORA_KINDS = Object.freeze(["answer", "question"]);
+// The values a Segment's `domain` is taken from (kogaki#1946); a plan Segment carries one (kogaki#1959).
+export const SEGMENT_DOMAINS = Object.freeze(["own", "apart", "both", "neither"]);
 
 // The number of the first Segment with nothing bound that stands at neither end of an Edge (kogaki#1902), or 0.
 export function looseSegment(segments) {
@@ -273,7 +278,9 @@ function planLegRefusal(l, at) {
   if (!Array.isArray(l.segments) || !l.segments.length) return `${at}'s \`segments\` is not a list of Segments`;
   for (const [k, g] of l.segments.entries()) {
     const atS = `${at}, Segment ${k + 1}`;
-    if (!isMap(g) || undeclaredKey(g, ["bind", "edges"])) return `${atS} is not \`{ bind, edges }\``;
+    if (!isMap(g) || undeclaredKey(g, ["bind", "domain", "edges"])) return `${atS} is not \`{ bind, domain, edges }\``;
+    if (Object.hasOwn(g, "domain") && !SEGMENT_DOMAINS.includes(g.domain))
+      return `${atS}'s \`domain\` is ${JSON.stringify(g.domain)} — it is one of ${SEGMENT_DOMAINS.map((x) => `\`${x}\``).join(", ")}`;
     if (g.bind !== null && !(Number.isInteger(g.bind) && g.bind >= 1))
       return `${atS}'s \`bind\` is not a sentence number or null`;
     if (!Array.isArray(g.edges)) return `${atS}'s \`edges\` is not a list`;

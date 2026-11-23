@@ -83,7 +83,13 @@
 #       of the Writer's input holds a sentence `legSentences` gives.
 #   (r) A PART OPENS WITH A SYMBOL: each part's line opens with a symbol in
 #       braces or with `Neither.`, and none with `Argument ` or `CentralClaim.`.
-#       (q) and (r) are checks/draft-packet-cases.mjs, their count held to
+#   (s)-(v) A LEG'S BASE (kogaki#1959): a Leg with an `apart` or `both`
+#       Segment is handed the Base it takes from `analogy.yaml` as a second
+#       table, and those parts' lines carry their mark; a Leg of `own` and
+#       `neither` Segments renders the Packet it renders with no `domain`; a
+#       Leg with no Base that tells it is refused naming the Leg; its `base`
+#       decides between two Bases, and with none the first is taken.
+#       (q) to (v) are checks/draft-packet-cases.mjs, their count held to
 #       `case_floor` both ways.
 #   RETIRED at kogaki#1865: the cases of the paragraph's schema, `manner`
 #   and `cast`, and the Mapping Record's (p), with the fields.

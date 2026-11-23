@@ -363,7 +363,23 @@ function edgesSegmentsSection(record, route) {
     `<table><caption>${esc(move)}</caption><thead><tr>${SEGMENT_COLUMNS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>" +
-    (left.length ? `<p>Given to no Segment: ${left.map((s) => named(s.kind, s.id)).join("<br>")}</p>` : "")
+    (left.length ? `<p>Given to no Segment: ${left.map((s) => named(s.kind, s.id)).join("<br>")}</p>` : "") +
+    baseTaken(record.base)
+  );
+}
+
+// THE BASE THE TRIAL TOOK (kogaki#1959): its id, name and description, and each thing and sentence it gives; none for a
+// Leg whose Segments hold no domain `apart` or `both`.
+function baseTaken(base) {
+  if (!base) return "<p>Base taken: none, since no Segment is of domain apart or both.</p>";
+  const rows = [...Object.entries(base.roles || {}), ...Object.entries(base.relations || {})].map(
+    ([id, text]) => `<tr><td>${esc(id)}</td><td>${esc(text)}</td></tr>`,
+  );
+  return (
+    `<p>Base taken: ${esc(base.id)}, ${esc(base.name)} — ${esc(base.description)}</p>` +
+    `<table><caption>${esc(base.id)}</caption><thead><tr><th>id</th><th>in the situation</th></tr></thead><tbody>` +
+    rows.join("") +
+    "</tbody></table>"
   );
 }
 
