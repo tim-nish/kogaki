@@ -902,6 +902,28 @@
       }
     },
     {
+      "id": "brief-files",
+      "file": "checks/check-brief-files.sh",
+      "covers": [
+        "src/compose/brief-files.mjs",
+        "src/brief-files.mjs",
+        "src/paragraph-plan/brief.mjs",
+        "src/assemble.mjs"
+      ],
+      "admission": {
+        "contract": "An adopted Brief as three files (kogaki#1955): adoption in `src/assemble.mjs` writes `brief.yaml` with no `structure` and no `reader_path`, and `structure.yaml` and `reader-path.yaml` beside it, no Leg carrying `text`, its snapshots holding all three; one reader, `readBriefFiles` in `src/compose/brief-files.mjs`, gives each Leg its relation's `holds` by `readHolds`, and the verbs `check` and `split` of `src/brief-files.mjs` run it with no model call. Its cases in `checks/brief-files-cases.mjs`: (a) adoption over the adopt-candidate fixture writes the three files; (b) `readAdoptedBrief` gives each Leg its relation's `holds`, its Roles named, and its text is the three texts in order; (c) after a relation's `holds` is edited by hand in structure.yaml, `check` exits zero and prints the changed sentence on every Leg naming it; (d) after a Leg is removed and two reordered in reader-path.yaml, `check` exits zero; (e) each refusal of the reader by `check`, naming the file and the id -- brief.yaml carrying `structure` or `reader_path` naming `split`, a missing structure.yaml or reader-path.yaml, two Roles, Relations or Legs sharing an id, a Role with no `name`, a Relation with no `holds`, with both `between` and `relates` or neither, a `between` entry naming no Role, a `relates` entry naming no relation or its own, a brace naming no Role, `attains_thesis` naming no relation, a Leg naming no relation or none, a Leg carrying `text`, and no Leg naming the relation `attains_thesis` names; (f) `split` turns a one-file Brief into three files `check` passes whose record equals the one file's, refuses a Leg whose `text` is not its relation's `holds` writing nothing, and refuses a Brief already split; (g) a ParagraphPlan made before a hand edit of structure.yaml is found stale by `src/paragraph-plan/view.mjs`, naming both hashes.",
+        "license": "kogaki#1955",
+        "tier": "pre-push",
+        "case_floor": 39,
+        "runtime_ms": 2900,
+        "runtime_ms_note": "First measured at kogaki#1955, 2026-11-23: three plain serial runs of the cases, 2180, 2230 and 2200 ms; 2900 is 30% above the slowest. No model call.",
+        "efficacy": "case: checks/brief-files-cases.mjs::a Relation with between and relates",
+        "efficacy_note": "mutation-verified at kogaki#1955: removing the `between`/`relates` test from `structureFileRefusal` failed the two (e) cases of a Relation with both and with neither.",
+        "removal_signal": "a ruling returns the adopted Brief to one file, or retires the hand-edited structure.yaml and reader-path.yaml",
+        "removal_instrument": "probe: ! test -f src/compose/brief-files.mjs"
+      }
+    },
+    {
       "id": "brief-sheet",
       "file": "checks/check-brief-sheet.sh",
       "covers": [

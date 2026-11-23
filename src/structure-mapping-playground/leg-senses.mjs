@@ -98,6 +98,7 @@ export function readInputs({ brief, leg, out, move = null, moveEdges = null }) {
   return {
     outDir,
     briefPath,
+    briefSha: b.sha256,
     legId: leg,
     sentences: legSentences(b.structure, b.leg.relation),
     move: contract,
@@ -123,7 +124,7 @@ export function readLegSenses(flags) {
   mkdirSync(outDir, { recursive: true });
   installRecorder(outDir);
   const record = {
-    brief: { leg: inputs.legId, ...fileRecord(inputs.briefPath) },
+    brief: { leg: inputs.legId, path: relFromRepo(inputs.briefPath), sha256: inputs.briefSha },
     move: inputs.move ? inputs.move.id : null,
     sentences,
     leg_edge_candidates: keep,

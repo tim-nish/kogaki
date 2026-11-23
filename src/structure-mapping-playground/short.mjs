@@ -917,7 +917,7 @@ export function runMoveTrial({
     trial: slug,
     kind: "short",
     route: "brief-leg",
-    brief: { ...fileRecord(briefPath), leg: leg.leg_id, relation: b.leg.relation },
+    brief: { path: relFromRepo(briefPath), sha256: b.sha256, leg: leg.leg_id, relation: b.leg.relation },
     proposition: { proposition: leg.text },
     structure: { ...fileRecord(structurePath), author: "brief" },
     leg_senses: ls ? ls.reading.path : null,

@@ -152,6 +152,7 @@ export {
   briefJourneyStrands,
   briefRecordText,
   parseBriefRecord,
+  briefRecordRefusal,
   readBriefRecord,
   unfilledSlots,
   fillSlot,
@@ -160,6 +161,16 @@ export {
   placements,
   journeyPlacements,
 } from "./compose/record.mjs";
+export {
+  BRIEF_STRUCTURE_FILE,
+  BRIEF_READER_PATH_FILE,
+  briefFilePaths,
+  briefFileTexts,
+  briefFilesSha,
+  readBriefFiles,
+  readBriefTexts,
+  writeBriefFiles,
+} from "./compose/brief-files.mjs";
 export {
   MAPPING_DIR,
   STRUCTURE_FILE,

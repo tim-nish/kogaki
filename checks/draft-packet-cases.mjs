@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
-const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
+const { readBriefText, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { legSentences } = await imp("src/sme/arguments.mjs");
 const fails = [];
 let cases = 0;
@@ -75,7 +75,7 @@ const leg = {
   text: "The ledger shows which edit to the kit was lost.",
   claims: [{ strand: "L1", proposition: "the installer keeps a ledger of what it wrote." }],
 };
-const read = readBrief(
+const read = readBriefText(
   briefRecordText({
     slug: "packet-brief",
     compose_path: "audiences/dev-to-zenn.md",

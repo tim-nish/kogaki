@@ -17,6 +17,7 @@ import {
   chmodSync,
   readdirSync,
   statSync,
+  rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -35,7 +36,7 @@ const ok = (cond, msg) => {
 };
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
-const { legRecord, briefRecordText } = await imp("src/compose.mjs");
+const { legRecord, writeBriefFiles } = await imp("src/compose.mjs");
 const M = await imp("src/structure-mapping-playground/move-senses.mjs");
 const L = await imp("src/structure-mapping-playground/leg-senses.mjs");
 const { renderLegSensesSheet, PAIR_ASKS, COMPARISON_ASKS } = await imp(
@@ -103,22 +104,21 @@ const LEGS = [
     reaches_target: true,
   },
 ];
-const briefOf = (structure, legs) =>
-  briefRecordText({
-    slug: "leg-senses-brief",
-    compose_path: "audiences/dev-to-zenn.md",
-    strands: [
-      { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
-      { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
-    ],
-    thesis: "What the rule starts stops the request.",
-    ...(structure ? { structure } : {}),
-    reader_path: legs.map((l) => legRecord(l)),
-    strand_coverage: [],
-    journey_coverage: [],
-    tradeoffs: {},
-    bridged: {},
-  });
+const briefOf = (structure, legs) => ({
+  slug: "leg-senses-brief",
+  compose_path: "audiences/dev-to-zenn.md",
+  strands: [
+    { id: "L1", slug: "a", cite: `coding::lesson/a@${"0".repeat(64)}` },
+    { id: "L2", slug: "b", cite: `coding::lesson/b@${"0".repeat(64)}` },
+  ],
+  thesis: "What the rule starts stops the request.",
+  ...(structure ? { structure } : {}),
+  reader_path: legs.map((l) => legRecord(l)),
+  strand_coverage: [],
+  journey_coverage: [],
+  tradeoffs: {},
+  bridged: {},
+});
 const writeFile = (name, text) => {
   const p = join(root, name);
   writeFileSync(p, text);
@@ -126,8 +126,12 @@ const writeFile = (name, text) => {
 };
 mkdirSync(join(root, "brief"));
 mkdirSync(join(root, "flat"));
-const brief = writeFile("brief/brief.yaml", briefOf(STRUCTURE, LEGS));
-const flat = writeFile("flat/brief.yaml", briefOf(null, LEGS));
+// The Brief's three files (kogaki#1955), hashed as one; the flat Brief has no structure.yaml beside it.
+const brief = join(root, "brief/brief.yaml");
+const briefTexts = writeBriefFiles(brief, briefOf(STRUCTURE, LEGS));
+const flat = join(root, "flat/brief.yaml");
+writeBriefFiles(flat, briefOf(null, LEGS));
+rmSync(join(root, "flat/structure.yaml"));
 const SENTENCES = [
   "The rule starts the guard.",
   "The guard stops each request.",
@@ -240,7 +244,13 @@ ok(
 );
 ok(rec.state === "finished" && rec.stopped === null, `(a) the run record does not say the run finished: ${rec.state}`);
 ok(
-  rec.brief && rec.brief.leg === "s2" && rec.brief.sha256 === sha(brief) && rec.move === null,
+  rec.brief &&
+    rec.brief.leg === "s2" &&
+    rec.brief.sha256 ===
+      createHash("sha256")
+        .update(briefTexts.brief + briefTexts.structure + briefTexts.readerPath)
+        .digest("hex") &&
+    rec.move === null,
   `(a) the run record does not name the Brief, its Leg and digest: ${JSON.stringify(rec.brief)}`,
 );
 ok(
@@ -312,7 +322,7 @@ refusedRun(
 refusedRun(
   "no-structure",
   ARGS.map((x) => (x === brief ? flat : x)),
-  "carries no `structure`",
+  "no structure.yaml beside it",
 );
 refusedRun("move-absent", withMove("no_such_move"), "--move no_such_move names no Move of moves/");
 const outside = run(

@@ -17,6 +17,7 @@ const load = (p) => import(pathToFileURL(join(repo, p)).href);
 const { parseYaml, stringifyYaml } = await load("src/yaml.mjs");
 const { mintStructure, validateReadSet, asOneList, oneListIds, ID_PREFIX } = await load("src/sme/structure.mjs");
 const { withReach, structureLegs } = await load("src/compose/structure.mjs");
+const { writeBriefFiles } = await load("src/compose/brief-files.mjs");
 const root = mkdtempSync(join(tmpdir(), "brief-sheet-"));
 
 // ---- the fixture claims and the structure ----
@@ -475,16 +476,22 @@ const { BRIEF_PARTS, BRIEF_RETIRED_WORDS } = await load("src/brief-plan-playgrou
 const kRoot = join(root, "brief-sheet");
 mkdirSync(join(kRoot, "theses", "fixture"), { recursive: true });
 const kBrief = join(kRoot, "theses", "fixture", "brief.yaml");
-writeFileSync(
-  kBrief,
-  stringifyYaml({
-    slug: "fixture",
-    thesis: THESIS,
-    strands: claims4Ids.map((c) => ({ id: c.id, slug: c.id })),
-    structure: sy,
-    reader_path: l4.map((l, i) => (i ? l : { ...l, claims: [{ strand: "c1", proposition: CLAIMS[0] }] })),
-  }),
-);
+// An adopted Brief is three files (kogaki#1955), each written here from one whole record.
+const ADOPTED = {
+  compose_path: "audiences/dev-to-zenn.md",
+  strand_coverage: [],
+  journey_coverage: [],
+  tradeoffs: {},
+  bridged: {},
+};
+const kTexts = writeBriefFiles(kBrief, {
+  slug: "fixture",
+  ...ADOPTED,
+  thesis: THESIS,
+  strands: claims4Ids.map((c) => ({ id: c.id, slug: c.id })),
+  structure: sy,
+  reader_path: l4.map((l, i) => (i ? l : { ...l, claims: [{ strand: "c1", proposition: CLAIMS[0] }] })),
+});
 const k = spawnSync(
   process.execPath,
   ["src/brief-plan-playground/sheet.mjs", "brief", "--brief", kBrief, "--out", join(kRoot, "out")],
@@ -554,14 +561,17 @@ ok(
   "(k) the Legs part does not list the five Legs with id, relation and text",
 );
 // A Brief stored before the one list renders the sheet of the same Brief stored after it, and is not written back.
-const kBriefOf = (slug, structure, legs) =>
-  stringifyYaml({
+const kBriefOf = (at, slug, structure, legs) =>
+  writeBriefFiles(at, {
     slug,
+    ...ADOPTED,
     thesis: THESIS,
     strands: claims4Ids.map((c) => ({ id: c.id, slug: c.id })),
     structure,
     reader_path: legs,
   });
+const textsAt = (at) =>
+  ["brief.yaml", "structure.yaml", "reader-path.yaml"].map((f) => readFileSync(join(dirname(at), f), "utf8")).join("");
 const kNewLegs = structureLegs(NEW4, claims4Ids);
 const kOldId = new Map([...oneListIds(OLD4)].map(([was, now]) => [now, was]));
 const kOldLegs = kNewLegs.map((l) => ({ ...l, relation: kOldId.get(l.relation) ?? l.relation }));
@@ -572,8 +582,8 @@ for (const [which, structure, legs] of [
 ]) {
   const at = join(kRoot, "theses", which, "brief.yaml");
   mkdirSync(dirname(at), { recursive: true });
-  const text = kBriefOf("stored", structure, legs);
-  writeFileSync(at, text);
+  const t = kBriefOf(at, "stored", structure, legs);
+  const text = t.brief + t.structure + t.readerPath;
   const r = spawnSync(
     process.execPath,
     ["src/brief-plan-playground/sheet.mjs", "brief", "--brief", at, "--out", join(kRoot, `out-${which}`)],
@@ -584,7 +594,7 @@ for (const [which, structure, legs] of [
     status: r.status,
     stderr: r.stderr,
     sheet: existsSync(out) ? readFileSync(out, "utf8") : "",
-    kept: readFileSync(at, "utf8") === text,
+    kept: textsAt(at) === text,
   };
 }
 ok(
@@ -616,7 +626,10 @@ ok(
 );
 ok(lSheet === kSheet, "(l) show's sheet is not the sheet the brief command renders over the same Brief");
 ok(
-  lSha === `${createHash("sha256").update(readFileSync(kBrief)).digest("hex")}  theses/fixture/brief.yaml\n`,
+  lSha ===
+    `${createHash("sha256")
+      .update(kTexts.brief + kTexts.structure + kTexts.readerPath)
+      .digest("hex")}  theses/fixture/brief.yaml\n`,
   `(l) brief.sha256 does not name the Brief it rendered: ${JSON.stringify(lSha)}`,
 );
 const lSkill = existsSync(".claude/skills/brief-sheet/SKILL.md")
@@ -628,22 +641,20 @@ ok(
     lSkill.includes("!`node src/brief-plan-playground/sheet.mjs show --brief $ARGUMENTS`"),
   "(l) .claude/skills/brief-sheet/SKILL.md does not run `sheet.mjs show` over its argument",
 );
-const kParsed = parseYaml(readFileSync(kBrief, "utf8"), "brief.yaml");
+const kParsed = parseYaml(kTexts.readerPath, "reader-path.yaml");
 for (const [key, retire] of [
   ["waypoints", (g) => ({ ...g, waypoints: [] })],
   ["move", (g) => ({ ...g, move: "m" })],
-  ["text", (g) => Object.fromEntries(Object.entries(g).filter(([k]) => k !== "text"))],
+  ["text", (g) => ({ ...g, text: "A sentence of the Leg's own." })],
 ]) {
   const rRoot = join(root, `retired-${key}`);
   const rBrief = join(rRoot, "theses", "old", "brief.yaml");
   mkdirSync(dirname(rBrief), { recursive: true });
+  writeFileSync(rBrief, kTexts.brief);
+  writeFileSync(join(dirname(rBrief), "structure.yaml"), kTexts.structure);
   writeFileSync(
-    rBrief,
-    stringifyYaml({
-      ...kParsed,
-      slug: "old",
-      reader_path: kParsed.reader_path.map((g, i) => (i === 1 ? retire(g) : g)),
-    }),
+    join(dirname(rBrief), "reader-path.yaml"),
+    stringifyYaml({ reader_path: kParsed.reader_path.map((g, i) => (i === 1 ? retire(g) : g)) }),
   );
   const leg = kParsed.reader_path[1].leg_id;
   for (const args of [
@@ -653,9 +664,9 @@ for (const [key, retire] of [
     const r = sheetCmd(args);
     ok(
       r.status === 1 &&
-        r.stderr.includes(`Leg ${leg}`) &&
+        r.stderr.includes(key === "text" ? `leg ${leg}` : `Leg ${leg}`) &&
         r.stderr.includes(`\`${key}\``) &&
-        r.stderr.includes(key === "text" ? "kogaki#1775" : "which is not a Leg field"),
+        r.stderr.includes(key === "text" ? "kogaki#1955" : "which is not a Leg field"),
       `(l) ${args[0]} over a Leg retired by \`${key}\` is not refused naming ${leg} and the key: ${r.status} ${r.stderr}`,
     );
   }

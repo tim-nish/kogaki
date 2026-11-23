@@ -22,7 +22,7 @@ const ok = (cond, msg) => {
 };
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
-const { readParagraphPlanBeside, validateMoveRecord } = await imp("src/compose.mjs");
+const { readParagraphPlanBeside, readBriefFiles, validateMoveRecord } = await imp("src/compose.mjs");
 const P = await imp("src/paragraph-plan.mjs");
 const S = { ...(await imp("src/sme/edges.mjs")), ...(await imp("src/sme/arguments.mjs")) };
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
@@ -79,7 +79,7 @@ ok(
     !/domain/.test(planTextA + runTextA),
   `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling, or the plan file or a file of the run directory holds a Segment's domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
 );
-const draftRead = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+const draftRead = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
 ok(
   !draftRead.error && draftRead.segments.get("s1").length === 3,
   `(a) /draft's reader refused the plan: ${draftRead.error}`,
@@ -166,7 +166,7 @@ for (const [key, at] of [
   if (at === "top") rec[key] = { none: "x" };
   else rec.legs[0][key] = [];
   writeFileSync(a.planPath, stringifyYaml(rec));
-  const r = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+  const r = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
   ok(
     r.error && r.error.includes(`\`${key}\``) && r.error.includes("run /paragraph-plan on this Brief again"),
     `(f) a plan carrying \`${key}\` was not refused by name: ${r.error}`,
@@ -183,20 +183,20 @@ for (const [key, at] of [
   segs.push({ bind: null, edges: [] });
   const n = segs.length;
   writeFileSync(a.planPath, stringifyYaml(rec));
-  const r1 = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+  const r1 = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
   ok(
     r1.error && r1.error.includes(`leg ${LEGS[0].leg_id}, Segment ${n} has no \`bind\`, carries no Edge`),
     `(f2) a Segment with nothing bound at neither end of an Edge was not refused naming it: ${r1.error}`,
   );
   segs.push({ bind: null, edges: [{ sense: "Conjunction", to: [n] }] });
   writeFileSync(a.planPath, stringifyYaml(rec));
-  const r2 = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+  const r2 = readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS);
   // Inside this case (kogaki#1950): the same Edge carrying Hypophora of the kind `question` is read, and one carrying
   // `true`, as a plan written before did, is refused naming the two kinds and /paragraph-plan.
   const withKind = (kind) => {
     segs[n].edges[0].hypophora = kind;
     writeFileSync(a.planPath, stringifyYaml(rec));
-    return readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS).error || "";
+    return readParagraphPlanBeside(a.brief, readBriefFiles(a.brief).text, LEGS).error || "";
   };
   const asked = withKind("question");
   const olden = withKind(true);
@@ -236,7 +236,7 @@ ok(pick([]) === null, "(g) an empty library gave a Move");
 // (h) WHAT `start` REFUSES.
 const h1 = runStage("ok", { brief: newBrief(null) });
 ok(
-  h1.start.status !== 0 && /carries no `structure`/.test(h1.out) && !existsSync(h1.dir),
+  h1.start.status !== 0 && /no structure\.yaml beside it/.test(h1.out) && !existsSync(h1.dir),
   `(h) a Brief with no structure was not refused: ${h1.out}`,
 );
 const h2 = runStage("ok", { moves: MOVES_UNEDGED });

@@ -12,6 +12,7 @@ import {
   opensSectionRefusal,
   briefAsOneList,
   parseBriefRecord,
+  readBriefFiles,
   unfilledSlots,
   briefLegs,
   briefStructureRefusal,
@@ -50,13 +51,32 @@ export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 // cannot realize refuses by name rather than reaching a Packet half-formed.
 //
 // Returns `{ slug, surveyPin, thesis, strands, legs, refusals, text, record }`;
-// the caller decides what a refusal costs.
-export function readBrief(text, path = "<brief>") {
-  const refusals = [];
+// the caller decides what a refusal costs. `readBrief` reads an adopted Brief's three files through their one
+// reader (kogaki#1955), `text` the three texts the one hash is taken over; `readBriefText` reads one record's text.
+export function readBrief(path) {
+  const r = readBriefFiles(path);
+  if (r.error) {
+    return {
+      slug: null,
+      surveyPin: null,
+      thesis: null,
+      strands: [],
+      legs: [],
+      refusals: [r.error],
+      text: "",
+      record: null,
+    };
+  }
+  return briefOfRecord(r.record, r.text, path);
+}
+export function readBriefText(text, path = "<brief>") {
   const parsed = parseBriefRecord(text, path);
   if (parsed.error) return { refusals: [parsed.error], text, legs: [], strands: [] };
   // A Brief stored under `relations` and `higher_order` is read as one list, and is not written back (kogaki#1937).
-  const record = briefAsOneList(parsed.record).record;
+  return briefOfRecord(briefAsOneList(parsed.record).record, text, path);
+}
+function briefOfRecord(record, text, path) {
+  const refusals = [];
 
   // A template is refused BY FIELD (AC1): the first slot still awaiting
   // composition names the field the refusal carries.

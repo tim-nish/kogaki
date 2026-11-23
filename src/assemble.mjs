@@ -35,7 +35,7 @@ import {
   journeyPlacements,
   snapshotBrief,
   readBriefRecord,
-  briefRecordText,
+  writeBriefFiles,
 } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
@@ -855,10 +855,11 @@ export function cmdAdoptCandidate(args) {
   // fillBrief the retired `fill` CLI called, the durable home and the entry point v17) and the closure
   // fields land in this single write, so its before/after pair traces both.
   // Machine-local trace; a failure warns and never blocks the write.
-  const text = briefRecordText(r.record);
+  // THE ADOPTED BRIEF IS THREE FILES (kogaki#1955): brief.yaml, structure.yaml and reader-path.yaml, no Leg carrying
+  // `text`; the snapshots hold all three, in that order.
   const snapSeq = snapshotBrief(briefPath, "adopt-candidate", "before", brief.text);
-  writeFileSync(briefPath, text);
-  snapshotBrief(briefPath, "adopt-candidate", "after", text, snapSeq);
+  const texts = writeBriefFiles(briefPath, r.record);
+  snapshotBrief(briefPath, "adopt-candidate", "after", texts.brief + texts.structure + texts.readerPath, snapSeq);
   console.log(
     `candidate selection (the Candidate gate): ${id} was the owner's own answer at the brief-candidate-selection gate (AskUserQuestion ${r.selected_by}) — read from the capture, never carried by --candidate (kogaki#891)`,
   );
