@@ -21,12 +21,18 @@ breaks:
     spent on method rather than on the matter
 segments:
   - bind: null
+    genericity: neither
+    domain: neither
     edges: []
   - bind: 1
+    genericity: generic
+    domain: own
     edges:
       - sense: MetaDiscourse
         to: [1]
   - bind: 2
+    genericity: generic
+    domain: both
     edges:
       - sense: Cause.Reason
         to: [2]

@@ -1,4 +1,5 @@
-// The cases of `checks/check-move-library.sh` on a Segment's `bind` and `edges` (kogaki#1871).
+// The cases of `checks/check-move-library.sh` on a Segment's `bind` and `edges` (kogaki#1871) and on its `genericity`
+// and `domain` (kogaki#1945).
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -6,7 +7,10 @@ import { pathToFileURL } from "node:url";
 const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
-const { validateMoveRecord } = await imp("src/compose/moves.mjs");
+const { validateMoveRecord, SEGMENT_VALUES } = await imp("src/compose/moves.mjs");
+const { loadMoveContracts } = await imp("src/compose.mjs");
+const { bindMoveInput } = await imp("src/structure-mapping-playground/short.mjs");
+const { fittedSegments } = await imp("src/paragraph-plan/move-choice.mjs");
 const { loadSenses, loadOwnSenses, sensesText } = await imp("src/sme/edges.mjs");
 const SENSES_FILE = JSON.parse(readFileSync(join(REPO, "src/sme/senses.json"), "utf8"));
 const SENSES = [
@@ -60,6 +64,17 @@ const EDGES = [
 const EDGED = { ...BARE, segments: EDGES };
 const second = (edges) => ({ ...EDGED, segments: EDGED.segments.map((s, i) => (i === 1 ? { ...s, edges } : s)) });
 const refusal = (rec) => validateMoveRecord(rec, LIB, "p1.yaml").error || "";
+// EDGED with `genericity` and `domain` on every Segment (kogaki#1945), and the same record with Segment `n` changed.
+const VALUES = [
+  { genericity: "neither", domain: "neither" },
+  { genericity: "generic", domain: "both" },
+  { genericity: "particular", domain: "apart" },
+];
+const valuedSegment = (s, i) => ({ bind: s.bind, ...VALUES[i], edges: s.edges });
+const VALUED = { ...EDGED, segments: EDGES.map(valuedSegment) };
+const valuedWith = (n, change) =>
+  refusal({ ...VALUED, segments: VALUED.segments.map((s, i) => (i === n - 1 ? change(s) : s)) });
+const without = (s, ...keys) => Object.fromEntries(Object.entries(s).filter(([k]) => !keys.includes(k)));
 
 // (c10) a record carrying neither field is admitted by the Adapter and named by this check; a record carrying both
 // with listed Senses passes both; a Sense outside the list, an Edge to a later Segment and an Edge to its own Segment
@@ -68,9 +83,15 @@ ok(
   refusal(BARE) === "" && edgeFailures(BARE).includes("Segment 1 carries no `bind` and `edges`"),
   `(c10a) a record carrying no \`bind\` and \`edges\` is not admitted by the Adapter and named here: ${refusal(BARE)}`,
 );
+// The same record with `genericity` and `domain` on every Segment passes too, and the record the Adapter returns
+// holds both on each Segment (kogaki#1945).
+const returned = validateMoveRecord(VALUED, LIB, "p1.yaml");
 ok(
-  refusal(EDGED) === "" && edgeFailures(EDGED).length === 0,
-  `(c10b) a record carrying both fields with listed Senses does not pass: ${[refusal(EDGED), ...edgeFailures(EDGED)].join(" | ")}`,
+  refusal(EDGED) === "" &&
+    edgeFailures(EDGED).length === 0 &&
+    !returned.error &&
+    JSON.stringify(returned.segments) === JSON.stringify(EDGES.map(valuedSegment)),
+  `(c10b) a record carrying both fields with listed Senses, or one carrying \`genericity\` and \`domain\` beside them, does not pass and come back whole: ${[refusal(EDGED), ...edgeFailures(EDGED), returned.error || JSON.stringify(returned.segments)].join(" | ")}`,
 );
 ok(
   edgeFailures(second([{ sense: "Because", to: [1] }])).includes(
@@ -91,14 +112,40 @@ ok(
 // (kogaki#1926), and so is the same Segment carrying `manner` (kogaki#1940).
 const carrying = (k, n) =>
   refusal({ ...EDGED, segments: EDGED.segments.map((s, i) => (i === n - 1 ? { ...s, [k]: "says a thing." } : s)) });
+// Inside the same two cases (kogaki#1945), on that Segment of a record carrying `genericity` and `domain`: a value
+// outside its set, one of the two keys without the other, and neither key while the other Segments carry both are
+// each refused naming the Move, the Segment and the field.
 for (const [k, n] of [
   ["operation", 1],
   ["relation", 2],
 ]) {
+  const valued = [
+    [
+      valuedWith(n, (s) => ({ ...s, genericity: "wide" })),
+      `move "p1" (p1.yaml): \`segments\` Segment ${n}: \`genericity\` is "wide" — it is one of \`generic\`, \`particular\`, \`neither\``,
+    ],
+    [
+      valuedWith(n, (s) => ({ ...s, domain: "generic" })),
+      `move "p1" (p1.yaml): \`segments\` Segment ${n}: \`domain\` is "generic" — it is one of \`own\`, \`apart\`, \`both\`, \`neither\``,
+    ],
+    [
+      valuedWith(n, (s) => without(s, "domain")),
+      `move "p1" (p1.yaml): \`segments\` Segment ${n} carries \`genericity\` and no \`domain\` — a Segment carries both \`genericity\` and \`domain\` or neither`,
+    ],
+    [
+      valuedWith(n, (s) => without(s, "genericity")),
+      `move "p1" (p1.yaml): \`segments\` Segment ${n} carries \`domain\` and no \`genericity\` — a Segment carries both \`genericity\` and \`domain\` or neither`,
+    ],
+    [
+      valuedWith(n, (s) => without(s, "genericity", "domain")),
+      `move "p1" (p1.yaml): \`segments\` Segment ${n} carries neither \`genericity\` nor \`domain\`, and Segment ${n === 1 ? 2 : 1} carries both — a record carries \`genericity\` and \`domain\` on every Segment or on none`,
+    ],
+  ];
   ok(
     carrying(k, n).includes(`\`segments\` Segment ${n} carries \`${k}\``) &&
-      carrying("manner", n).includes(`\`segments\` Segment ${n} carries \`manner\``),
-    `(c10g) a Segment with bind, edges and ${k}, or with manner, is not refused naming the Segment and the field: ${carrying(k, n)} | ${carrying("manner", n)}`,
+      carrying("manner", n).includes(`\`segments\` Segment ${n} carries \`manner\``) &&
+      valued.every(([got, want]) => got === want),
+    `(c10g) a Segment with bind, edges and ${k}, or with manner, is not refused naming the Segment and the field, or a refusal on \`genericity\` and \`domain\` is not its sentence: ${[carrying(k, n), carrying("manner", n), ...valued.filter(([got, want]) => got !== want).map(([got]) => got || "admitted")].join(" | ")}`,
   );
 }
 
@@ -143,7 +190,43 @@ const names = readdirSync(LIB)
 const lacking = names.flatMap((n) =>
   edgeFailures(parseYaml(readFileSync(join(LIB, n), "utf8"), n)).map((l) => `${n}: ${l}`),
 );
-ok(names.length > 0 && lacking.length === 0, `(e) ${names.length} Move file(s) under moves/: ${lacking.join(" | ")}`);
+// Inside (e) (kogaki#1945): every Move file but UNVALUED carries `genericity` and `domain` on every Segment, written
+// after `bind` and before `edges`, and UNVALUED carries neither on any; and over the library as the Adapter loads it,
+// neither the input of the short Trial's `bind` stage nor the Segments the fitting writes into a plan hold either key.
+const UNVALUED = "walk_an_asserted_tendency_through_the_readers_own_case.yaml";
+const VALUED_KEYS = JSON.stringify(["bind", "genericity", "domain", "edges"]);
+const misvalued = names.flatMap((n) =>
+  parseYaml(readFileSync(join(LIB, n), "utf8"), n).segments.flatMap((s, i) =>
+    JSON.stringify(Object.keys(s)) === (n === UNVALUED ? JSON.stringify(["bind", "edges"]) : VALUED_KEYS)
+      ? []
+      : [`${n}: Segment ${i + 1} carries ${Object.keys(s).join(", ")}`],
+  ),
+);
+const loaded = loadMoveContracts(LIB).moves || [];
+const unloaded = loaded.flatMap((m) =>
+  m.segments.flatMap((s, i) =>
+    Object.keys(SEGMENT_VALUES).every((k) =>
+      `${m.id}.yaml` === UNVALUED ? !Object.hasOwn(s, k) : SEGMENT_VALUES[k].includes(s[k]),
+    )
+      ? []
+      : [`${m.id}: Segment ${i + 1} is loaded as ${JSON.stringify(s)}`],
+  ),
+);
+const holding = (value) => Object.keys(SEGMENT_VALUES).filter((k) => JSON.stringify(value).includes(`"${k}"`));
+const bindInput = bindMoveInput({}, { reader: "a reader.", prior_knowledge: "none." }, loaded, LIB);
+const planned = loaded.map((m) => fittedSegments(m, { 1: 1, 2: 2, 3: 3 }));
+ok(
+  names.length > 0 &&
+    lacking.length === 0 &&
+    names.includes(UNVALUED) &&
+    misvalued.length === 0 &&
+    loaded.length === names.length &&
+    unloaded.length === 0 &&
+    bindInput.moves.length === names.length &&
+    holding(bindInput).length === 0 &&
+    holding(planned).length === 0,
+  `(e) ${names.length} Move file(s) under moves/: ${[...lacking, ...misvalued, ...unloaded, ...holding(bindInput).map((k) => `the bind stage's input holds ${k}`), ...holding(planned).map((k) => `the plan's Segments hold ${k}`)].join(" | ")}`,
+);
 
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);

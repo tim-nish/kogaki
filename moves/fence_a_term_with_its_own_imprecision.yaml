@@ -21,32 +21,48 @@ breaks:
     needs
 segments:
   - bind: 1
+    genericity: generic
+    domain: own
     edges: []
   - bind: 2
+    genericity: generic
+    domain: own
     edges:
       - sense: Conjunction
         to: [1]
   - bind: null
+    genericity: generic
+    domain: own
     edges:
       - sense: Level-of-detail.Detail
         to: [2]
   - bind: null
+    genericity: particular
+    domain: own
     edges:
       - sense: Instantiation.Instance
         to: [2]
   - bind: null
+    genericity: particular
+    domain: own
     edges:
       - sense: Cause.Reason
         to: [4]
   - bind: 3
+    genericity: generic
+    domain: own
     edges:
       - sense: Concession.Denier
         to: [2]
   - bind: null
+    genericity: particular
+    domain: own
     edges:
       - sense: Instantiation.Instance
         to: [6]
   - bind: 1
+    genericity: generic
+    domain: own
     edges:
       - sense: Cause+Belief.Result
         to: [6]

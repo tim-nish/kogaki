@@ -22,13 +22,19 @@ breaks:
     reads as a textbook
 segments:
   - bind: 1
+    genericity: generic
+    domain: own
     edges: []
   - bind: null
+    genericity: neither
+    domain: neither
     edges:
       - sense: null
         to: [1]
         hypophora: true
   - bind: null
+    genericity: generic
+    domain: own
     edges:
       - sense: Instantiation.Instance
         to: [2]

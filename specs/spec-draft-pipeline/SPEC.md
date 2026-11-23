@@ -706,6 +706,25 @@ admitted by `validateMoveRecord`, and `checks/check-move-library.sh` refuses it
 under `moves/`. A Move file whose Edges are not yet written stands under
 `graveyard/moves/`, which no stage reads.
 
+**A Segment's `genericity` and `domain` (kogaki#1945).** A Segment of a Move
+file may carry two more keys, written after `bind` and before `edges`. A Move
+file carries both on every Segment or neither on any. The values are set in
+review of the Move's source paragraph, and no call reads them yet.
+`genericity` is how the Segment tells what it tells, one of `generic`,
+`particular` and `neither`. `particular`: through one case, particular people,
+things or events at one time, real or imagined. `generic`: as it stands in
+general, with no one occasion meant; a question about what holds in general is
+generic. `neither`: a Segment with no content of its own, which only announces
+what comes next, points at the text itself or speaks to the reader.
+`domain` is in whose words the Segment tells it, one of `own`, `apart`, `both`
+and `neither`. `own`: in the words of the Leg's own structure. `apart`: in the
+words of an analogy, naming its things and none of the Leg's own. `both`: it
+names things of both, or calls a thing of the Leg's own by a word of the
+analogy. `neither`: a Segment with no content of its own.
+`validateMoveRecord` refuses a value outside its set, a Segment that carries
+one of the two keys without the other, and a record that carries them on some
+of its Segments and not on all, each naming the Move and the Segment.
+
 **Subject-independence is the default for every field (owner ruling,
 2026-09-23: "a fundamental principle of the design from the beginning").** No
 field is written with the text's own subject as its grammatical subject unless

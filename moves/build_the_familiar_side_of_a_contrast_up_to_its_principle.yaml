@@ -26,20 +26,30 @@ breaks:
     measure the other against
 segments:
   - bind: null
+    genericity: neither
+    domain: apart
     edges: []
   - bind: 1
+    genericity: generic
+    domain: apart
     edges:
       - sense: FrameSetting
         to: [1]
   - bind: 2
+    genericity: generic
+    domain: apart
     edges:
       - sense: Conjunction
         to: [2]
   - bind: null
+    genericity: generic
+    domain: apart
     edges:
       - sense: Equivalence
         to: [3, 2]
   - bind: 3
+    genericity: generic
+    domain: apart
     edges:
       - sense: Level-of-detail.General
         to: [3, 2]

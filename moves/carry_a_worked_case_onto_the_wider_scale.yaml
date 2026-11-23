@@ -17,20 +17,30 @@ breaks:
     that the chain they just followed is the one being reused
 segments:
   - bind: null
+    genericity: generic
+    domain: own
     edges: []
   - bind: 1
+    genericity: generic
+    domain: both
     edges:
       - sense: FrameSetting
         to: [1]
   - bind: null
+    genericity: generic
+    domain: both
     edges:
       - sense: Cause.Result
         to: [2]
   - bind: 2
+    genericity: generic
+    domain: own
     edges:
       - sense: Asynchronous.Succession
         to: [2]
   - bind: 3
+    genericity: generic
+    domain: own
     edges:
       - sense: Equivalence
         to: [4]

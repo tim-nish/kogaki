@@ -349,9 +349,15 @@ function figureBlockRefusal(block, at) {
 // The shapes moves/ROLES.json's `shapes` states for the list-valued roles,
 // read back at the Adapter (kogaki#1414, carried in YAML by kogaki#1413):
 // `breaks` a list of one-line prose tests, `segments` a list of maps carrying
-// `bind` and `edges` and no other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
+// `bind` and `edges` and, where the Move's source paragraph has been reviewed, `genericity` and `domain`
+// (kogaki#1945), and no other key: a Segment that carries `manner` is refused naming the field (kogaki#1940).
 // A record the ingest has just written from an Extraction carries no `bind` and no `edges` (kogaki#1926).
-export const SEGMENT_FIELDS = Object.freeze(["bind", "edges"]);
+export const SEGMENT_FIELDS = Object.freeze(["bind", "genericity", "domain", "edges"]);
+// The values a Segment's `genericity` and its `domain` are taken from (kogaki#1945). No call reads either key.
+export const SEGMENT_VALUES = Object.freeze({
+  genericity: Object.freeze(["generic", "particular", "neither"]),
+  domain: Object.freeze(["own", "apart", "both", "neither"]),
+});
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 
@@ -402,6 +408,30 @@ function bindAndEdgesRefusal(v, at, field) {
   return null;
 }
 
+// A Segment's `genericity` and `domain` (kogaki#1945): both on every Segment of the record or neither on any, each
+// one value of its set, each refusal naming the Segment and the field. `v` is the record's `segments`.
+function genericityAndDomainRefusal(v, at, field) {
+  const keys = Object.keys(SEGMENT_VALUES);
+  const carried = (s) => keys.filter((k) => Object.hasOwn(s, k));
+  const atS = (i) => `${at}: \`${field}\` Segment ${i + 1}`;
+  const first = v.findIndex((s) => carried(s).length);
+  if (first < 0) return null;
+  const half = v.findIndex((s) => carried(s).length === 1);
+  if (half >= 0) {
+    const [has] = carried(v[half]);
+    return `${atS(half)} carries \`${has}\` and no \`${keys.find((k) => k !== has)}\` — a Segment carries both \`genericity\` and \`domain\` or neither`;
+  }
+  const without = v.findIndex((s) => !carried(s).length);
+  if (without >= 0)
+    return `${atS(without)} carries neither \`genericity\` nor \`domain\`, and Segment ${first + 1} carries both — a record carries \`genericity\` and \`domain\` on every Segment or on none`;
+  for (const [i, s] of v.entries()) {
+    const off = keys.find((k) => !SEGMENT_VALUES[k].includes(s[k]));
+    if (off)
+      return `${atS(i)}: \`${off}\` is ${JSON.stringify(s[off])} — it is one of ${SEGMENT_VALUES[off].map((x) => `\`${x}\``).join(", ")}`;
+  }
+  return null;
+}
+
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (role === "tests") {
@@ -420,7 +450,7 @@ function optionalRoleRefusal(role, field, v, at) {
       if (extra)
         return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
     }
-    return bindAndEdgesRefusal(v, at, field);
+    return bindAndEdgesRefusal(v, at, field) || genericityAndDomainRefusal(v, at, field);
   }
   return null;
 }

@@ -23,17 +23,25 @@ breaks:
     point is diluted and the turn arrives too late to be felt
 segments:
   - bind: null
+    genericity: neither
+    domain: neither
     edges: []
   - bind: 1
+    genericity: generic
+    domain: apart
     edges:
       - sense: MetaDiscourse
         to: [1]
   - bind: 2
+    genericity: generic
+    domain: apart
     edges:
       - sense: Condition.Consequent
         to: [2]
         hypophora: true
   - bind: 3
+    genericity: generic
+    domain: apart
     edges:
       - sense: Cause.Reason
         to: [3]

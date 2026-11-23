@@ -6,7 +6,7 @@
 // again, twice stopping the Leg; (e) a Leg no Move is a candidate for; (f) `readParagraphPlanBeside` refusing the keys
 // that left the record by name, and (f2) a Segment with nothing bound at neither end of an Edge; (g) `chooseMove` by itself; (h) what `start` refuses; (i) the view; (j)
 // `validateMoveRecord` beside `bind` and `edges`; (k) SKILL.md's paths. Case (d) went with its call (kogaki#1876).
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -59,6 +59,13 @@ ok(a.calls.length === 10, `(a) the stage made ${a.calls.length} calls, not five 
 ok(a.briefSame, "(a) the Brief changed under the stage");
 const planTextA = existsSync(a.planPath) ? readFileSync(a.planPath, "utf8") : "";
 ok(planTextA !== "" && !/z_fewer|a_more/.test(planTextA), `(a) the plan file holds a Move's id: ${planTextA}`);
+// z_fewer's Move file carries `genericity` and `domain` on every Segment (kogaki#1945): the plan's Segments are
+// `{ bind, edges }` all the same, and neither the plan file nor any file of the run directory, the Moves the job was
+// handed and each call's input among them, holds either key.
+const runTextA = readdirSync(a.dir, { recursive: true, withFileTypes: true })
+  .filter((f) => f.isFile())
+  .map((f) => readFileSync(join(f.parentPath, f.name), "utf8"))
+  .join("\n");
 ok(
   legsA.length === 2 &&
     JSON.stringify(legsA[0].segments) ===
@@ -66,8 +73,11 @@ ok(
         { bind: 1, edges: [] },
         { bind: 2, edges: [{ sense: "Conjunction", to: [1] }] },
         { bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
-      ]),
-  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
+      ]) &&
+    /genericity: generic\n\s+domain: own/.test(readFileSync(join(MOVES, "z_fewer.yaml"), "utf8")) &&
+    runTextA.includes('"id": "z_fewer"') &&
+    !/genericity|domain/.test(planTextA + runTextA),
+  `(a) Leg s1's Segments are not z_fewer's fitted by its first best filling, or the plan file or a file of the run directory holds a Segment's genericity or domain: ${JSON.stringify(legsA[0] && legsA[0].segments)}`,
 );
 const draftRead = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
 ok(

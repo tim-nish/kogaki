@@ -29,7 +29,7 @@
       "fields_from": "the field each role of moves/ROLES.json maps, the fields src/compose.mjs's MOVE_CARRIED_FIELDS lets a Move carry beside them, and each `segments` entry's own keys below",
       "list_fields": {
         "segments": {
-          "keys": ["bind", "edges"],
+          "keys": ["bind", "genericity", "domain", "edges"],
           "declared_in": "moves/ROLES.json `shapes.segments`"
         }
       }

@@ -20,8 +20,12 @@ breaks:
     conclusion
 segments:
   - bind: 1
+    genericity: generic
+    domain: both
     edges: []
   - bind: 2
+    genericity: generic
+    domain: own
     edges:
       - sense: Cause.Result
         to: [1]
