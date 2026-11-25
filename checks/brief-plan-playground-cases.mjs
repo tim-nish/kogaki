@@ -1,5 +1,5 @@
-// The cases of checks/check-brief-sheet.sh but (m): the check of the structure a Brief is read into, the Legs derived from
-// it and the Brief sheet, each with no model call. Run from the repository root.
+// The cases of checks/check-brief-plan-playground.sh but (m): the check of the structure a Brief is read into, the Legs
+// derived from it and the BriefPlanPlayground, each with no model call. Run from the repository root.
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -18,7 +18,7 @@ const { parseYaml, stringifyYaml } = await load("src/yaml.mjs");
 const { mintStructure, validateReadSet, asOneList, oneListIds, ID_PREFIX } = await load("src/sme/structure.mjs");
 const { withReach, structureLegs } = await load("src/compose/structure.mjs");
 const { writeBriefFiles } = await load("src/compose/brief-files.mjs");
-const root = mkdtempSync(join(tmpdir(), "brief-sheet-"));
+const root = mkdtempSync(join(tmpdir(), "brief-plan-playground-"));
 
 // ---- the fixture claims and the structure ----
 const CLAIMS = [
@@ -471,9 +471,9 @@ ok(
   ).text,
   "(j) a structure stored under two lists, read as one, is refused by the check of the one list",
 );
-// (k) the Brief sheet: a Brief over the four-claim structure and its Legs, rendered with no model call
+// (k) the BriefPlanPlayground: a Brief over the four-claim structure and its Legs, rendered with no model call
 const { BRIEF_PARTS, BRIEF_RETIRED_WORDS } = await load("src/brief-plan-playground/sheet.mjs");
-const kRoot = join(root, "brief-sheet");
+const kRoot = join(root, "brief-plan-playground");
 mkdirSync(join(kRoot, "theses", "fixture"), { recursive: true });
 const kBrief = join(kRoot, "theses", "fixture", "brief.yaml");
 // An adopted Brief is three files (kogaki#1955), each written here from one whole record.
@@ -500,12 +500,17 @@ const k = spawnSync(
 const kSheet = existsSync(join(kRoot, "out", "sheet.html"))
   ? readFileSync(join(kRoot, "out", "sheet.html"), "utf8")
   : "";
-ok(k.status === 0 && kSheet, `(k) the brief command did not render a sheet: ${k.stderr}`);
+ok(
+  k.status === 0 &&
+    kSheet.includes("<title>BriefPlanPlayground fixture</title>") &&
+    kSheet.includes("<h1>BriefPlanPlayground — fixture</h1>"),
+  `(k) the brief command did not render a page titled and headed BriefPlanPlayground and the slug: ${k.stderr}`,
+);
 const kH2 = [...kSheet.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
 ok(
   JSON.stringify(kH2) === JSON.stringify(BRIEF_PARTS) &&
     JSON.stringify(BRIEF_PARTS) === JSON.stringify(["Thesis", "Claims", "Structure Mapping", "Legs"]),
-  `(k) the Brief sheet's parts are not Thesis, Claims, Structure Mapping and Legs: ${JSON.stringify(kH2)}`,
+  `(k) the BriefPlanPlayground's parts are not Thesis, Claims, Structure Mapping and Legs: ${JSON.stringify(kH2)}`,
 );
 const kMap = kSheet.slice(kSheet.indexOf("<h2>Structure Mapping</h2>"), kSheet.indexOf("<h2>Legs</h2>")),
   kH3 = (s) => [...s.matchAll(/<h3>([^<]*)<\/h3>/g)].map((m) => m[1]),
@@ -525,7 +530,7 @@ ok(
   "(k) the graph does not label nodes by name, draw higher-order edges thick, the apex blue and the unreached red, with no counts line",
 );
 const kWord = BRIEF_RETIRED_WORDS.find((w) => new RegExp(`\\b${w}`).test(kSheet));
-ok(kWord === undefined, `(k) the Brief sheet prints the retired word ${JSON.stringify(kWord)}`);
+ok(kWord === undefined, `(k) the BriefPlanPlayground prints the retired word ${JSON.stringify(kWord)}`);
 const kTables = [...kSheet.matchAll(/<table>([\s\S]*?)<\/table>/g)].map((m) => m[1]);
 ok(
   kTables.length === 5 &&
@@ -539,7 +544,7 @@ ok(
         )
       );
     }),
-  "(k) a table of the Brief sheet carries no <thead> with one heading per column",
+  "(k) a table of the BriefPlanPlayground carries no <thead> with one heading per column",
 );
 const kClaims = kSheet.slice(kSheet.indexOf("<h2>Claims</h2>"), kSheet.indexOf("<h2>Structure Mapping</h2>"));
 ok(
@@ -609,7 +614,7 @@ ok(
 );
 ok(kStored["two-lists"].kept, "(k) rendering a Brief stored under two lists wrote the Brief back");
 
-// (l) the Brief sheet's owner act: `show` writes the sheet at the home read from the Brief's path; a retired Leg is refused
+// (l) the BriefPlanPlayground's `show` writes the sheet at the home read from the Brief's path; a retired Leg is refused
 const lHome = join(kRoot, "runs", "brief-plan-playground", "fixture");
 const sheetCmd = (args) =>
   spawnSync(process.execPath, ["src/brief-plan-playground/sheet.mjs", ...args], {
@@ -631,15 +636,6 @@ ok(
       .update(kTexts.brief + kTexts.structure + kTexts.readerPath)
       .digest("hex")}  theses/fixture/brief.yaml\n`,
   `(l) brief.sha256 does not name the Brief it rendered: ${JSON.stringify(lSha)}`,
-);
-const lSkill = existsSync(".claude/skills/brief-sheet/SKILL.md")
-  ? readFileSync(".claude/skills/brief-sheet/SKILL.md", "utf8")
-  : "";
-ok(
-  /^name: brief-sheet$/m.test(lSkill) &&
-    lSkill.includes("BriefPlanPlayground") &&
-    lSkill.includes("!`node src/brief-plan-playground/sheet.mjs show --brief $ARGUMENTS`"),
-  "(l) .claude/skills/brief-sheet/SKILL.md does not run `sheet.mjs show` over its argument",
 );
 const kParsed = parseYaml(kTexts.readerPath, "reader-path.yaml");
 for (const [key, retire] of [
@@ -918,4 +914,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("check-brief-sheet: ok");
+console.log("check-brief-plan-playground: ok");

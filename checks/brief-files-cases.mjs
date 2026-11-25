@@ -1,7 +1,8 @@
 // The cases of checks/check-brief-files.sh (kogaki#1955), each stated in that member's `contract` in
-// checks/registry.json: (a) adoption writes the three files; (b) `readAdoptedBrief` gives each Leg its relation's
-// `holds`; (c) a hand edit of a `holds`; (d) a Leg removed and two reordered; (e) each refusal of the reader, by the
-// `check` verb; (f) the `split` verb; (g) a ParagraphPlan made before a hand edit of structure.yaml found stale.
+// checks/registry.json: (a) adoption writes the three files and the BriefPlanPlayground (kogaki#1967); (b)
+// `readAdoptedBrief` gives each Leg its relation's `holds`; (c) a hand edit of a `holds`; (d) a Leg removed and two
+// reordered; (e) each refusal of the reader, by the `check` verb; (f) the `split` verb; (g) a ParagraphPlan made
+// before a hand edit of structure.yaml found stale.
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -138,21 +139,45 @@ const textsAt = (at) => FILES.map((f) => readFileSync(join(resolve(at, ".."), f)
     ],
   };
   writeFileSync(join(root, "selection.json"), JSON.stringify(selection));
-  const r = spawnSync(
-    process.execPath,
-    ["src/assemble.mjs", "adopt-candidate", "--brief", at, "--reviewed", join(root, "reviewed.json")].concat([
-      "--candidate",
-      "cand-a",
-      "--selection",
-      join(root, "selection.json"),
-    ]),
-    { encoding: "utf8", timeout: 60000 },
-  );
+  const adopt = (brief) =>
+    spawnSync(
+      process.execPath,
+      ["src/assemble.mjs", "adopt-candidate", "--brief", brief, "--reviewed", join(root, "reviewed.json")].concat([
+        "--candidate",
+        "cand-a",
+        "--selection",
+        join(root, "selection.json"),
+      ]),
+      { encoding: "utf8", timeout: 60000 },
+    );
+  const r = adopt(at);
   const snaps = join(repo, "runs", "brief", slug, "snapshots");
   const after = existsSync(snaps) ? readdirSync(snaps).find((f) => f.endsWith("-after.yaml")) : null;
   const afterText = after ? readFileSync(join(snaps, after), "utf8") : null;
   rmSync(join(repo, "runs", "brief", slug), { recursive: true, force: true });
   ok(r.status === 0, `(a) adoption refused: ${r.stderr}`);
+  // THE BRIEFPLANPLAYGROUND IS WRITTEN BY ADOPTION (kogaki#1967), under the fixture's runs directory.
+  const page = join(root, "runs", "brief-plan-playground", slug, "sheet.html");
+  const pageLines = r.stdout.split("\n").filter((l) => l.startsWith("BriefPlanPlayground"));
+  ok(
+    pageLines.length === 1 && pageLines[0] === `BriefPlanPlayground: ${pathToFileURL(page).href}` && existsSync(page),
+    `(a) adoption did not write the BriefPlanPlayground and print its one line: ${JSON.stringify(pageLines)}`,
+  );
+  // Over a Brief not at theses/<slug>/brief.yaml, adoption succeeds and the page's absence is a warning.
+  const elsewhere = `brief-files-elsewhere-${process.pid}`;
+  const otherAt = join(root, elsewhere, "brief.yaml");
+  mkdirSync(join(root, elsewhere), { recursive: true });
+  writeFileSync(otherAt, C.briefRecordText(minted));
+  const other = adopt(otherAt);
+  rmSync(join(repo, "runs", "brief", elsewhere), { recursive: true, force: true });
+  ok(
+    other.status === 0 &&
+      existsSync(join(root, elsewhere, "structure.yaml")) &&
+      !other.stdout.includes("BriefPlanPlayground") &&
+      other.stderr.includes("BriefPlanPlayground not written: ") &&
+      other.stderr.includes("is not a theses/<slug>/brief.yaml"),
+    `(a) adoption over a Brief not at theses/<slug>/brief.yaml did not succeed with the warning: ${other.status} ${other.stderr}`,
+  );
   const files = FILES.map((f) => (existsSync(join(dir, f)) ? parseYaml(readFileSync(join(dir, f), "utf8"), f) : null));
   ok(files.every(Boolean), "(a) adoption did not write brief.yaml, structure.yaml and reader-path.yaml");
   ok(

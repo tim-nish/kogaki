@@ -1,11 +1,11 @@
-// The Brief sheet (kogaki#1776): one page over one adopted Brief file, rendered with no model call, its parts in a
-// fixed order and every heading from one fixed list.
+// The BriefPlanPlayground (kogaki#1776, kogaki#1967): one page over one adopted Brief file, rendered with no model
+// call, its parts in a fixed order and every heading from one fixed list.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
-//   The Brief sheet
+//   The BriefPlanPlayground
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,7 +19,7 @@ import { readSatellites, rolesFirstUsed, wholeReaderPath } from "../compose/sate
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 
-// THE BRIEF SHEET'S PARTS, in order (kogaki#1776, kogaki#1805).
+// THE BRIEFPLANPLAYGROUND'S PARTS, in order (kogaki#1776, kogaki#1805).
 export const BRIEF_PARTS = ["Thesis", "Claims", "Structure Mapping", "Legs"];
 // THE PART DRAWN BETWEEN STRUCTURE MAPPING AND LEGS where satellites.yaml holds an entry (kogaki#1964).
 export const ADDED_PART = "Added structures";
@@ -51,7 +51,7 @@ export const BRIEF_COLUMNS = [
   "structure",
   "Roles first used here",
 ];
-// THE WORDS THE BRIEF SHEET NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
+// THE WORDS THE BRIEFPLANPLAYGROUND NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
 const ACCENT =
   ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}tr.unreached td{opacity:.6}' +
@@ -67,14 +67,14 @@ const esc = (s) =>
 const line = (text, cls = "line") => `<p class="${cls}">${esc(text)}</p>`;
 const none = (text) => `<p class="muted">${esc(text)}</p>`;
 function heading(level, name) {
-  if (!BRIEF_HEADINGS.includes(name)) throw new Error(`the Brief sheet has no heading ${JSON.stringify(name)}`);
+  if (!BRIEF_HEADINGS.includes(name)) throw new Error(`the BriefPlanPlayground has no heading ${JSON.stringify(name)}`);
   return `<h${level}>${esc(name)}</h${level}>`;
 }
 const part = (name, body) =>
   `<section class="card" id="${esc(name.toLowerCase().replace(/[^a-z]+/g, "-"))}">${heading(2, name)}${body}</section>`;
 const table = (head, rows) => {
   const stray = head.find((h) => !BRIEF_COLUMNS.includes(h));
-  if (stray !== undefined) throw new Error(`the Brief sheet has no column heading ${JSON.stringify(stray)}`);
+  if (stray !== undefined) throw new Error(`the BriefPlanPlayground has no column heading ${JSON.stringify(stray)}`);
   return tableHtml(head, rows);
 };
 const tableHtml = (head, rows) =>
@@ -83,7 +83,7 @@ const row = (cells, cls = "") =>
   `<tr${cls ? ` class="${cls}"` : ""}>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 const UNREACHED = "unreached — the article leaves it";
 
-// ---- THE BRIEF SHEET (kogaki#1776) ----
+// ---- THE BRIEFPLANPLAYGROUND (kogaki#1776) ----
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
 const BRIEF_CSS = ".diagram .mermaid{margin:.5em 0}tr.unreached td{color:#e07070}";
 
@@ -256,7 +256,7 @@ function legsPart(brief, claims, satellites) {
   );
 }
 
-export function renderBriefSheet({ brief, claims, satellites = [] }) {
+export function renderBriefPlanPlayground({ brief, claims, satellites = [] }) {
   for (const leg of brief.reader_path || []) {
     const bad = undeclaredLegKeyRefusal(leg, `Leg ${leg.leg_id}`);
     if (bad) throw new Error(bad);
@@ -321,9 +321,9 @@ export function renderBriefSheet({ brief, claims, satellites = [] }) {
   ];
   return (
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>Brief ${esc(brief.slug)}</title><style>${proofSheetCss()}\n${ACCENT}${BRIEF_CSS}</style>` +
+    `<title>BriefPlanPlayground ${esc(brief.slug)}</title><style>${proofSheetCss()}\n${ACCENT}${BRIEF_CSS}</style>` +
     `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true, theme: "dark" });</script></head><body>` +
-    `<h1>Brief — ${esc(brief.slug)}</h1>` +
+    `<h1>BriefPlanPlayground — ${esc(brief.slug)}</h1>` +
     parts.join("") +
     "</body></html>\n"
   );
@@ -356,7 +356,7 @@ function renderOrExit(briefPath) {
   try {
     return {
       sha256: read.sha256,
-      html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath), satellites }),
+      html: renderBriefPlanPlayground({ brief, claims: briefClaims(brief, briefPath), satellites }),
     };
   } catch (e) {
     process.stderr.write(`sheet: ${briefPath}: ${e.message}\n`);
@@ -364,7 +364,8 @@ function renderOrExit(briefPath) {
   }
 }
 
-// The Brief sheet's owner act, /brief-sheet (kogaki#1788): its home is read from the Brief's path, so
+// The BriefPlanPlayground's `show` (kogaki#1788), run by adoption and `src/satellite.mjs add` (kogaki#1967): its home
+// is read from the Brief's path, so
 // `<root>/theses/<slug>/brief.yaml` writes under `<root>/runs/brief-plan-playground/<slug>/`.
 function showMain(briefPath) {
   const abs = resolve(briefPath);
