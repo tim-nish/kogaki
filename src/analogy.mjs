@@ -90,8 +90,9 @@ function answerText(stdout) {
   throw new Error("the call's json answer carries no string `result`");
 }
 
-// ONE MODEL CALL: `{ record }`, `{ refusal }` for an answer that is not one JSON record, or `{ died }`.
-function oneCall(judge, prompt) {
+// ONE MODEL CALL: `{ record }`, `{ refusal }` for an answer that is not one JSON record, or `{ died }`. src/satellite.mjs
+// makes its calls through it (kogaki#1963).
+export function oneCall(judge, prompt) {
   const argv = [
     "-p",
     "--model",

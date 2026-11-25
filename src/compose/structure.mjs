@@ -208,6 +208,20 @@ export function componentsOf(structure, claims) {
   });
 }
 
+// A COMPONENT AS THE `apex` CALL IS HANDED IT (kogaki#1768): its id, its relations each with `id`, `name` and `holds`
+// with its Roles named, its `top` and its claims. /brief and src/satellite.mjs hand it alike (kogaki#1963).
+export function describedComponent(structure, k) {
+  const element = new Map(
+    structure.relations.map((x) => [x.id, { id: x.id, name: x.name, holds: readHolds(structure, x.holds) }]),
+  );
+  return {
+    component: k.component,
+    relations: k.relations.map((id) => element.get(id)),
+    top: k.top,
+    claims: k.claims,
+  };
+}
+
 // A COMPONENT IS A THESIS CANDIDATE ONLY WHERE A HIGHER-ORDER RELATION CONNECTS ITS CLAIMS (kogaki#1773): `connected`
 // carries a higher-order relation of `structure`, `unconnected` carries ordinary relations alone and is reported,
 // never offered.

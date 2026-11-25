@@ -3,10 +3,7 @@
 // block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
-import { resolve } from "node:path";
 import { briefLegs, readBriefFiles, unfilledSlots, undeclaredLegKeyRefusal } from "../compose.mjs";
-import { settingValue } from "../workflow/judge.mjs";
-import { REPO } from "../workflow/run-record.mjs";
 
 // ---------------------------------------------------------------------------
 // THE BRIEF THIS STAGE READS. An adopted Brief — no slot awaiting composition — read from its three files, each Leg
@@ -35,11 +32,5 @@ export function readAdoptedBrief(briefPath) {
   return { text, record: parsed.record, legs, renamed };
 }
 
-// The Audience the Brief was composed for: the Brief's own `compose_path`, or the one
-// `brief.audience_file` names for a Brief minted before that line existed — the read
-// `packetPersonaPath` in src/draft.mjs makes. This stage reads its `persona`.
-export function audiencePathOf(record) {
-  const named = record && record.compose_path;
-  if (typeof named === "string" && named !== "") return resolve(REPO, named);
-  return resolve(REPO, String(settingValue({ setting: "brief.audience_file" })));
-}
+// The Audience the Brief was composed for: its one reader is shared (kogaki#1963).
+export { audiencePathOf } from "../compose/audience.mjs";

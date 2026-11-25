@@ -7,9 +7,21 @@
 //   none: this file names no spec content beyond its Issue pointers
 //
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseYaml } from "../yaml.mjs";
 import { isPlainMap, loadMoveIds } from "./render.mjs";
 import { moveContract } from "./moves.mjs";
+import { settingValue } from "../workflow/judge.mjs";
+import { REPO } from "../workflow/run-record.mjs";
+
+// The Audience the Brief was composed for: the Brief's own `compose_path`, or the one
+// `brief.audience_file` names for a Brief minted before that line existed — the read
+// `packetPersonaPath` in src/draft.mjs makes. Moved here from src/paragraph-plan/brief.mjs (kogaki#1963).
+export function audiencePathOf(record) {
+  const named = record && record.compose_path;
+  if (typeof named === "string" && named !== "") return resolve(REPO, named);
+  return resolve(REPO, String(settingValue({ setting: "brief.audience_file" })));
+}
 
 // THE AUDIENCE FILE (kogaki#1370, owner decision 2026-10-13): one
 // owner-authored file under `audiences/` holding two keys -- `persona`, who

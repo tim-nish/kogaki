@@ -22,10 +22,10 @@ import {
 import { applyLegSections } from "../compose/sections.mjs";
 import {
   componentsOf,
+  describedComponent,
   elementLabel,
   partitionComponents,
   pathReachRefusal,
-  readHolds,
   structureLegs,
   validateApex,
 } from "../compose/structure.mjs";
@@ -378,18 +378,7 @@ export const STATE_WORK = {
     }
     const multi = connected.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
-    const element = new Map(
-      state.structure.relations.map((x) => [
-        x.id,
-        { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) },
-      ]),
-    );
-    const described = (k) => ({
-      component: k.component,
-      relations: k.relations.map((id) => element.get(id)),
-      top: k.top,
-      claims: k.claims,
-    });
+    const described = (k) => describedComponent(state.structure, k);
     let apexes = [];
     if (multi.length) {
       const validate = (p) => {

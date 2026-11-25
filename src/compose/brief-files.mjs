@@ -73,7 +73,7 @@ const dupe = (list) => {
 
 // THE REFUSALS A HAND EDIT OF structure.yaml MEETS (kogaki#1955): an id that names nothing, and nothing else.
 // `structure` is read as one list. Returns an error string or null.
-function structureFileRefusal(structure, at) {
+export function structureFileRefusal(structure, at) {
   if (!isMap(structure)) return `${at} is not a map of \`roles\` and \`relations\``;
   const roles = Array.isArray(structure.roles) ? structure.roles : [];
   const relations = Array.isArray(structure.relations) ? structure.relations : [];
@@ -108,7 +108,7 @@ function structureFileRefusal(structure, at) {
 }
 
 // THE REFUSALS A HAND EDIT OF reader-path.yaml MEETS (kogaki#1955). Returns an error string or null.
-function readerPathFileRefusal(legs, structure, at, structureAt) {
+export function readerPathFileRefusal(legs, structure, at, structureAt) {
   if (!Array.isArray(legs)) return `${at} carries no \`reader_path\` list`;
   const d = dupe(legs);
   if (d !== null) return `${at}: two Legs share the id ${JSON.stringify(d)}`;
