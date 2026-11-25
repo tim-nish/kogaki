@@ -946,6 +946,26 @@
       }
     },
     {
+      "id": "satellite",
+      "file": "checks/check-satellite.sh",
+      "covers": [
+        "src/satellite.mjs",
+        "src/compose/satellites.mjs"
+      ],
+      "admission": {
+        "contract": "The structures read from Decisions or Lessons by themselves, kept in `satellites.yaml` beside a Brief's three files (kogaki#1963), read by one reader, `readSatellites` in `src/compose/satellites.mjs`, outside the Brief's hash. Its cases in `checks/satellite-cases.mjs`, a stub standing in for the model and a file for the gateway: (a) the `add` verb of `src/satellite.mjs` over one Decision whose text opens with a headline between `**` marks and one Lesson, with a reading of one higher-order relation over two relations, makes one call and writes `s_1` with sources `U1` and `U2` at their cites, the headline and the first sentence, `attains_thesis` naming the higher-order relation and three Legs `s_1.L1` to `s_1.L3`, keeping the call under the runs directory; (b) with a reading of two higher-order relations nothing relates, it makes the apex call, appends the answered apex as `attains_thesis` and writes six Legs; (c) with a reading in two parts it exits 1 printing both as sentences and writes nothing; (d) with a reading `validateReadSet` refuses, or one whose source is the `from` of no relation, it makes three calls, exits 1 printing the refusal and writes nothing; (e) a journey address, an address the Units do not hold, a `--before` naming no Leg and an `--as` outside the three names each exit 1 naming it with no call; (f) run again, it keeps `s_1` and the file's head, a comment written by hand included, and appends `s_2`; (g) `wholeReaderPath` gives the Legs of `s_1`, of `s_2`, then the Brief's three, and the Brief's three alone with no file; (h) the `check` verb of `src/brief-files.mjs` prints what it prints today with no file, the whole Reader Path with the entry's id and `rst_relation` as a fourth field with the file, passes a Leg removed and a sentence reworded by hand, and refuses each row of the file's refusals naming what the row says; (i) the Brief's three texts and their hash are the same after `add`, and a ParagraphPlan made before it is not found stale.",
+        "license": "kogaki#1963",
+        "tier": "pre-push",
+        "case_floor": 52,
+        "runtime_ms": 3800,
+        "runtime_ms_note": "First measured at kogaki#1963, 2026-11-26: three plain serial runs of the cases, 2.68, 2.72 and 3.03 s; 3800 is 25% above the slowest. No model call and no gateway call.",
+        "efficacy": "case: checks/satellite-cases.mjs::a before naming no Leg",
+        "efficacy_note": "mutation-verified at kogaki#1963: disabling the `before` test in `satellitesRefusal` failed that (h) case, and disabling the idle-source test in `readingRefusal` failed the three (d) cases of the reading whose source states no relation.",
+        "removal_signal": "a ruling retires satellites.yaml or the command that appends its entries",
+        "removal_instrument": "probe: ! test -f src/compose/satellites.mjs"
+      }
+    },
+    {
       "id": "brief-sheet",
       "file": "checks/check-brief-sheet.sh",
       "covers": [
