@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # check-brief-files -- an adopted Brief as three files (kogaki#1955): brief.yaml, structure.yaml and reader-path.yaml,
 # read through one reader that gives each Leg its relation's `holds`, with the `check` and `split` verbs of
-# src/brief-files.mjs. The cases are checks/brief-files-cases.mjs, with no model call; this member compares their
-# count with its `case_floor` in both directions (kogaki#661, kogaki#970).
+# src/brief-files.mjs, and the BriefPlanPlayground written by adoption (kogaki#1967). The cases are
+# checks/brief-files-cases.mjs, with no model call; this member compares their count with its `case_floor` in both
+# directions (kogaki#661, kogaki#970).
 set -u
 cd "$(dirname "$0")/.."
 

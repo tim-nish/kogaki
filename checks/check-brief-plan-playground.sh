@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# check-brief-sheet -- the Brief sheet (kogaki#1776) and the check of the structure a Brief is read into, each called with no
-# model call. Its cases are checks/brief-sheet-cases.mjs, and case (m)'s checks/brief-sheet-considered-cases.mjs.
+# check-brief-plan-playground -- the BriefPlanPlayground (kogaki#1776, kogaki#1967) and the check of the structure a
+# Brief is read into, each called with no model call. Its cases are checks/brief-plan-playground-cases.mjs, and case
+# (m)'s checks/brief-plan-playground-considered-cases.mjs.
 # The file drove the Leg-Planning Playground's Trial until that Playground left; the cases kept carry the letters they
 # had, and cases (a), (b), (f), (g) and (h), the runs of the Trial, left with it.
 
@@ -23,33 +24,33 @@
 #       no Leg serves the unreached relation. A structure stored under `relations` and `higher_order` with `h_<n>` ids is
 #       read by `asOneList` as the one list the same reading mints, each `h_<n>` renamed `c_<R+n>` with every reference
 #       to it, the record in hand unchanged, and a structure already in one list is returned as it is.
-#   (k) the Brief sheet (kogaki#1776): `sheet.mjs brief` over a Brief of that structure and its Legs renders with no model
-#       call, the graph first labelled by name, the Legs last, no retired word, every table under a <thead> of one
+#   (k) the BriefPlanPlayground (kogaki#1776): `sheet.mjs brief` over a Brief of that structure and its Legs renders
+#       with no model call, its title and first heading BriefPlanPlayground and the slug (kogaki#1967), the graph first labelled by name, the Legs last, no retired word, every table under a <thead> of one
 #       heading per column, the Claims table id, claim and reached with no cite, and the apex's `from` empty. A Brief
 #       stored under the two lists renders the sheet of the same Brief stored under one, and is not written back.
 
-#   (l) the Brief sheet's owner act (kogaki#1788): `sheet.mjs show` over the Brief of (k) writes
-#       <root>/runs/brief-plan-playground/<slug>/sheet.html beside brief.sha256 and prints its file:// URL, the skill
-#       .claude/skills/brief-sheet/SKILL.md runs that command, and a Leg carrying `waypoints`, `move` or no `text` is
-#       refused naming the Leg and the key, with nothing written.
+#   (l) the BriefPlanPlayground's `show` (kogaki#1788): `sheet.mjs show` over the Brief of (k) writes
+#       <root>/runs/brief-plan-playground/<slug>/sheet.html beside brief.sha256 and prints its file:// URL, and a Leg
+#       carrying `waypoints`, `move` or no `text` is refused naming the Leg and the key, with nothing written. No slash
+#       command runs it (kogaki#1967).
 #   (m) the connections the Brief's read weighed (kogaki#1817): under `considered: true` a read carrying a `considered` row
 #       per weighed connection passes with its names minted to ids, and a missing `considered`, a higher-order relation
 #       with no `connected` row, a relation in no row, a `connected` row no higher-order relation relates, a
 #       `not_connected` row one does, a verdict outside the two and a criterion naming no claim are refused naming each;
-#       the Brief sheet renders each connected row's why beside its higher-order relation and a "Not connected" table
+#       the BriefPlanPlayground renders each connected row's why beside its higher-order relation and a "Not connected" table
 #       naming the relations, the claims read and the why, and a Brief carrying no `considered` renders neither. Its
-#       cases are checks/brief-sheet-considered-cases.mjs.
+#       cases are checks/brief-plan-playground-considered-cases.mjs.
 # Cases (e) and (i), the GROUNDED re-ask and the no-fit stop, went with the Waypoint Call (kogaki#1775).
 set -u
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-node checks/brief-sheet-cases.mjs
+node checks/brief-plan-playground-cases.mjs
 main=$?
 # Case (m)'s pass is held to this member's `case_floor` in checks/registry.json, in both directions (kogaki#661, kogaki#970).
-FLOOR=$(node -e 'const r = require("./checks/registry.json"); console.log(r.checks.find((t) => t.id === "brief-sheet").admission.case_floor)')
-out=$(node checks/brief-sheet-considered-cases.mjs) || { echo "$out"; exit 1; }
+FLOOR=$(node -e 'const r = require("./checks/registry.json"); console.log(r.checks.find((t) => t.id === "brief-plan-playground").admission.case_floor)')
+out=$(node checks/brief-plan-playground-considered-cases.mjs) || { echo "$out"; exit 1; }
 echo "$out"
-n=$(printf '%s\n' "$out" | sed -n 's/^check-brief-sheet (m): ok, \([0-9][0-9]*\) case(s)$/\1/p')
+n=$(printf '%s\n' "$out" | sed -n 's/^check-brief-plan-playground (m): ok, \([0-9][0-9]*\) case(s)$/\1/p')
 if [ -z "$n" ] || (( n < FLOOR )); then echo "FAIL: (m) ran ${n:-no} case(s), below its case_floor of $FLOOR — cases were lost"; exit 1; fi
 if (( n > FLOOR )); then echo "FAIL: (m) ran $n case(s), above its case_floor of $FLOOR — set case_floor to $n in checks/registry.json"; exit 1; fi
 exit "$main"

@@ -33,6 +33,7 @@ import { oneCall } from "./analogy.mjs";
 import { renderPromptFile } from "./prompt-file.mjs";
 import { resolveJudgeBinary } from "./workflow/judge.mjs";
 import { REPO, gatewayQuery, relFromRepo } from "./workflow/run-record.mjs";
+import { printBriefPlanPlayground } from "./workflow/playground-file.mjs";
 
 export const STRUCTURE_PROMPT = "sme/read-structure";
 export const APEX_PROMPT = "brief/apex";
@@ -251,6 +252,8 @@ function main(argv) {
     process.stderr.write(`satellite: ${r.error}\n`);
     process.exit(1);
   }
+  // THE BRIEFPLANPLAYGROUND IS WRITTEN AGAIN after the entry is appended (kogaki#1967); a page not written is a warning.
+  printBriefPlanPlayground(resolve(briefPath));
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main(process.argv.slice(2));

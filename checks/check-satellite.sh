@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # check-satellite -- the structures read from Decisions or Lessons by themselves in satellites.yaml (kogaki#1963): the
 # `add` verb of src/satellite.mjs over a stub and a file of served Units, the `check` verb of src/brief-files.mjs
-# reading the file, and the Brief's files untouched by it. The cases are checks/satellite-cases.mjs, with no model call;
-# this member compares their count with its `case_floor` in both directions (kogaki#661, kogaki#970).
+# reading the file, the Brief's files untouched by it, and the BriefPlanPlayground written again by `add`
+# (kogaki#1967). The cases are checks/satellite-cases.mjs, with no model call; this member compares their count with its
+# `case_floor` in both directions (kogaki#661, kogaki#970).
 set -u
 cd "$(dirname "$0")/.."
 

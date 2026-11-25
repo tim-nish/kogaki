@@ -39,6 +39,7 @@ import {
 } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
+import { printBriefPlanPlayground } from "./workflow/playground-file.mjs";
 
 /** @returns {never} */
 function fail(msg) {
@@ -873,6 +874,8 @@ export function cmdAdoptCandidate(args) {
   console.log(
     `adopted ${id} — its Reader Path is the Brief's; its Strand coverage and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`,
   );
+  // THE BRIEFPLANPLAYGROUND IS WRITTEN BY ADOPTION (kogaki#1967); a page not written is a warning, never a refusal.
+  printBriefPlanPlayground(briefPath);
 }
 
 // ---------------------------------------------------------------------------

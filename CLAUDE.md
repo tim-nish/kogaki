@@ -15,6 +15,12 @@ their policy pins, and are re-checked against the served surface at pickup.
 quoted from served renderings at pins (`specs/SPEC.md` §2). Kogaki
 guarantees citations; the substrate guarantees facts.
 
+**Playground.** The maintainer reads a Brief in the browser and never writes
+the page. When the maintainer says a file under `theses/<slug>/` was edited, or
+asks to look at a Brief, the session runs
+`node src/brief-plan-playground/sheet.mjs show --brief theses/<slug>/brief.yaml`,
+opens the URL it prints in the browser, and only then discusses it.
+
 ## Compact Instructions
 
 A `/ship-cycle` run outlives its context window. When this session is

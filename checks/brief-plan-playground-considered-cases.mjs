@@ -1,5 +1,5 @@
-// Case (m) of checks/check-brief-sheet.sh (kogaki#1817): the connections the Brief's structure read weighed, refused by
-// `validateReadSet` under `considered: true` and rendered by the Brief sheet. Run from the repository root.
+// Case (m) of checks/check-brief-plan-playground.sh (kogaki#1817): the connections the Brief's structure read weighed,
+// refused by `validateReadSet` under `considered: true` and rendered by the BriefPlanPlayground. Run from the repository root.
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -11,7 +11,7 @@ const ok = (cond, msg) => {
 };
 const load = (p) => import(pathToFileURL(join(resolve("."), p)).href);
 const { mintStructure, validateReadSet } = await load("src/sme/structure.mjs");
-const { renderBriefSheet } = await load("src/brief-plan-playground/sheet.mjs");
+const { renderBriefPlanPlayground } = await load("src/brief-plan-playground/sheet.mjs");
 
 const CLAIMS = [
   { id: "c1", claim: "A rule set applies automatically only to the files its walker visits." },
@@ -100,9 +100,9 @@ for (const [what, s, word] of [
   ok(v.text && v.text.includes(word), `(m) ${what} was not refused naming ${word}: ${JSON.stringify(v)}`);
 }
 
-// THE BRIEF SHEET over a Brief carrying the minted read, and over the same Brief carrying no `considered`.
+// THE BRIEFPLANPLAYGROUND over a Brief carrying the minted read, and over the same Brief carrying no `considered`.
 const brief = { slug: "fixture", thesis: "A green run says nothing of the files never visited.", reader_path: [] };
-const sheet = renderBriefSheet({ brief: { ...brief, structure: MINTED }, claims: CLAIMS });
+const sheet = renderBriefPlanPlayground({ brief: { ...brief, structure: MINTED }, claims: CLAIMS });
 const map = sheet.slice(sheet.indexOf("<h2>Structure Mapping</h2>"), sheet.indexOf("<h2>Legs</h2>"));
 const higher = map.slice(map.indexOf("<h3>Higher-order relations</h3>"), map.indexOf("<h3>Not connected</h3>"));
 ok(
@@ -112,7 +112,7 @@ ok(
     /<tr><td>c_6<\/td><td>h2<\/td><td>[^<]*<\/td><td>c3<\/td><td>WHY-H2 the team trusts the run\.<\/td><\/tr>/.test(
       higher,
     ),
-  "(m) the Brief sheet does not render each connected row's why beside its higher-order relation",
+  "(m) the BriefPlanPlayground does not render each connected row's why beside its higher-order relation",
 );
 const not = map.slice(map.indexOf("<h3>Not connected</h3>"));
 ok(
@@ -123,10 +123,10 @@ ok(
     not.includes(`c3: ${CLAIMS[2].claim}`) &&
     not.includes("WHY-NOT no claim ties the log to the pass.") &&
     !not.includes("WHY-H"),
-  "(m) the Brief sheet does not render the Not connected table naming the relations, the claims read and the why",
+  "(m) the BriefPlanPlayground does not render the Not connected table naming the relations, the claims read and the why",
 );
 const { considered, ...bare } = MINTED;
-const plain = renderBriefSheet({ brief: { ...brief, structure: bare }, claims: CLAIMS });
+const plain = renderBriefPlanPlayground({ brief: { ...brief, structure: bare }, claims: CLAIMS });
 ok(
   considered && !plain.includes("Not connected") && !plain.includes("<th>why</th>"),
   "(m) a Brief carrying no `considered` renders a Not connected table or a why column",
@@ -136,4 +136,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log(`check-brief-sheet (m): ok, ${cases} case(s)`);
+console.log(`check-brief-plan-playground (m): ok, ${cases} case(s)`);

@@ -1,9 +1,9 @@
 // The cases of checks/check-satellite.sh (kogaki#1963), each stated in that member's `contract` in checks/registry.json:
-// (a) `add` over one Decision and one Lesson and a reading with one higher-order relation writes `s_1`; (b) a reading
-// with two tops makes the apex call; (c) a reading in two parts stops; (d) a refused reading is asked three times;
-// (e) a refused argument makes no call; (f) run again, it keeps `s_1` and the file's head; (g) `wholeReaderPath`;
-// (h) the `check` verb with no file, with the written file, after a hand edit, and each refusal of the file; (i) the
-// Brief's files, their hash and a plan made before are untouched. A stub stands in for the model and a file for the
+// (a) `add` over one Decision and one Lesson and a reading with one higher-order relation writes `s_1` and the
+// BriefPlanPlayground (kogaki#1967); (b) a reading with two tops makes the apex call; (c) a reading in two parts stops;
+// (d) a refused reading is asked three times; (e) a refused argument makes no call; (f) run again, it keeps `s_1` and
+// the file's head; (g) `wholeReaderPath`; (h) the `check` verb with no file, with the written file, after a hand edit,
+// and each refusal of the file; (i) the Brief's files, their hash and a plan made before are untouched. A stub stands in for the model and a file for the
 // gateway.
 import {
   mkdtempSync,
@@ -211,6 +211,35 @@ ok(
   first.out.includes("wrote s_1") && first.out.includes("s_1.L3\tc_3\t"),
   `(a) add does not print the entry and its Legs: ${first.out}`,
 );
+// THE BRIEFPLANPLAYGROUND IS WRITTEN AGAIN by `add` (kogaki#1967), and holds the new entry's id.
+{
+  const page = join(root, "runs", "brief-plan-playground", "b1", "sheet.html");
+  const pageLines = first.out.split("\n").filter((l) => l.startsWith("BriefPlanPlayground"));
+  ok(
+    pageLines.length === 1 && pageLines[0] === `BriefPlanPlayground: ${pathToFileURL(page).href}`,
+    `(a) add does not print the BriefPlanPlayground's one line: ${JSON.stringify(pageLines)}`,
+  );
+  ok(
+    existsSync(page) && readFileSync(page, "utf8").includes("s_1 (Background)"),
+    "(a) the BriefPlanPlayground written by add does not hold the entry s_1",
+  );
+  // Over a Brief not at theses/<slug>/brief.yaml, `add` succeeds and the page's absence is a warning.
+  const dir = join(root, "elsewhere");
+  mkdirSync(dir, { recursive: true });
+  const t = C.briefFileTexts(RECORD);
+  writeFileSync(join(dir, "brief.yaml"), t.brief);
+  writeFileSync(join(dir, "structure.yaml"), t.structure);
+  writeFileSync(join(dir, "reader-path.yaml"), t.readerPath);
+  const r = add(join(dir, "brief.yaml"), ADD);
+  ok(
+    r.status === 0 &&
+      r.out.includes("wrote s_1") &&
+      !r.out.includes("BriefPlanPlayground") &&
+      r.err.includes("BriefPlanPlayground not written: ") &&
+      r.err.includes("is not a theses/<slug>/brief.yaml"),
+    `(a) add over a Brief not at theses/<slug>/brief.yaml did not succeed with the warning: ${r.status} ${r.err}`,
+  );
+}
 {
   const kept = join(runs, "b1");
   const stamps = existsSync(kept) ? readdirSync(kept) : [];

@@ -3413,8 +3413,8 @@ instructions.
 **THE PLAYGROUND LEFT (2026-11-20).** `src/leg-planning-playground/`, its row
 `sme_read_set` and its sheet are removed. What stands of this section is what
 §4.22 takes from it, namely the ids minted by the runner, the apex that alone
-carries no `from` and reach computed from the apex, and the Brief sheet of
-§4.21.1. The rest is kept as the record of the Trial.
+carries no `from` and reach computed from the apex, and the
+BriefPlanPlayground of §4.21.1. The rest is kept as the record of the Trial.
 
 **SUPERSEDED IN PART BY §4.22 (kogaki#1775, owner design 2026-11-10).** A Trial's stages are `structure`, `legs` and `paragraph-plan`: the Legs are derived from the structure with no Call, one per relation and higher-order relation the apex reaches, each carrying its relation's `holds` as `text`. The text below is kept as the record of the Trial before.
 
@@ -3571,25 +3571,25 @@ and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
 sections, `introduces`, `opens_section` and renderings, which are the
 Brief's; and fetching a Strand.
 
-#### 4.21.1 The Brief sheet (kogaki#1776, kogaki#1788)
+#### 4.21.1 The BriefPlanPlayground (kogaki#1776, kogaki#1788, kogaki#1967)
 
-**The Brief sheet, and its owner act** (kogaki#1776, kogaki#1788). The Brief
-sheet is one page over one adopted Brief file, rendered with no model call;
-the owner names it the BriefPlanPlayground. Its one owner act is
-`/brief-sheet theses/<slug>/brief.yaml`, which runs
-`node src/brief-plan-playground/sheet.mjs show --brief <file>`, writes
+**The BriefPlanPlayground, and who writes it** (kogaki#1776, kogaki#1788,
+kogaki#1967). The BriefPlanPlayground is one page over one adopted Brief file,
+rendered with no model call; its title and first heading are
+BriefPlanPlayground and the slug.
+`node src/brief-plan-playground/sheet.mjs show --brief <file>` writes
 `runs/brief-plan-playground/<slug>/sheet.html` beside `brief.sha256`
-naming the file it rendered, and prints the sheet's `file://` URL as its one
-line. A Brief whose Leg carries a key `src/leg-schema.json` does not declare,
+naming the file it rendered, and prints the page's `file://` URL as its one
+line. The page is written by `/brief` at adoption and by `src/satellite.mjs add`, each printing its URL, and a session writes it again after a file of the Brief is edited by hand. No slash command writes it. A Brief whose Leg carries a key `src/leg-schema.json` does not declare,
 or no `text`, is refused naming the Leg and the key, and nothing is
-written. The sheet renders four parts in order: `Thesis`, `Claims`,
+written. The page renders four parts in order: `Thesis`, `Claims`,
 `Structure Mapping` and `Legs` (kogaki#1805). `Structure Mapping` holds the
 structure: the graph first, then the `Roles`, `Relations` and
 `Higher-order relations` tables, each under its own heading.
 
-**Its check.** `checks/check-brief-sheet.sh`, registered as `brief-sheet`,
-renders the sheet with no model call, and checks the structure a Brief is
-read into and the Legs derived from it.
+**Its check.** `checks/check-brief-plan-playground.sh`, registered as
+`brief-plan-playground`, renders the page with no model call, and checks the
+structure a Brief is read into and the Legs derived from it.
 
 ### 4.22 The structure-first Brief (kogaki#1768)
 
@@ -3691,7 +3691,7 @@ carrying a `structure` binds every Leg's `relation` to it (`legStructureRefusal`
 `validateLegs` refuses a retired Leg field by name. Every reader of the
 Brief — `/paragraph-plan`, `/draft`
 and the playgrounds — reads this one shape, and `/draft`, `/paragraph-plan` and the
-Brief sheet refuse a Leg carrying a key `src/leg-schema.json` does not declare,
+BriefPlanPlayground refuse a Leg carrying a key `src/leg-schema.json` does not declare,
 naming the key (`undeclaredLegKeyRefusal`, kogaki#1885).
 
 **ParagraphPlan after the Brief.** The Brief binds no Move to a Leg, so the
