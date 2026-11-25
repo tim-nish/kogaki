@@ -48,6 +48,41 @@ export function elementLabel(structure, id, claims = null) {
   return `${x.name ?? id} (${ids.join(", ")})`;
 }
 
+// THE PART OF THE STRUCTURE ONE RELATION REACHES (kogaki#1830): the relation, every relation its `relates` names,
+// closed, and the Roles their `between` names, each list in the structure's order.
+function reached(structure, id) {
+  const relation = new Map(among(structure).map((r) => [r.id, r]));
+  const higher = new Map(over(structure).map((h) => [h.id, h]));
+  const roles = new Set();
+  const relations = new Set();
+  const walk = (x) => {
+    if (relations.has(x)) return;
+    if (relation.has(x)) {
+      relations.add(x);
+      for (const r of relation.get(x).between || []) roles.add(r);
+    } else if (higher.has(x)) {
+      relations.add(x);
+      (higher.get(x).relates || []).forEach(walk);
+    }
+  };
+  walk(id);
+  return { roles, relations };
+}
+
+const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => Object.hasOwn(obj, k)).map((k) => [k, obj[k]]));
+
+export function legStructureOf(structure, relationId) {
+  const r = reached(structure, relationId);
+  return {
+    roles: (structure.roles || [])
+      .filter((x) => r.roles.has(x.id))
+      .map((x) => pick(x, ["id", "name", "context", "attributes"])),
+    relations: (structure.relations || [])
+      .filter((x) => r.relations.has(x.id))
+      .map((x) => pick(x, ["id", "name", "between", "relates", "holds", "holds_over_relations"])),
+  };
+}
+
 // THE IDS THE APEX REACHES: `attains_thesis` and every relation and higher-order relation its `relates` names, closed,
 // the relations among Roles first, then the higher-order relations, each in the order of the list.
 export function reachOf(structure) {

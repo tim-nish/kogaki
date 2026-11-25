@@ -676,6 +676,243 @@ for (const [key, retire] of [
   );
 }
 
+// (n) the structures added beside the Brief (kogaki#1964): a Brief of three Legs over three Roles, with no satellites.yaml,
+// then one entry before its first Leg, then two, then an entry whose `before` names no Leg.
+const { ADDED_PART, FIRST_USED_LINE } = await load("src/brief-plan-playground/sheet.mjs");
+const { rolesFirstUsed, satellitesPathFor } = await load("src/compose/satellites.mjs");
+const nClaims = [
+  { id: "c1", claim: "A cache keeps the last build's outputs." },
+  { id: "c2", claim: "A key names what a cached output was built from." },
+];
+const nStructure = withReach(
+  mintStructure({
+    roles: [
+      { name: "cache", context: "Where outputs are kept.", attributes: [], claims: ["c1"] },
+      { name: "build", context: "One run of the compiler.", attributes: [], claims: ["c1", "c2"] },
+      { name: "key", context: "What an output was built from.", attributes: [], claims: ["c2"] },
+    ],
+    relations: [
+      { name: "keeps", between: ["cache", "build"], holds: "{cache} keeps what {build} made.", from: "c1" },
+      { name: "names", between: ["build", "key"], holds: "{key} names what {build} read.", from: "c2" },
+      { name: "reuse", relates: ["keeps", "names"], holds: "{cache} is reused where {key} is unchanged." },
+    ],
+    attains_thesis: "reuse",
+  }).structure,
+  nClaims,
+);
+const nLegs = structureLegs(nStructure, nClaims);
+const nRoot = join(root, "added");
+const nBrief = join(nRoot, "theses", "added", "brief.yaml");
+mkdirSync(dirname(nBrief), { recursive: true });
+const nTexts = writeBriefFiles(nBrief, {
+  slug: "added",
+  ...ADOPTED,
+  thesis: "A cache is safe to reuse only where its key is unchanged.",
+  strands: nClaims.map((c) => ({ id: c.id, slug: c.id })),
+  structure: nStructure,
+  reader_path: nLegs,
+});
+const SOURCES = [
+  { id: "U1", cite: "coding::decision/keys-hash-inputs@0123456789ab", claim: "A key hashes every input file." },
+  {
+    id: "U2",
+    cite: "coding::lesson/a-stale-key-reuses-a-wrong-output@ba9876543210",
+    claim: "A stale key reuses a wrong output.",
+  },
+];
+const entryOf = (id, rst, before) => {
+  const structure = withReach(
+    mintStructure({
+      roles: [
+        { name: "input", context: "A file a build reads.", attributes: [], claims: ["U1"] },
+        { name: "hash", context: "A digest of the inputs.", attributes: [], claims: ["U1", "U2"] },
+        { name: "output", context: "What a build writes.", attributes: [], claims: ["U2"] },
+      ],
+      relations: [
+        { name: "digest", between: ["input", "hash"], holds: "{hash} is read over every {input}.", from: "U1" },
+        { name: "stale", between: ["hash", "output"], holds: "An old {hash} returns a wrong {output}.", from: "U2" },
+        { name: "why", relates: ["digest", "stale"], holds: "Only a full {hash} keeps {output} right." },
+      ],
+      attains_thesis: "why",
+    }).structure,
+    SOURCES,
+  );
+  return {
+    id,
+    rst_relation: rst,
+    before,
+    sources: SOURCES,
+    structure,
+    reader_path: structureLegs(structure, SOURCES).map((l, i) => ({ leg_id: `${id}.L${i + 1}`, relation: l.relation })),
+  };
+};
+const unesc = (t) =>
+  t
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&");
+const nRun = (args) =>
+  spawnSync(process.execPath, ["src/brief-plan-playground/sheet.mjs", ...args], {
+    encoding: "utf8",
+    env: { ...process.env, KOGAKI_JUDGE_CLI: join(root, "no-model") },
+    timeout: 60000,
+  });
+const nSheet = (label, satellites) => {
+  const path = satellitesPathFor(nBrief);
+  if (satellites) writeFileSync(path, stringifyYaml({ satellites }));
+  else rmSync(path, { force: true });
+  const out = join(nRoot, `out-${label}`);
+  const r = nRun(["brief", "--brief", nBrief, "--out", out]);
+  const html = existsSync(join(out, "sheet.html")) ? readFileSync(join(out, "sheet.html"), "utf8") : "";
+  const pre = /<summary>Graph as text<\/summary><pre>([\s\S]*?)<\/pre>/.exec(html);
+  const legs = html.slice(html.indexOf("<h2>Legs</h2>"));
+  const legRows = [...legs.matchAll(/<tr><td>([^<]*)<\/td>((?:<td>[\s\S]*?<\/td>)*)<\/tr>/g)].map((m) => [
+    m[1],
+    ...[...m[2].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => c[1]),
+  ]);
+  return { r, html, graph: pre ? unesc(pre[1]) : "", legs, legRows };
+};
+
+// No file: the graph has no subgraph or dotted edge, no Added structures part, no structure column; the Roles first used.
+const n0 = nSheet("none", null);
+const nFirst = rolesFirstUsed(nStructure, nLegs);
+ok(
+  n0.r.status === 0 &&
+    n0.graph.startsWith("flowchart TB\n  r_1[") &&
+    !n0.graph.includes("subgraph") &&
+    !n0.graph.includes(" -. ") &&
+    n0.graph.includes("class c_3 apex") &&
+    !n0.html.includes(`<h2>${ADDED_PART}</h2>`) &&
+    !n0.legs.includes("<th>structure</th>"),
+  `(n) over a Brief with no satellites.yaml the sheet draws a subgraph, an Added structures part or a structure column: ${n0.r.stderr}`,
+);
+ok(
+  isDeepStrictEqual(
+    nLegs.map((l) => l.relation),
+    ["c_1", "c_2", "c_3"],
+  ) &&
+    isDeepStrictEqual(Object.fromEntries(nFirst), {
+      [nLegs[0].leg_id]: ["r_1", "r_2"],
+      [nLegs[1].leg_id]: ["r_3"],
+      [nLegs[2].leg_id]: [],
+    }),
+  `(n) rolesFirstUsed does not give r_1 and r_2 to the first Leg, r_3 to the second and none to the third: ${JSON.stringify(Object.fromEntries(nFirst))}`,
+);
+ok(
+  n0.legs.includes(`<p class="line">${FIRST_USED_LINE}</p>`) &&
+    n0.legs.includes("<th>id</th><th>relation</th><th>text</th><th>Roles first used here</th>") &&
+    isDeepStrictEqual(
+      n0.legRows.map((r) => [r[0], r[r.length - 1]]),
+      [
+        [nLegs[0].leg_id, "cache, build"],
+        [nLegs[1].leg_id, "key"],
+        [nLegs[2].leg_id, ""],
+      ],
+    ),
+  `(n) the Legs table does not name cache and build on the first Leg, key on the second and nothing on the third: ${JSON.stringify(n0.legRows)}`,
+);
+
+// One entry s_1 before the first Leg: two subgraphs, the entry's nodes prefixed, one dotted labelled edge, both apexes blue.
+const n1 = nSheet("one", [entryOf("s_1", "Background", nLegs[0].leg_id)]);
+const nodeIds = (g, from, to) =>
+  g
+    .slice(g.indexOf(from), g.indexOf(to, g.indexOf(from)))
+    .split("\n")
+    .map((l) => /^\s+([A-Za-z0-9_]+)\[/.exec(l))
+    .filter(Boolean)
+    .map((m) => m[1]);
+const sNodes = nodeIds(n1.graph, "subgraph s_1", "  end");
+ok(
+  n1.r.status === 0 &&
+    n1.graph.includes('subgraph nucleus["Brief"]') &&
+    n1.graph.includes(`subgraph s_1["s_1 · Background · before ${nLegs[0].leg_id}"]`) &&
+    isDeepStrictEqual(sNodes, ["s_1__r_1", "s_1__r_2", "s_1__r_3", "s_1__c_1", "s_1__c_2", "s_1__c_3"]) &&
+    isDeepStrictEqual(nodeIds(n1.graph, "subgraph nucleus", "  end"), ["r_1", "r_2", "r_3", "c_1", "c_2", "c_3"]) &&
+    (n1.graph.match(/ -\. /g) || []).length === 1 &&
+    n1.graph.includes('  s_1__c_3 -. "Background" .-> c_3') &&
+    n1.graph.includes("class c_3,s_1__c_3 apex"),
+  `(n) the graph over one entry is not two subgraphs joined by one dotted Background edge between the apexes: ${n1.graph}`,
+);
+const nAdded = n1.html.slice(n1.html.indexOf(`<h2>${ADDED_PART}</h2>`), n1.html.indexOf("<h2>Legs</h2>"));
+ok(
+  JSON.stringify([...n1.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1])) ===
+    JSON.stringify(["Thesis", "Claims", "Structure Mapping", ADDED_PART, "Legs"]) &&
+    nAdded.includes(`<h3>s_1: Background, before ${nLegs[0].leg_id}</h3>`) &&
+    nAdded.includes("<th>id</th><th>cite</th><th>claim</th>") &&
+    SOURCES.every((u) => nAdded.includes(`<tr><td>${u.id}</td><td>${u.cite}</td><td>${u.claim}</td></tr>`)) &&
+    JSON.stringify([...nAdded.matchAll(/<h4>([^<]*)<\/h4>/g)].map((m) => m[1])) ===
+      JSON.stringify(["Roles", "Relations", "Higher-order relations"]) &&
+    ["input", "hash", "output", "digest", "stale", "why"].every((name) => nAdded.includes(`<td>${name}</td>`)),
+  "(n) the Added structures part does not hold the entry's heading, its sources with cites and claims, and its three tables",
+);
+ok(
+  n1.legs.includes("<th>id</th><th>structure</th><th>relation</th><th>text</th><th>Roles first used here</th>") &&
+    isDeepStrictEqual(
+      n1.legRows.map((r) => [r[0], r[1], r[r.length - 1]]),
+      [
+        ["s_1.L1", "s_1 (Background)", ""],
+        ["s_1.L2", "s_1 (Background)", ""],
+        ["s_1.L3", "s_1 (Background)", ""],
+        [nLegs[0].leg_id, "Brief", "cache, build"],
+        [nLegs[1].leg_id, "Brief", "key"],
+        [nLegs[2].leg_id, "Brief", ""],
+      ],
+    ) &&
+    n1.legRows[0][2] === "digest (U1)",
+  `(n) the Legs table does not list the entry's Legs first, then the Brief's: ${JSON.stringify(n1.legRows)}`,
+);
+
+// Two entries before one Leg: their Legs in the order of the file.
+const n2 = nSheet("two", [
+  entryOf("s_2", "Circumstance", nLegs[1].leg_id),
+  entryOf("s_1", "Background", nLegs[1].leg_id),
+]);
+ok(
+  n2.r.status === 0 &&
+    isDeepStrictEqual(
+      n2.legRows.map((r) => r[0]),
+      [nLegs[0].leg_id, "s_2.L1", "s_2.L2", "s_2.L3", "s_1.L1", "s_1.L2", "s_1.L3", nLegs[1].leg_id, nLegs[2].leg_id],
+    ) &&
+    (n2.graph.match(/ -\. /g) || []).length === 2,
+  `(n) two entries before one Leg are not listed in the order of the file: ${JSON.stringify(n2.legRows.map((r) => r[0]))}`,
+);
+
+// show writes the same hash with and without the file; a `before` naming no Leg is refused by both verbs, nothing written.
+const nHome = join(nRoot, "runs", "brief-plan-playground", "added");
+const shaOf = (label, satellites) => {
+  if (satellites) writeFileSync(satellitesPathFor(nBrief), stringifyYaml({ satellites }));
+  else rmSync(satellitesPathFor(nBrief), { force: true });
+  rmSync(nHome, { recursive: true, force: true });
+  const r = nRun(["show", "--brief", nBrief]);
+  return r.status === 0 && existsSync(join(nHome, "brief.sha256"))
+    ? readFileSync(join(nHome, "brief.sha256"), "utf8")
+    : `${label}: ${r.stderr}`;
+};
+const nShaNone = shaOf("none", null);
+const nShaOne = shaOf("one", [entryOf("s_1", "Background", nLegs[0].leg_id)]);
+ok(
+  nShaNone === nShaOne &&
+    nShaNone ===
+      `${createHash("sha256")
+        .update(nTexts.brief + nTexts.structure + nTexts.readerPath)
+        .digest("hex")}  theses/added/brief.yaml\n`,
+  `(n) show's brief.sha256 differs with satellites.yaml beside the Brief: ${JSON.stringify([nShaNone, nShaOne])}`,
+);
+writeFileSync(satellitesPathFor(nBrief), stringifyYaml({ satellites: [entryOf("s_1", "Background", "L9")] }));
+rmSync(nHome, { recursive: true, force: true });
+for (const args of [
+  ["show", "--brief", nBrief],
+  ["brief", "--brief", nBrief, "--out", join(nRoot, "out-bad")],
+]) {
+  const r = nRun(args);
+  ok(
+    r.status === 1 && r.stderr.includes("s_1") && r.stderr.includes('"L9"'),
+    `(n) ${args[0]} over an entry whose before names no Leg is not refused naming it: ${r.status} ${r.stderr}`,
+  );
+}
+ok(!existsSync(nHome) && !existsSync(join(nRoot, "out-bad")), "(n) a refused satellites.yaml wrote a sheet");
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);

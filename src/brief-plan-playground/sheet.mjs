@@ -15,13 +15,25 @@ import { strandClaims } from "../brief/run-state.mjs";
 import { proofSheetCss } from "../structure-mapping-playground/sheet.mjs";
 import { elementLabel, readHolds } from "../compose/structure.mjs";
 import { readBriefFiles } from "../compose/brief-files.mjs";
+import { readSatellites, rolesFirstUsed, wholeReaderPath } from "../compose/satellites.mjs";
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 
 // THE BRIEF SHEET'S PARTS, in order (kogaki#1776, kogaki#1805).
 export const BRIEF_PARTS = ["Thesis", "Claims", "Structure Mapping", "Legs"];
-// THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these.
-export const BRIEF_HEADINGS = [...BRIEF_PARTS, "Roles", "Relations", "Higher-order relations", "Not connected"];
+// THE PART DRAWN BETWEEN STRUCTURE MAPPING AND LEGS where satellites.yaml holds an entry (kogaki#1964).
+export const ADDED_PART = "Added structures";
+// THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these, and one per entry of satellites.yaml.
+export const BRIEF_HEADINGS = [
+  ...BRIEF_PARTS,
+  ADDED_PART,
+  "Roles",
+  "Relations",
+  "Higher-order relations",
+  "Not connected",
+];
+// THE LINE ABOVE THE LEGS TABLE (kogaki#1964).
+export const FIRST_USED_LINE = "A Role first used at a Leg is what a Background placed before that Leg would explain.";
 // EVERY COLUMN HEADING THE SHEET'S TABLES CARRY.
 export const BRIEF_COLUMNS = [
   "id",
@@ -35,6 +47,9 @@ export const BRIEF_COLUMNS = [
   "relations",
   "claims",
   "why",
+  "cite",
+  "structure",
+  "Roles first used here",
 ];
 // THE WORDS THE BRIEF SHEET NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
@@ -102,22 +117,54 @@ export function briefClaims(brief, briefPath, root = resolve(briefPath, "..", ".
 }
 
 // THE STRUCTURE GRAPH: each element a node labelled by its name and claim ids, a relation joined to its Roles, a higher-order
-// relation joined by a thick edge to what it relates, the apex blue and every unreached element red.
-function structureGraph(structure, claims) {
-  const quote = (s) => `"${String(s).replace(/"/g, "#quot;")}"`;
-  const left = unreachedIds(structure);
-  const lines = ["flowchart TB"];
+// relation joined by a thick edge to what it relates, the apex blue and every unreached element red. Each entry of
+// satellites.yaml (kogaki#1964) is a subgraph whose node ids are prefixed `<entry id>__`, as `r_1` repeats across
+// structures.
+const quote = (s) => `"${String(s).replace(/"/g, "#quot;")}"`;
+function elementLines(structure, claims, id = (x) => x, pad = "  ") {
+  const lines = [];
   for (const x of [...structure.roles, ...relationsAmongRoles(structure), ...relationsAmongRelations(structure)])
-    lines.push(`  ${x.id}[${quote(elementLabel(structure, x.id, claims))}]`);
-  for (const r of relationsAmongRoles(structure)) for (const role of r.between) lines.push(`  ${r.id} --- ${role}`);
-  for (const h of relationsAmongRelations(structure)) for (const id of h.relates) lines.push(`  ${h.id} ==> ${id}`);
+    lines.push(`${pad}${id(x.id)}[${quote(elementLabel(structure, x.id, claims))}]`);
+  for (const r of relationsAmongRoles(structure))
+    for (const role of r.between) lines.push(`${pad}${id(r.id)} --- ${id(role)}`);
+  for (const h of relationsAmongRelations(structure))
+    for (const x of h.relates) lines.push(`${pad}${id(h.id)} ==> ${id(x)}`);
+  return lines;
+}
+
+export function structureGraphText(structure, claims, satellites = []) {
+  const left = unreachedIds(structure);
+  const apex = structure.attains_thesis ? [structure.attains_thesis] : [];
+  const lines = ["flowchart TB"];
+  if (!satellites.length) lines.push(...elementLines(structure, claims));
+  else {
+    lines.push(`  subgraph nucleus[${quote("Brief")}]`, ...elementLines(structure, claims, (x) => x, "    "), "  end");
+    for (const e of satellites) {
+      const id = (x) => `${e.id}__${x}`;
+      lines.push(
+        `  subgraph ${e.id}[${quote(`${e.id} · ${e.rst_relation} · before ${e.before}`)}]`,
+        ...elementLines(e.structure, e.sources || [], id, "    "),
+        "  end",
+      );
+      for (const x of unreachedIds(e.structure)) left.add(id(x));
+    }
+    for (const e of satellites)
+      lines.push(
+        `  ${e.id}__${e.structure.attains_thesis} -. ${quote(e.rst_relation)} .-> ${structure.attains_thesis}`,
+      );
+    apex.push(...satellites.map((e) => `${e.id}__${e.structure.attains_thesis}`));
+  }
   lines.push(
     "  classDef apex fill:#2b5fa8,stroke:#9cc2ff,color:#ffffff",
     "  classDef unreached fill:#8a2626,stroke:#ff9a9a,color:#ffffff",
   );
-  if (structure.attains_thesis) lines.push(`  class ${structure.attains_thesis} apex`);
+  if (apex.length) lines.push(`  class ${apex.join(",")} apex`);
   if (left.size) lines.push(`  class ${[...left].join(",")} unreached`);
-  const text = lines.join("\n");
+  return lines.join("\n");
+}
+
+function structureGraph(structure, claims, satellites) {
+  const text = structureGraphText(structure, claims, satellites);
   return `<div class="diagram"><div class="mermaid">${esc(text)}</div><details><summary>Graph as text</summary><pre>${esc(text)}</pre></details></div>`;
 }
 
@@ -133,7 +180,83 @@ function unreachedIds(structure) {
   return left;
 }
 
-export function renderBriefSheet({ brief, claims }) {
+// THE ROLES, RELATIONS AND HIGHER-ORDER RELATIONS TABLES of one structure, at heading `level`, every element a row and
+// an unreached one marked; `whyOf`, where given, fills a `why` column of the higher-order relations.
+function structureTables(structure, claims, level, whyOf = null) {
+  const left = unreachedIds(structure);
+  const cls = (id) => (left.has(id) ? "unreached" : "");
+  const holds = (h) => esc(readHolds(structure, h));
+  const elements = (list, holdsOf, fromOf, why = null) =>
+    table(
+      ["id", "name", "holds", "from", ...(why ? ["why"] : [])],
+      list.map((x) => row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x), ...(why ? [why(x)] : [])], cls(x.id))),
+    );
+  return (
+    heading(level, "Roles") +
+    elements(
+      structure.roles,
+      (r) => esc(r.context ?? ""),
+      (r) => esc((r.claims || []).join(", ")),
+    ) +
+    heading(level, "Relations") +
+    elements(
+      relationsAmongRoles(structure),
+      (r) => holds(r.holds),
+      (r) => esc(r.from ?? ""),
+    ) +
+    heading(level, "Higher-order relations") +
+    elements(
+      relationsAmongRelations(structure),
+      (h) => holds(h.holds),
+      (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))),
+      whyOf,
+    )
+  );
+}
+
+// THE ADDED STRUCTURES PART (kogaki#1964): per entry of satellites.yaml, in the order of the file, its heading, its
+// sources and its three tables.
+function addedStructures(satellites) {
+  return satellites
+    .map(
+      (e) =>
+        `<h3>${esc(`${e.id}: ${e.rst_relation}, before ${e.before}`)}</h3>` +
+        table(
+          ["id", "cite", "claim"],
+          (e.sources || []).map((u) => row([esc(u.id), esc(u.cite), esc(u.claim)])),
+        ) +
+        structureTables(e.structure, e.sources || [], 4),
+    )
+    .join("");
+}
+
+// THE LEGS PART (kogaki#1964): the whole Reader Path in order, the `structure` column drawn only with entries, and for each
+// Leg of the Brief the names of the Roles it is the first to use.
+function legsPart(brief, claims, satellites) {
+  const structure = brief.structure;
+  const first = rolesFirstUsed(structure, brief.reader_path || []);
+  const roleName = new Map(structure.roles.map((r) => [r.id, r.name ?? r.id]));
+  const byId = new Map(satellites.map((e) => [e.id, e]));
+  const rows = wholeReaderPath(brief, { satellites }).map((l) => {
+    const e = l.satellite ? byId.get(l.satellite) : null;
+    const label = e
+      ? elementLabel(e.structure, l.relation, e.sources || [])
+      : elementLabel(structure, l.relation, claims);
+    return row([
+      esc(l.leg_id),
+      ...(satellites.length ? [esc(e ? `${e.id} (${e.rst_relation})` : "Brief")] : []),
+      esc(label),
+      esc(l.text),
+      esc(e ? "" : (first.get(l.leg_id) || []).map((id) => roleName.get(id)).join(", ")),
+    ]);
+  });
+  return (
+    line(FIRST_USED_LINE) +
+    table(["id", ...(satellites.length ? ["structure"] : []), "relation", "text", "Roles first used here"], rows)
+  );
+}
+
+export function renderBriefSheet({ brief, claims, satellites = [] }) {
   for (const leg of brief.reader_path || []) {
     const bad = undeclaredLegKeyRefusal(leg, `Leg ${leg.leg_id}`);
     if (bad) throw new Error(bad);
@@ -145,17 +268,7 @@ export function renderBriefSheet({ brief, claims }) {
   const structure = brief.structure;
   if (!structure) throw new Error("the Brief carries no `structure` to render");
   const leftClaims = new Set(((structure.unreached || {}).claims || []).map((c) => c.id));
-  const left = unreachedIds(structure);
-  const cls = (id) => (left.has(id) ? "unreached" : "");
-  const holds = (h) => esc(readHolds(structure, h));
   const nameOf = (id) => esc(elementLabel(structure, id, claims));
-  const elements = (list, holdsOf, fromOf, whyOf = null) =>
-    table(
-      ["id", "name", "holds", "from", ...(whyOf ? ["why"] : [])],
-      list.map((x) =>
-        row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x), ...(whyOf ? [whyOf(x)] : [])], cls(x.id)),
-      ),
-    );
   // THE CONNECTIONS THE READ WEIGHED (kogaki#1817): a Brief read before it carries none, and its sheet is unchanged.
   const considered = Array.isArray(structure.considered) ? structure.considered : null;
   const claimText = new Map(claims.map((c) => [c.id, c.claim]));
@@ -199,35 +312,12 @@ export function renderBriefSheet({ brief, claims }) {
     ),
     part(
       "Structure Mapping",
-      structureGraph(structure, claims) +
-        heading(3, "Roles") +
-        elements(
-          structure.roles,
-          (r) => esc(r.context ?? ""),
-          (r) => esc((r.claims || []).join(", ")),
-        ) +
-        heading(3, "Relations") +
-        elements(
-          relationsAmongRoles(structure),
-          (r) => holds(r.holds),
-          (r) => esc(r.from ?? ""),
-        ) +
-        heading(3, "Higher-order relations") +
-        elements(
-          relationsAmongRelations(structure),
-          (h) => holds(h.holds),
-          (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))),
-          considered ? connectedWhy : null,
-        ) +
+      structureGraph(structure, claims, satellites) +
+        structureTables(structure, claims, 3, considered ? connectedWhy : null) +
         notConnected,
     ),
-    part(
-      "Legs",
-      table(
-        ["id", "relation", "text"],
-        (brief.reader_path || []).map((l) => row([esc(l.leg_id), nameOf(l.relation), esc(l.text)])),
-      ),
-    ),
+    ...(satellites.length ? [part(ADDED_PART, addedStructures(satellites))] : []),
+    part("Legs", legsPart(brief, claims, satellites)),
   ];
   return (
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -256,8 +346,18 @@ function renderOrExit(briefPath) {
     process.exit(1);
   }
   const brief = read.record;
+  // THE STRUCTURES ADDED BESIDE THE BRIEF (kogaki#1964), outside its hash.
+  const added = readSatellites(briefPath, brief);
+  if (added.error) {
+    process.stderr.write(`sheet: ${added.error}\n`);
+    process.exit(1);
+  }
+  const satellites = added.absent ? [] : added.record.satellites;
   try {
-    return { sha256: read.sha256, html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }) };
+    return {
+      sha256: read.sha256,
+      html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath), satellites }),
+    };
   } catch (e) {
     process.stderr.write(`sheet: ${briefPath}: ${e.message}\n`);
     process.exit(1);
