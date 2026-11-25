@@ -11,7 +11,7 @@ import { isDeepStrictEqual } from "node:util";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { relFromRepo } from "../workflow/run-record.mjs";
 import { readerPathFileRefusal, structureFileRefusal } from "./brief-files.mjs";
-import { readHolds } from "./structure.mjs";
+import { legStructureOf, readHolds } from "./structure.mjs";
 
 export const SATELLITES_FILE = "satellites.yaml";
 // Mann and Thompson's definitions, the RST web site's relation definitions page (kogaki#1963).
@@ -130,4 +130,19 @@ export function wholeReaderPath(record, satellites) {
     ...entries.filter((e) => e.before === l.leg_id).flatMap((e) => e.reader_path.map((s) => legOf(e.structure, s, e))),
     legOf(record.structure, l, null),
   ]);
+}
+
+// THE ROLES FIRST USED AT EACH LEG (kogaki#1964): a map from each `leg_id` of `legs` to the ids of the Roles its relation
+// reaches by `legStructureOf` that no Leg before it reaches, in the order of `structure.roles`.
+export function rolesFirstUsed(structure, legs) {
+  const met = new Set();
+  const out = new Map();
+  for (const leg of legs) {
+    const fresh = legStructureOf(structure, leg.relation)
+      .roles.map((r) => r.id)
+      .filter((id) => !met.has(id));
+    fresh.forEach((id) => met.add(id));
+    out.set(leg.leg_id, fresh);
+  }
+  return out;
 }
