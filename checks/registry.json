@@ -961,6 +961,23 @@
       }
     },
     {
+      "id": "rs",
+      "file": "checks/check-rs.sh",
+      "covers": ["src/rs.mjs", "src/rs/file.mjs", "prompts/rs/read.prompt", "rs/"],
+      "admission": {
+        "contract": "The RS files under `rs/` (kogaki#1970): one RelationalStructure read from served Lessons or Decisions by `node src/rs.mjs create`, holding `sources`, `roles` and `relations` and nothing derivable, read by one reader, `readRs` in `src/rs/file.mjs`, which derives the ApexRelation and the depth. Its cases in `checks/rs-cases.mjs`, a stub standing in for the model and a file for the gateway: (a) `create` over two Lessons with a reading of one Relation from S1, one from S1 and S2 and one over those two makes one call and writes one file named after the top Relation, holding the three keys alone, the two sources at their cites with their whole texts, each Role with one `in` entry per source that speaks of it and three Relations with minted ids, keeps the call under the runs root, and prints `written:`, `apex:` naming the third Relation, `depth: 2` and two `source:` lines; (b) the instruction handed to the stub carries both sources' texts and not the word Persona in any case; (c) over one Decision whose text opens with a headline between `**` marks, the file's one source is the headline and `depth: 1` is printed; (d) a reading of two Relations nothing relates exits 1 with `stopped: several-structures`, printing both with their sources, after one call and writing nothing; (e) a reading naming S2 in no `from` exits 1 with `stopped: unread-source` naming S2 after one call; (f) a reading holding a Relation among three Roles, a `words` not in its source's text, or a Role no Relation names is asked three times and exits 1 with `stopped: form` and the refusal, and one refused once and mended is written after two calls, the second carrying the refusal; (g) no address, an address twice, a journey address and a `--name` whose file exists exit 1 with `stopped: arguments`, and an unserved address with `stopped: not-served` naming it, each with no call; (h) a second file whose top Relation has the same name ends `_2` and the first is unchanged; (i) the `check` verb passes the written files printing each ApexRelation, depth and counts, refuses naming the file and the Relation a file edited to hold a second Relation nothing relates, a Relation among three Roles, or an id naming nothing, and passes a `holds` and a `words` reworded by hand. The member then runs the `check` verb over `rs/`.",
+        "license": "kogaki#1970",
+        "tier": "pre-push",
+        "case_floor": 41,
+        "runtime_ms": 3400,
+        "runtime_ms_note": "MEASURED at kogaki#1970, 2026-11-26: three plain serial runs of the member, 2.64, 2.70 and 2.59 s; 3400 is 25% above the slowest. No model call and no gateway call.",
+        "efficacy": "case: checks/rs-cases.mjs::\"widget\" does not occur in the text of S1",
+        "efficacy_note": "mutation-verified at kogaki#1970: disabling the words test in `mintedReading` failed that (f) case, and disabling the idle-Role test in `rsRefusal` failed the (f) case of the Role no Relation names.",
+        "removal_signal": "a ruling retires the RS files under rs/ or the command that writes them",
+        "removal_instrument": "probe: ! test -f src/rs/file.mjs"
+      }
+    },
+    {
       "id": "brief-plan-playground",
       "file": "checks/check-brief-plan-playground.sh",
       "covers": [
