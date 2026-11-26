@@ -1,6 +1,7 @@
 // The cases of checks/check-rs.sh (kogaki#1970), each stated in that member's `contract` in checks/registry.json:
 // (a) `create` over two Lessons writes one RS file; (b) the instruction carries the sources and no Persona; (c) a
-// Decision is read by its headline; (d) two structures stop; (e) an unread source stops; (f) a refused reading is
+// Decision is read by its headline; (d) two structures are two candidates, either written by `--reading --apex` with no
+// call; (e) a source no Relation is from is left out; (f) a refused reading is
 // asked three times, and a mended one is written; (g) a refused argument or an unserved address makes no call; (h) a
 // second file of the same name ends `_2`; (i) the `check` verb. A stub stands in for the model and a file for the
 // gateway.
@@ -28,10 +29,12 @@ const rsDir = join(root, "rs");
 const L1 = "coding::lesson/costly-checks";
 const L2 = "coding::lesson/hour-long-suite";
 const D1 = "coding::decision/cut-tests";
+const L3 = "coding::lesson/budget-hours";
 const TEXT = {
   [L1]: "A check that costs too much is dropped. Then no one runs it.",
   [L2]: "A suite that runs for an hour costs too much.\nThe team cuts it.",
   [D1]: "**We removed Tests to reduce computational costs.** The suite ran for an hour.",
+  [L3]: "A budget limits the hours of a check.",
 };
 const cite = (a, c) => `${a}@${c.repeat(64)}`;
 const units = join(root, "units.json");
@@ -41,6 +44,7 @@ writeFileSync(
     [L1]: { cite: cite(L1, "a"), text: TEXT[L1] },
     [L2]: { cite: cite(L2, "b"), text: TEXT[L2] },
     [D1]: { cite: cite(D1, "c"), text: TEXT[D1] },
+    [L3]: { cite: cite(L3, "d"), text: TEXT[L3] },
   }),
 );
 
@@ -72,8 +76,16 @@ const READINGS = {
     high("costly", "skips", "cuts", ["S1", "S2"])] },
   single: { roles: [role("tests", ins("S1", "Tests")), role("costs", ins("S1", "computational costs"))],
     relations: [rel("trimmed", "tests", "costs", ["S1"], "The {tests} are removed to reduce the {costs}.")] },
-  parts: { roles: ROLES, relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S2"])] },
-  unread: { roles: ROLES.slice(0, 2), relations: [rel("skips", "runner", "check", ["S1"])] },
+  stray: { roles: [...ROLES, role("suite", ins("S2", "suite")), role("hour", ins("S2", "hour"))],
+    relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1"]),
+    { name: "costly", holds: "Where the {check} runs an {hour}, it goes.", from: ["S1"], relates: ["skips", "cuts"] },
+    rel("lasts", "suite", "hour", ["S2"])] },
+  apart: { roles: [role("check", ins("S1", "check", ["costs too much"]), ins("S2", "suite", ["runs for an hour"]),
+    ins("S3", "check")), ...ROLES.slice(1), role("budget", ins("S3", "budget")), role("hours", ins("S3", "hours"))],
+    relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1", "S2"]),
+    high("costly", "skips", "cuts", ["S1", "S2"]), rel("limits", "budget", "hours", ["S3"])] },
+  over: { roles: ROLES, relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1"]),
+    high("costly", "skips", "cuts", ["S1"])] },
   three: { roles: ROLES, relations: [{ name: "all", holds: "The {runner} and the {team} meet the {check}.", from: ["S1"],
     between: ["runner", "team", "check"] }] },
   words: { roles: [role("check", ins("S1", "widget")), role("runner", ins("S1", "no one"))],
@@ -88,19 +100,23 @@ chmodSync(stub, 0o755);
 
 const count = join(root, "count");
 const promptFile = join(root, "prompt.txt");
-const env = (mode) => ({
+const env = (mode, dir = rsDir) => ({
   ...process.env,
   KOGAKI_JUDGE_CLI: stub,
   KOGAKI_RS_RUNS: join(root, "runs"),
   KOGAKI_RS_UNITS: units,
-  KOGAKI_RS_DIR: rsDir,
+  KOGAKI_RS_DIR: dir,
   STUB_COUNT: count,
   STUB_PROMPT: promptFile,
   STUB_MODE: mode,
 });
-const rs = (args, mode = "two") => {
+const rs = (args, mode = "two", dir = rsDir) => {
   writeFileSync(count, "");
-  const r = spawnSync(process.execPath, ["src/rs.mjs", ...args], { encoding: "utf8", timeout: 60000, env: env(mode) });
+  const r = spawnSync(process.execPath, ["src/rs.mjs", ...args], {
+    encoding: "utf8",
+    timeout: 60000,
+    env: env(mode, dir),
+  });
   return { status: r.status, out: r.stdout, err: r.stderr, calls: readFileSync(count, "utf8").length };
 };
 const files = () => (existsSync(rsDir) ? readdirSync(rsDir).sort() : []);
@@ -184,33 +200,122 @@ ok(
   `(c) the Decision's source is not its headline: ${JSON.stringify(fc.sources)}`,
 );
 
-// (d) TWO STRUCTURES: one call, both printed with their sources, nothing written.
+// (d) TWO STRUCTURES ARE TWO CANDIDATES: one call, nothing written, both printed, the larger first; then each is
+// written from the kept reading with no call, holding only the Units it adopts.
 {
-  const before = files();
-  const r = rs(["create", L1, L2], "parts");
+  const dir = join(root, "rs-candidates");
+  const inDir = () => (existsSync(dir) ? readdirSync(dir).sort() : []);
+  const r = rs(["create", L1, L2, L3], "apart", dir);
+  const lines = r.out.trim().split("\n");
+  ok(r.status === 0 && r.calls === 1 && inDir().length === 0, `(d) ${r.status} ${r.calls} call(s) ${inDir()} ${r.out}`);
   ok(
-    r.status === 1 && r.out.startsWith("stopped: several-structures\n"),
-    `(d) did not stop several-structures: ${r.out}`,
+    lines[0] === "candidates: 2" && /^reading: \S+$/.test(lines[1] || ""),
+    `(d) no candidates and reading lines: ${r.out}`,
+  );
+  const stamp = (lines[1] || "").slice("reading: ".length);
+  ok(
+    isDeepStrictEqual(lines.slice(2), [
+      "1: costly: Where the check costs too much, it goes.",
+      "\tdepth: 2",
+      `\tadopts: ${cite(L1, "a")}`,
+      `\tadopts: ${cite(L2, "b")}`,
+      "\tleaves out: 1",
+      "\tunder: skips: The runner meets the check.",
+      "\tunder: cuts: The team meets the check.",
+      "2: limits: The budget meets the hours.",
+      "\tdepth: 1",
+      `\tadopts: ${cite(L3, "d")}`,
+      "\tleaves out: 2",
+    ]),
+    `(d) the two candidates are not printed in order with depth, sources and the Relations under them: ${r.out}`,
+  );
+  const one = rs(["create", "--reading", stamp, "--apex", "1"], "apart", dir);
+  ok(one.status === 0 && one.calls === 0, `(d) --apex 1: ${one.status} ${one.calls} call(s) ${one.out}${one.err}`);
+  ok(isDeepStrictEqual(inDir(), ["costly.yaml"]), `(d) --apex 1 did not write costly.yaml alone: ${inDir()}`);
+  const f1 = inDir().includes("costly.yaml") ? parseYaml(readFileSync(join(dir, "costly.yaml"), "utf8"), "c") : {};
+  ok(
+    isDeepStrictEqual(
+      (f1.sources || []).map((x) => x.id),
+      ["S1", "S2"],
+    ) && !(f1.roles || []).some((x) => x.in.some((e) => e.source === "S3")),
+    `(d) --apex 1 holds a source or an \`in\` entry of the third Lesson: ${JSON.stringify(f1)}`,
   );
   ok(
-    r.out.includes("skips: The runner meets the check.") &&
-      r.out.includes("cuts: The team meets the check.") &&
-      r.out.includes("(from S1)") &&
-      r.out.includes("(from S2)"),
-    `(d) the two structures are not printed with their sources: ${r.out}`,
+    isDeepStrictEqual(f1, fa),
+    `(d) --apex 1 is not the file written over the two Lessons alone: ${JSON.stringify(f1)}`,
   );
-  ok(r.calls === 1 && isDeepStrictEqual(files(), before), `(d) ${r.calls} call(s), or a file was written`);
+  ok(
+    isDeepStrictEqual(one.out.trim().split("\n"), [
+      `written: ${join(dir, "costly.yaml")}`,
+      "apex: c_3 Where the check costs too much, it goes.",
+      "depth: 2",
+      `source: S1 ${cite(L1, "a")}`,
+      `source: S2 ${cite(L2, "b")}`,
+      `left out: ${cite(L3, "d")}`,
+    ]),
+    `(d) --apex 1 does not print written, apex, depth, two sources and one left out: ${one.out}`,
+  );
+  const first = readFileSync(join(dir, "costly.yaml"), "utf8");
+  const two = rs(["create", "--reading", stamp, "--apex", "2"], "apart", dir);
+  const f2 = existsSync(join(dir, "limits.yaml")) ? parseYaml(readFileSync(join(dir, "limits.yaml"), "utf8"), "l") : {};
+  ok(
+    two.status === 0 &&
+      two.calls === 0 &&
+      isDeepStrictEqual(f2.sources, [{ id: "S1", cite: cite(L3, "d"), text: TEXT[L3] }]) &&
+      isDeepStrictEqual(f2.relations, [
+        { id: "c_1", name: "limits", holds: "The {r_1} meets the {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
+      ]),
+    `(d) --apex 2 does not write one source and one Relation: ${two.out}${two.err} ${JSON.stringify(f2)}`,
+  );
+  ok(readFileSync(join(dir, "costly.yaml"), "utf8") === first, "(d) --apex 2 changed the first file");
+  for (const [label, args] of [
+    ["a stamp no reading is kept under", ["--reading", "2000-01-01T00-00-00-000Z", "--apex", "1"]],
+    ["a number no candidate has", ["--reading", stamp, "--apex", "3"]],
+    ["an address beside --reading", ["--reading", stamp, "--apex", "1", L1]],
+  ]) {
+    const before = inDir();
+    const x = rs(["create", ...args], "apart", dir);
+    ok(
+      x.status === 1 && x.out.startsWith("stopped: arguments\n") && x.calls === 0 && isDeepStrictEqual(inDir(), before),
+      `(d) ${label}: ${x.status} ${x.calls} call(s) ${x.out}`,
+    );
+  }
 }
 
-// (e) AN UNREAD SOURCE: one call, S2 named, nothing written.
+// (d) A CANDIDATE WHOSE SENTENCE NAMES A ROLE IT DOES NOT KEEP stops with `form` naming the Role, and writes nothing.
 {
-  const before = files();
-  const r = rs(["create", L1, L2], "unread");
+  const dir = join(root, "rs-stray");
+  const r = rs(["create", L1, L2], "stray", dir);
+  const stamp = (r.out.split("\n")[1] || "").slice("reading: ".length);
+  const x = rs(["create", "--reading", stamp, "--apex", "1"], "stray", dir);
   ok(
-    r.status === 1 && r.out.startsWith("stopped: unread-source\n") && r.out.includes("S2 "),
-    `(e) did not stop unread-source naming S2: ${r.out}`,
+    x.status === 1 && x.out.startsWith("stopped: form\n") && x.out.includes("names the Role hour"),
+    `(d) a stray Role did not stop form naming it: ${r.out} ${x.status} ${x.out}${x.err}`,
   );
-  ok(r.calls === 1 && isDeepStrictEqual(files(), before), `(e) ${r.calls} call(s), or a file was written`);
+  ok(x.calls === 0 && !existsSync(dir), `(d) a stray Role made a call or wrote a file: ${x.calls}`);
+}
+
+// (e) A SOURCE NO RELATION IS FROM is left out of the one candidate, which is written at once.
+{
+  const dir = join(root, "rs-over");
+  const r = rs(["create", L1, L2], "over", dir);
+  const f = existsSync(join(dir, "costly.yaml")) ? parseYaml(readFileSync(join(dir, "costly.yaml"), "utf8"), "o") : {};
+  ok(
+    r.status === 0 &&
+      r.calls === 1 &&
+      isDeepStrictEqual(
+        (f.sources || []).map((x) => x.cite),
+        [cite(L1, "a")],
+      ),
+    `(e) the file was not written with the one source: ${r.status} ${r.out}${r.err}`,
+  );
+  ok(
+    r.out
+      .split("\n")
+      .filter((l) => l.startsWith("left out: "))
+      .join("|") === `left out: ${cite(L2, "b")}`,
+    `(e) one left out line naming S2's cite is not printed: ${r.out}`,
+  );
 }
 
 // (f) A REFUSED READING is asked three times; a mended one is written after two calls.
