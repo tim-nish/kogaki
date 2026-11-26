@@ -71,8 +71,8 @@ const dupe = (list) => {
   return null;
 };
 
-// THE REFUSALS A HAND EDIT OF structure.yaml MEETS (kogaki#1955): an id that names nothing, and nothing else.
-// `structure` is read as one list. Returns an error string or null.
+// THE REFUSALS A HAND EDIT OF structure.yaml MEETS (kogaki#1955): an id that names nothing, and a relation that does
+// not take exactly two inputs. `structure` is read as one list. Returns an error string or null.
 export function structureFileRefusal(structure, at) {
   if (!isMap(structure)) return `${at} is not a map of \`roles\` and \`relations\``;
   const roles = Array.isArray(structure.roles) ? structure.roles : [];
@@ -90,6 +90,12 @@ export function structureFileRefusal(structure, at) {
     const between = Object.hasOwn(r, "between");
     if (between === Object.hasOwn(r, "relates")) {
       return `${at}: the relation ${id} carries ${between ? "both `between` and `relates`" : "neither `between` nor `relates`"} — it carries one`;
+    }
+    if (between && !(Array.isArray(r.between) && r.between.length === 2)) {
+      return `${at}: the relation ${id}'s \`between\` does not name exactly two Roles`;
+    }
+    if (!between && r.id !== structure.attains_thesis && !(Array.isArray(r.relates) && r.relates.length === 2)) {
+      return `${at}: the relation ${id}'s \`relates\` does not name exactly two relations`;
     }
     for (const e of (between ? r.between : r.relates) || []) {
       if (between && !roleIds.has(e))
