@@ -247,6 +247,15 @@ const STAMP = /^[0-9TZ-]+$/;
 
 // The candidate written as a file under rs/: `{ status, lines }`.
 function writeCandidate(record, candidate, name) {
+  const kept = new Set(candidate.roles.map((r) => r.id));
+  const roleName = new Map(record.roles.map((r) => [r.id, r.name]));
+  for (const c of candidate.relations) {
+    const stray = [...c.holds.matchAll(/\{([^{}]*)\}/g)].map((m) => m[1]).find((id) => !kept.has(id));
+    if (stray !== undefined)
+      return stop("form", [
+        `the Relation ${c.name} names the Role ${roleName.get(stray) ?? stray}, which no Relation of the candidate is between`,
+      ]);
+  }
   const file = candidateRecord(candidate);
   const refusal = rsRefusal(file, "the candidate");
   if (refusal) return stop("form", [refusal]);

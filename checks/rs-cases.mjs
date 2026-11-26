@@ -76,7 +76,10 @@ const READINGS = {
     high("costly", "skips", "cuts", ["S1", "S2"])] },
   single: { roles: [role("tests", ins("S1", "Tests")), role("costs", ins("S1", "computational costs"))],
     relations: [rel("trimmed", "tests", "costs", ["S1"], "The {tests} are removed to reduce the {costs}.")] },
-  parts: { roles: ROLES, relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S2"])] },
+  stray: { roles: [...ROLES, role("suite", ins("S2", "suite")), role("hour", ins("S2", "hour"))],
+    relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1"]),
+    { name: "costly", holds: "Where the {check} runs an {hour}, it goes.", from: ["S1"], relates: ["skips", "cuts"] },
+    rel("lasts", "suite", "hour", ["S2"])] },
   apart: { roles: [role("check", ins("S1", "check", ["costs too much"]), ins("S2", "suite", ["runs for an hour"]),
     ins("S3", "check")), ...ROLES.slice(1), role("budget", ins("S3", "budget")), role("hours", ins("S3", "hours"))],
     relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1", "S2"]),
@@ -277,6 +280,19 @@ ok(
       `(d) ${label}: ${x.status} ${x.calls} call(s) ${x.out}`,
     );
   }
+}
+
+// (d) A CANDIDATE WHOSE SENTENCE NAMES A ROLE IT DOES NOT KEEP stops with `form` naming the Role, and writes nothing.
+{
+  const dir = join(root, "rs-stray");
+  const r = rs(["create", L1, L2], "stray", dir);
+  const stamp = (r.out.split("\n")[1] || "").slice("reading: ".length);
+  const x = rs(["create", "--reading", stamp, "--apex", "1"], "stray", dir);
+  ok(
+    x.status === 1 && x.out.startsWith("stopped: form\n") && x.out.includes("names the Role hour"),
+    `(d) a stray Role did not stop form naming it: ${r.out} ${x.status} ${x.out}${x.err}`,
+  );
+  ok(x.calls === 0 && !existsSync(dir), `(d) a stray Role made a call or wrote a file: ${x.calls}`);
 }
 
 // (e) A SOURCE NO RELATION IS FROM is left out of the one candidate, which is written at once.
