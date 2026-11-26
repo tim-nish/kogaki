@@ -1,8 +1,9 @@
 // The cases of checks/check-brief-files.sh (kogaki#1955), each stated in that member's `contract` in
 // checks/registry.json: (a) adoption writes the three files and the BriefPlanPlayground (kogaki#1967); (b)
 // `readAdoptedBrief` gives each Leg its relation's `holds`; (c) a hand edit of a `holds`; (d) a Leg removed and two
-// reordered; (e) each refusal of the reader, by the `check` verb; (f) the `split` verb; (g) a ParagraphPlan made
-// before a hand edit of structure.yaml found stale.
+// reordered; (e) each refusal of the reader, by the `check` verb, and the relation `attains_thesis` names read over
+// three relations; (f) the `split` verb, refused over a relation between three Roles; (g) a ParagraphPlan made before a
+// hand edit of structure.yaml found stale.
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -117,8 +118,17 @@ const textsAt = (at) => FILES.map((f) => readFileSync(join(resolve(at, ".."), f)
   const minted = C.parseBriefRecord(readFileSync(join(fx, "brief.yaml"), "utf8"), "brief.yaml").record;
   const legs = reviewed.candidates[0].legs;
   minted.structure = {
-    roles: [{ id: "r_1", name: "claim", context: "What the fixture claims.", attributes: [], claims: ["L1"] }],
-    relations: legs.map((l) => ({ id: l.relation, name: l.relation, between: ["r_1"], holds: l.text, from: "L1" })),
+    roles: [
+      { id: "r_1", name: "claim", context: "What the fixture claims.", attributes: [], claims: ["L1"] },
+      { id: "r_2", name: "object", context: "The fixture's second Role.", attributes: [], claims: ["L1"] },
+    ],
+    relations: legs.map((l) => ({
+      id: l.relation,
+      name: l.relation,
+      between: ["r_1", "r_2"],
+      holds: l.text,
+      from: "L1",
+    })),
     attains_thesis: legs[1].relation,
   };
   const slug = `brief-files-adopt-${process.pid}`;
@@ -326,6 +336,29 @@ const REFUSALS = [
     ["structure.yaml", '"c_2"', "{r_7}"],
   ],
   [
+    "a Relation between three Roles",
+    { structure: rel((r) => (r.id === "c_1" ? { ...r, between: ["r_1", "r_2", "r_3"] } : r)) },
+    ["structure.yaml", '"c_1"', "`between` does not name exactly two Roles"],
+  ],
+  [
+    "a Relation between one Role",
+    { structure: rel((r) => (r.id === "c_2" ? { ...r, between: ["r_2"] } : r)) },
+    ["structure.yaml", '"c_2"', "`between` does not name exactly two Roles"],
+  ],
+  [
+    "a Relation over three relations attains_thesis does not name",
+    {
+      structure: (s) => ({
+        ...s,
+        relations: [
+          ...s.relations,
+          { id: "c_4", name: "all", relates: ["c_1", "c_2", "c_3"], holds: "The {r_1} ends it.", from: ["L1"] },
+        ],
+      }),
+    },
+    ["structure.yaml", '"c_4"', "`relates` does not name exactly two relations"],
+  ],
+  [
     "attains_thesis names no Relation",
     { structure: (s) => ({ ...s, attains_thesis: "c_8" }) },
     ["structure.yaml", '"c_8"'],
@@ -360,6 +393,24 @@ for (const [name, edit, want] of REFUSALS) {
   ok(
     r.status === 1 && r.out === "" && want.every((w) => r.err.includes(w)),
     `(e) ${name} was not refused by check naming ${JSON.stringify(want)}: ${r.status} ${r.err}${r.out}`,
+  );
+}
+
+// (e) THE RELATION `attains_thesis` NAMES IS NOT COUNTED (kogaki#1969): over three relations, check reads it.
+{
+  const at = briefAt({
+    structure: (s) => ({
+      ...s,
+      relations: [
+        ...s.relations.map((r) => (r.id === "c_3" ? { ...r, relates: ["c_1", "c_2", "c_4"] } : r)),
+        { id: "c_4", name: "names", between: ["r_1", "r_3"], holds: "The {r_1} names each {r_3}.", from: "L1" },
+      ],
+    }),
+  });
+  const r = cli("check", at);
+  ok(
+    r.status === 0 && r.err === "",
+    `(e) check refused a relation named by attains_thesis over three relations: ${r.status} ${r.err}`,
   );
 }
 
@@ -406,6 +457,30 @@ for (const [name, edit, want] of REFUSALS) {
       differs.err.includes("Nothing was written") &&
       readdirSync(dDir).join() === "brief.yaml",
     `(f) split over a Leg whose text is not its holds was not refused naming it, or wrote: ${differs.err}`,
+  );
+}
+
+// (f) SPLIT OVER A BRIEF OF ONE FILE WHOSE RELATION NAMES THREE ROLES is refused, and writes nothing (kogaki#1969).
+{
+  const dir = join(root, "theses", "one-file-three-roles");
+  mkdirSync(dir, { recursive: true });
+  const at = join(dir, "brief.yaml");
+  const structure = rel((r) => (r.id === "c_1" ? { ...r, between: ["r_1", "r_2", "r_3"] } : r))(STRUCTURE);
+  const said = {
+    ...RECORD,
+    structure,
+    reader_path: LEGS.map((l) => ({ ...C.legRecord({ ...l, text: SAID[l.relation] }) })),
+  };
+  writeFileSync(at, C.briefRecordText(said));
+  const r = cli("split", at);
+  ok(
+    r.status === 1 &&
+      r.err.includes('"c_1"') &&
+      r.err.includes("does not name exactly two Roles") &&
+      r.err.trim().endsWith("Nothing was written") &&
+      !existsSync(join(dir, "structure.yaml")) &&
+      !existsSync(join(dir, "reader-path.yaml")),
+    `(f) split over a relation between three Roles was not refused, or wrote: ${r.status} ${r.err}`,
   );
 }
 

@@ -671,6 +671,28 @@ for (const [key, retire] of [
     `(l) a Brief retired by \`${key}\` wrote a sheet`,
   );
 }
+// (l) show over a Brief whose structure.yaml holds a relation between three Roles exits 1 and writes no page
+// (kogaki#1969).
+{
+  const tRoot = join(root, "three-roles");
+  const tBrief = join(tRoot, "theses", "three", "brief.yaml");
+  mkdirSync(dirname(tBrief), { recursive: true });
+  const st = parseYaml(kTexts.structure, "structure.yaml");
+  const three = st.roles.slice(0, 3).map((r) => r.id);
+  st.relations = st.relations.map((r, i) => (i ? r : { ...r, between: three }));
+  writeFileSync(tBrief, kTexts.brief);
+  writeFileSync(join(dirname(tBrief), "structure.yaml"), stringifyYaml(st));
+  writeFileSync(join(dirname(tBrief), "reader-path.yaml"), kTexts.readerPath);
+  const r = sheetCmd(["show", "--brief", tBrief]);
+  ok(
+    r.status === 1 &&
+      r.stdout === "" &&
+      r.stderr.includes(JSON.stringify(st.relations[0].id)) &&
+      r.stderr.includes("does not name exactly two Roles") &&
+      !existsSync(join(tRoot, "runs")),
+    `(l) show over a relation between three Roles did not exit 1 with the refusal and no page: ${r.status} ${r.stderr}`,
+  );
+}
 
 // (n) the structures added beside the Brief (kogaki#1964): a Brief of three Legs over three Roles, with no satellites.yaml,
 // then one entry before its first Leg, then two, then an entry whose `before` names no Leg.

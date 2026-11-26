@@ -3,8 +3,8 @@
 // BriefPlanPlayground (kogaki#1967); (b) a reading with two tops makes the apex call; (c) a reading in two parts stops;
 // (d) a refused reading is asked three times; (e) a refused argument makes no call; (f) run again, it keeps `s_1` and
 // the file's head; (g) `wholeReaderPath`; (h) the `check` verb with no file, with the written file, after a hand edit,
-// and each refusal of the file; (i) the Brief's files, their hash and a plan made before are untouched. A stub stands in for the model and a file for the
-// gateway.
+// and each refusal of the file, a relation between three Roles among them; (i) the Brief's files, their hash and a
+// plan made before are untouched. A stub stands in for the model and a file for the gateway.
 import {
   mkdtempSync,
   mkdirSync,
@@ -419,6 +419,22 @@ for (const [label, file, names] of REFUSALS) {
   ok(
     r.status === 1 && names.every((x) => r.err.includes(x)),
     `(h) ${label} was not refused naming ${names.join(", ")}: ${r.status} ${r.err}`,
+  );
+}
+// A relation between three Roles in an entry is refused by the one reader, and the check verb stops (kogaki#1969).
+{
+  const atT = briefAt();
+  const file = entryOf((e) => (e.structure.relations[0].between = e.structure.roles.slice(0, 3).map((r) => r.id)));
+  writeFileSync(S.satellitesPathFor(atT), stringifyYaml(file));
+  const read = S.readSatellites(atT, C.readBriefFiles(atT).record);
+  const r = check(atT);
+  ok(
+    typeof read.error === "string" &&
+      read.error.includes("s_1") &&
+      read.error.includes('"c_1"') &&
+      read.error.includes("does not name exactly two Roles") &&
+      r.status === 1,
+    `(h) an entry's relation between three Roles was not refused by readSatellites and check: ${read.error} ${r.status}`,
   );
 }
 
