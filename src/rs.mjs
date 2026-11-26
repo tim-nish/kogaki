@@ -1,7 +1,7 @@
 // rs — the command that reads served Lessons or Decisions into one RelationalStructure and keeps it under rs/
-// (kogaki#1970). `create` asks no question: it reads the Units, makes one reading of them, and writes the file only
-// where every source is read and one Relation stands over the rest. `check` reads the files under rs/. The file's
-// reader is src/rs/file.mjs; the instruction is prompts/rs/read.prompt.
+// (kogaki#1970, kogaki#1973). `create` makes one reading of the Units and keeps it; each Relation no other names is a
+// candidate, written at once where it is the only one and otherwise by `--reading --apex` with no call. `check` reads
+// the files under rs/. The file's reader is src/rs/file.mjs; the instruction is prompts/rs/read.prompt.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,9 @@ const HEADER =
   "A RelationalStructure read by `node src/rs.mjs create` from the served Units under `sources`: its Roles, with " +
   "each source's own words for them, and its Relations. Edited by hand; `node src/rs.mjs check` reads it.";
 const USAGE =
-  "usage: node src/rs.mjs create [--name <name>] <address> [<address> ...]\n       node src/rs.mjs check [<file> ...]";
+  "usage: node src/rs.mjs create [--name <name>] <address> [<address> ...]\n" +
+  "       node src/rs.mjs create --reading <stamp> --apex <n> [--name <name>]\n" +
+  "       node src/rs.mjs check [<file> ...]";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const squeeze = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
@@ -64,6 +66,11 @@ function argumentsRefusal(addresses, name) {
   const bad = addresses.find((a) => !ADDRESS.test(a));
   if (bad !== undefined)
     return `the address ${bad} is not <package>::lesson/<local-name> or <package>::decision/<local-name>`;
+  return nameRefusal(name);
+}
+
+// The `--name` refused, or null.
+function nameRefusal(name) {
   if (name !== null && !SNAKE_WORD.test(name)) return `--name ${JSON.stringify(name)} is not one snake_case word`;
   if (name !== null && existsSync(fileAt(name))) return `${relFromRepo(fileAt(name))} exists`;
   return null;
@@ -186,7 +193,98 @@ function reading(binary, sources, dir) {
 
 const stop = (key, lines) => ({ status: 1, lines: [`stopped: ${key}`, ...lines] });
 
-// CREATE (kogaki#1970): `{ status, lines }`; nothing is written under rs/ unless the status is 0.
+// THE CANDIDATES OF A READING (kogaki#1973): each Relation no other names, with every Relation under it, the Roles their
+// `between` names and the sources their `from` names, ordered by sources adopted, most first, then by depth, deepest
+// first, then by the reading's order.
+export function candidatesOf(record) {
+  const order = new Map(record.relations.map((c, i) => [c.id, i]));
+  return topsOf(record)
+    .map((top, index) => {
+      const relations = relationsUnder(record, top.id).sort((x, y) => order.get(x.id) - order.get(y.id));
+      const named = new Set(relations.flatMap((c) => c.between || []));
+      const from = new Set(relations.flatMap((c) => c.from));
+      return {
+        top,
+        index,
+        depth: depthOf(record, top.id),
+        relations,
+        roles: record.roles.filter((r) => named.has(r.id)),
+        sources: record.sources.filter((s) => from.has(s.id)),
+      };
+    })
+    .sort((x, y) => y.sources.length - x.sources.length || y.depth - x.depth || x.index - y.index);
+}
+
+// THE FILE OF ONE CANDIDATE: its sources, Roles and Relations alone, each renumbered in the reading's order.
+export function candidateRecord(candidate) {
+  const sourceId = new Map(candidate.sources.map((s, i) => [s.id, `S${i + 1}`]));
+  const roleId = new Map(candidate.roles.map((r, i) => [r.id, `r_${i + 1}`]));
+  const relationId = new Map(candidate.relations.map((c, i) => [c.id, `c_${i + 1}`]));
+  return {
+    sources: candidate.sources.map((s) => ({ id: sourceId.get(s.id), cite: s.cite, text: s.text })),
+    roles: candidate.roles.map((r) => ({
+      id: roleId.get(r.id),
+      name: r.name,
+      context: r.context,
+      in: r.in.filter((e) => sourceId.has(e.source)).map((e) => ({ ...e, source: sourceId.get(e.source) })),
+    })),
+    relations: candidate.relations.map((c) => {
+      const out = {
+        id: relationId.get(c.id),
+        name: c.name,
+        holds: c.holds.replace(/\{([^{}]*)\}/g, (m, id) => (roleId.has(id) ? `{${roleId.get(id)}}` : m)),
+        from: c.from.map((s) => sourceId.get(s)),
+      };
+      if (c.between) out.between = c.between.map((id) => roleId.get(id));
+      if (c.relates) out.relates = c.relates.map((id) => relationId.get(id));
+      return out;
+    }),
+  };
+}
+
+const readingFile = (stamp) => join(runsRoot(), stamp, "reading.json");
+const STAMP = /^[0-9TZ-]+$/;
+
+// The candidate written as a file under rs/: `{ status, lines }`.
+function writeCandidate(record, candidate, name) {
+  const file = candidateRecord(candidate);
+  const refusal = rsRefusal(file, "the candidate");
+  if (refusal) return stop("form", [refusal]);
+  const [apex] = topsOf(file);
+  let base = name ?? apex.name;
+  for (let k = 2; name === null && existsSync(fileAt(base)); k++) base = `${apex.name}_${k}`;
+  const path = fileAt(base);
+  mkdirSync(rsDir(), { recursive: true });
+  writeFileSync(path, stringifyYaml(file, { header: HEADER }));
+  const adopted = new Set(candidate.sources.map((s) => s.id));
+  return {
+    status: 0,
+    lines: [
+      `written: ${relFromRepo(path)}`,
+      `apex: ${apex.id} ${sentenceOf(file, apex)}`,
+      `depth: ${depthOf(file, apex.id)}`,
+      ...file.sources.map((s) => `source: ${s.id} ${s.cite}`),
+      ...record.sources.filter((s) => !adopted.has(s.id)).map((s) => `left out: ${s.cite}`),
+    ],
+  };
+}
+
+// The candidates printed under their numbers, for the maintainer to choose one.
+function candidateLines(record, candidates, stamp) {
+  return [
+    `candidates: ${candidates.length}`,
+    `reading: ${stamp}`,
+    ...candidates.flatMap((k, i) => [
+      `${i + 1}: ${k.top.name}: ${sentenceOf(record, k.top)}`,
+      `\tdepth: ${k.depth}`,
+      ...k.sources.map((s) => `\tadopts: ${s.cite}`),
+      `\tleaves out: ${record.sources.length - k.sources.length}`,
+      ...k.relations.filter((c) => c !== k.top).map((c) => `\tunder: ${c.name}: ${sentenceOf(record, c)}`),
+    ]),
+  ];
+}
+
+// CREATE (kogaki#1970, kogaki#1973): `{ status, lines }`; nothing is written under rs/ unless a file line is printed.
 export function create(addresses, { name = null } = {}) {
   const bad = argumentsRefusal(addresses, name);
   if (bad) return stop("arguments", [bad]);
@@ -202,38 +300,24 @@ export function create(addresses, { name = null } = {}) {
   const read = reading(binary, sources, join(runsRoot(), stamp));
   if (read.stopped) return stop("form", [read.stopped]);
   const { record } = read;
-  const stated = new Set(record.relations.flatMap((c) => c.from));
-  const unread = sources.filter((s) => !stated.has(s.id));
-  if (unread.length)
-    return stop(
-      "unread-source",
-      unread.map((s) => `${s.id} ${s.cite} is the from of no Relation`),
-    );
-  const tops = topsOf(record);
-  if (tops.length > 1) {
-    return stop(
-      "several-structures",
-      tops.flatMap((t) => [
-        `${t.name}: ${sentenceOf(record, t)}`,
-        ...relationsUnder(record, t.id).map((c) => `\t${c.name} (from ${c.from.join(", ")}): ${sentenceOf(record, c)}`),
-      ]),
-    );
-  }
-  const [apex] = tops;
-  let file = name ?? apex.name;
-  for (let k = 2; name === null && existsSync(fileAt(file)); k++) file = `${apex.name}_${k}`;
-  const path = fileAt(file);
-  mkdirSync(rsDir(), { recursive: true });
-  writeFileSync(path, stringifyYaml(record, { header: HEADER }));
-  return {
-    status: 0,
-    lines: [
-      `written: ${relFromRepo(path)}`,
-      `apex: ${apex.id} ${sentenceOf(record, apex)}`,
-      `depth: ${depthOf(record, apex.id)}`,
-      ...sources.map((s) => `source: ${s.id} ${s.cite}`),
-    ],
-  };
+  writeFileSync(readingFile(stamp), `${JSON.stringify(record, null, 2)}\n`);
+  const candidates = candidatesOf(record);
+  if (candidates.length === 1) return writeCandidate(record, candidates[0], name);
+  return { status: 0, lines: candidateLines(record, candidates, stamp) };
+}
+
+// CREATE FROM A KEPT READING (kogaki#1973): candidate `apex`, counted from 1 in the order printed, with no call.
+export function createFromReading(stamp, apex, { name = null } = {}) {
+  if (!STAMP.test(stamp) || !existsSync(readingFile(stamp)))
+    return stop("arguments", [`no reading is kept under ${stamp}`]);
+  const bad = nameRefusal(name);
+  if (bad) return stop("arguments", [bad]);
+  const record = JSON.parse(readFileSync(readingFile(stamp), "utf8"));
+  const candidates = candidatesOf(record);
+  const n = /^[1-9][0-9]*$/.test(apex) ? Number(apex) : 0;
+  if (n < 1 || n > candidates.length)
+    return stop("arguments", [`--apex ${apex} names no candidate; the reading holds ${candidates.length}`]);
+  return writeCandidate(record, candidates[n - 1], name);
 }
 
 // CHECK (kogaki#1970): every file named, or every file under rs/; `{ status, lines }`.
@@ -271,12 +355,19 @@ function main(argv) {
   let r;
   if (verb === "create") {
     let name = null;
+    let stamp = null;
+    let apex = null;
     const addresses = [];
     for (let i = 0; i < rest.length; i++) {
       if (rest[i] === "--name") name = rest[++i] ?? "";
+      else if (rest[i] === "--reading") stamp = rest[++i] ?? "";
+      else if (rest[i] === "--apex") apex = rest[++i] ?? "";
       else addresses.push(rest[i]);
     }
-    r = create(addresses, { name });
+    if (stamp === null && apex === null) r = create(addresses, { name });
+    else if (stamp === null || apex === null) r = stop("arguments", ["--reading and --apex are given together"]);
+    else if (addresses.length) r = stop("arguments", ["an address is given beside --reading"]);
+    else r = createFromReading(stamp, apex, { name });
   } else if (verb === "check") r = check(rest);
   else {
     process.stderr.write(`${USAGE}\n`);
