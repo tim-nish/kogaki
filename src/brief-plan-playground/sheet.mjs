@@ -19,12 +19,12 @@ import { readSatellites, rolesFirstUsed, wholeReaderPath } from "../compose/sate
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 import { readDocumentPlan } from "../document-plan/file.mjs";
-import { readRs, sentenceOf, RESTS_ON } from "../rs/file.mjs";
+import { readRs, RESTS_ON } from "../rs/file.mjs";
 
 // THE BRIEFPLANPLAYGROUND'S PARTS, in order (kogaki#1776, kogaki#1805).
 export const BRIEF_PARTS = ["Thesis", "Claims", "Structure Mapping", "Legs"];
-// THE PARTS OF A DOCUMENTPLAN'S PAGE, in order (kogaki#1977).
-export const PLAN_PARTS = ["ReaderPath", "Connections", "RS files"];
+// THE PARTS OF A DOCUMENTPLAN'S PAGE, in order (kogaki#1977, kogaki#1982).
+export const PLAN_PARTS = ["ReaderPath", "Shared Roles", "RS files"];
 // THE PART DRAWN BETWEEN STRUCTURE MAPPING AND LEGS where satellites.yaml holds an entry (kogaki#1964).
 export const ADDED_PART = "Added structures";
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these, and one per entry of satellites.yaml.
@@ -37,6 +37,7 @@ export const BRIEF_HEADINGS = [
   "Relations",
   "Higher-order relations",
   "Not connected",
+  "Roles not shared",
 ];
 // THE LINE ABOVE THE LEGS TABLE (kogaki#1964).
 export const FIRST_USED_LINE = "A Role first used at a Leg is what a Background placed before that Leg would explain.";
@@ -58,9 +59,12 @@ export const BRIEF_COLUMNS = [
   "Roles first used here",
   "position",
   "rs",
-  "apex",
   "nucleus",
   "context",
+  "read from",
+  "shared",
+  "words",
+  "over",
 ];
 // THE WORDS THE BRIEFPLANPLAYGROUND NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
@@ -340,30 +344,120 @@ export function renderBriefPlanPlayground({ brief, claims, satellites = [] }) {
   );
 }
 
-// ---- A DOCUMENTPLAN'S PAGE (kogaki#1977): its RS files in reading order and the relation joining each to its Nucleus ----
-// THE MARK ON THE TOP NUCLEUS'S ROW.
+// ---- A DOCUMENTPLAN'S PAGE (kogaki#1977, kogaki#1982): a graph of its RS files, its shared Roles, and one card per RS ----
+// THE MARK ON THE TOP NUCLEUS.
 export const TOP_NUCLEUS = "top Nucleus";
+// THE COLOURS OF THE SHARED ROLES, taken in the order of `shared_roles` and begun again after the twelfth (kogaki#1982).
+export const SHARED_COLOURS = [
+  "#8dd3c7",
+  "#ffffb3",
+  "#bebada",
+  "#fb8072",
+  "#80b1d3",
+  "#fdb462",
+  "#b3de69",
+  "#fccde5",
+  "#d9d9d9",
+  "#bc80bd",
+  "#ccebc5",
+  "#ffed6f",
+];
+const PLAN_CSS =
+  ".cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,34em),1fr));gap:1em}" +
+  ".rs-card{border:1px solid #445;border-radius:6px;padding:.4em .9em;min-width:0;overflow-x:auto}" +
+  ".mermaid svg{max-width:100%;height:auto}.swatch{display:inline-block;width:.8em;height:.8em;border-radius:2px;margin-right:.35em;vertical-align:middle}" +
+  "mark{color:#111;border-radius:3px;padding:0 .15em}mark.plain{background:#c9c9c9}mark sub{font-size:.7em;margin-left:.15em}";
 
-// THE CONNECTIONS AS INDENTED TEXT: the top Nucleus first, each Satellite one step in under its Nucleus with its
-// relation's name before its own, the Satellites of one Nucleus in the plan's order.
-export function connectionsText(plan, top) {
-  const lines = [top];
-  const walk = (nucleus, depth) => {
-    for (const rs of plan.order) {
-      const c = plan.connections.find((x) => x.satellite === rs && x.nucleus === nucleus);
-      if (!c) continue;
-      lines.push(`${"  ".repeat(depth)}${c.relation}: ${rs}`);
-      walk(rs, depth + 1);
-    }
-  };
-  walk(top, 1);
+const wordsOf = (role) => role.in.map((e) => e.words).join("; ");
+const graphDiv = (text) =>
+  `<div class="diagram"><div class="mermaid">${esc(text)}</div><details><summary>Graph as text</summary><pre>${esc(text)}</pre></details></div>`;
+const swatch = (colour) => `<span class="swatch" style="background:${colour}"></span>`;
+const sharedCell = (s) => (s ? `${swatch(s.colour)}${esc(s.name)}` : "");
+
+// THE SHARED ROLE OF EACH MEMBER, keyed `<rs>:<role id>`, with its colour.
+export function sharedOfPlan(plan) {
+  const out = new Map();
+  (plan.shared_roles || []).forEach((s, i) => {
+    const colour = SHARED_COLOURS[i % SHARED_COLOURS.length];
+    for (const m of s.members) out.set(`${m.rs}:${m.role}`, { name: s.name, colour });
+  });
+  return out;
+}
+
+// THE FIRST SHARED ROLE MEMBER WHOSE RS FILE DOES NOT HOLD ITS ROLE, as the one stderr line, or null.
+export function unheldMemberRefusal(plan, records) {
+  for (const s of plan.shared_roles || [])
+    for (const m of s.members)
+      if (!records.get(m.rs).record.roles.some((r) => r.id === m.role))
+        return `the shared Role ${s.name}: the member ${m.rs}:${m.role} names a Role the RS ${m.rs} does not hold`;
+  return null;
+}
+
+// THE READERPATH GRAPH: one node per RS labelled with its position and name, one arrow per connection from its
+// Satellite to its Nucleus labelled with the relation, left to right, the top Nucleus marked.
+export function readerPathGraphText(plan, top) {
+  const node = (rs) => `p${plan.order.indexOf(rs) + 1}`;
+  const lines = ["flowchart LR"];
+  plan.order.forEach((rs, i) => lines.push(`  ${node(rs)}[${quote(`${i + 1} · ${rs}`)}]`));
+  for (const c of plan.connections) lines.push(`  ${node(c.satellite)} -- ${quote(c.relation)} --> ${node(c.nucleus)}`);
+  lines.push("  classDef apex fill:#2b5fa8,stroke:#9cc2ff,color:#ffffff", `  class ${node(top)} apex`);
   return lines.join("\n");
 }
 
-// ONE RS FILE'S PART: what it was read from, its Roles and its Relations.
-function rsFilePart(name, record) {
-  const readFrom = Object.hasOwn(record, RESTS_ON)
-    ? record.sources.map((s) => line(s.text)).join("") +
+// ONE RS'S GRAPH: a Role node labelled with its id, name and words, a Relation node with its id and name, a Relation
+// between Roles joined to its two Roles, a Relation between Relations joined by a thick arrow to the two it relates,
+// the ApexRelation marked and each shared Role's node in its colour.
+export function rsGraphText(rs, record, apex, shared) {
+  const lines = ["flowchart TB"];
+  for (const r of record.roles) lines.push(`  ${r.id}[${quote(`${r.id} · ${r.name}<br/>“${wordsOf(r)}”`)}]`);
+  for (const c of record.relations) lines.push(`  ${c.id}([${quote(`${c.id} · ${c.name}`)}])`);
+  for (const c of record.relations)
+    if (c.between) for (const r of c.between) lines.push(`  ${c.id} --- ${r}`);
+    else for (const x of c.relates) lines.push(`  ${c.id} ==> ${x}`);
+  lines.push("  classDef apex fill:#2b5fa8,stroke:#9cc2ff,color:#ffffff", `  class ${apex.id} apex`);
+  const colours = [];
+  for (const r of record.roles) {
+    const s = shared.get(`${rs}:${r.id}`);
+    if (!s) continue;
+    let k = colours.indexOf(s.colour);
+    if (k < 0) {
+      k = colours.push(s.colour) - 1;
+      lines.push(`  classDef shared${k} fill:${s.colour},stroke:#ffffff,color:#111111`);
+    }
+    lines.push(`  class ${r.id} shared${k}`);
+  }
+  return lines.join("\n");
+}
+
+// THE STATEMENT WITH EACH OCCURRENCE OF EACH ROLE'S WORDS MARKED by that Role's id, in its shared colour where it has
+// one; an occurrence overlapping one met earlier, or a longer one at the same place, is left unmarked.
+export function markedStatement(rs, record, text, shared) {
+  const found = [];
+  const lower = text.toLowerCase();
+  for (const r of record.roles)
+    for (const e of r.in) {
+      const w = e.words.toLowerCase();
+      for (let at = lower.indexOf(w); w && at >= 0; at = lower.indexOf(w, at + 1))
+        found.push({ at, end: at + w.length, role: r });
+    }
+  found.sort((x, y) => x.at - y.at || y.end - x.end);
+  let out = "";
+  let pos = 0;
+  for (const f of found) {
+    if (f.at < pos) continue;
+    const s = shared.get(`${rs}:${f.role.id}`);
+    const style = s ? ` style="background:${s.colour}"` : ' class="plain"';
+    out += `${esc(text.slice(pos, f.at))}<mark${style} title="${esc(f.role.id)}">${esc(text.slice(f.at, f.end))}<sub>${esc(f.role.id)}</sub></mark>`;
+    pos = f.end;
+  }
+  return out + esc(text.slice(pos));
+}
+
+// ONE RS FILE'S CARD: its heading and join, what it was read from, its graph, its Roles and its Relations.
+function rsCard(rs, i, { record, apex }, join, shared) {
+  const statement = Object.hasOwn(record, RESTS_ON);
+  const readFrom = statement
+    ? `<p class="line">${markedStatement(rs, record, record.sources[0].text, shared)}</p>` +
       table(
         ["cite"],
         record[RESTS_ON].map((c) => row([esc(c)])),
@@ -373,35 +467,66 @@ function rsFilePart(name, record) {
         record.sources.map((s) => row([esc(s.id), esc(s.cite)])),
       );
   return (
-    `<h3>${esc(name)}</h3>` +
+    `<article class="rs-card"><h3>${esc(`${i + 1} · ${rs}`)}</h3>` +
+    line(join ? `${join.relation} → ${join.nucleus}` : TOP_NUCLEUS) +
     heading(4, "Read from") +
     readFrom +
+    graphDiv(rsGraphText(rs, record, apex, shared)) +
     heading(4, "Roles") +
     table(
-      ["id", "name", "context"],
-      record.roles.map((r) => row([esc(r.id), esc(r.name), esc(r.context)])),
+      ["id", "name", "shared", "words", "context"],
+      record.roles.map((r) =>
+        row([esc(r.id), esc(r.name), sharedCell(shared.get(`${rs}:${r.id}`)), esc(wordsOf(r)), esc(r.context)]),
+      ),
     ) +
     heading(4, "Relations") +
     table(
-      ["id", "name", "holds"],
-      record.relations.map((c) => row([esc(c.id), esc(c.name), esc(sentenceOf(record, c))])),
-    )
+      ["id", "name", "over", "holds"],
+      record.relations.map((c) =>
+        row([esc(c.id), esc(c.name), esc((c.between || c.relates).join(", ")), esc(c.holds)]),
+      ),
+    ) +
+    "</article>"
+  );
+}
+
+// THE SHARED ROLES PART: one row per member of each shared Role in the plan's order, then every other Role.
+function sharedRolesPart(plan, records, shared) {
+  const roleOf = (rs, id) => records.get(rs).record.roles.find((r) => r.id === id);
+  const members = (plan.shared_roles || []).flatMap((s) =>
+    s.members.map((m) => {
+      const r = roleOf(m.rs, m.role);
+      return row([sharedCell(shared.get(`${m.rs}:${m.role}`)), esc(m.rs), esc(r.id), esc(r.name), esc(wordsOf(r))]);
+    }),
+  );
+  const rest = plan.order.flatMap((rs) =>
+    records
+      .get(rs)
+      .record.roles.filter((r) => !shared.has(`${rs}:${r.id}`))
+      .map((r) => row([esc(rs), esc(r.id), esc(r.name), esc(wordsOf(r))])),
+  );
+  return (
+    table(["shared", "rs", "id", "name", "words"], members) +
+    heading(3, "Roles not shared") +
+    table(["rs", "id", "name", "words"], rest)
   );
 }
 
 // `records` maps each RS of the plan to what readRs returned for it.
 export function renderPlanPage({ name, plan, top, records }) {
   const joinOf = new Map(plan.connections.map((c) => [c.satellite, c]));
+  const shared = sharedOfPlan(plan);
+  const readFromCell = ({ record }) =>
+    Object.hasOwn(record, RESTS_ON) ? esc(record.sources[0].text) : record.sources.map((s) => esc(s.cite)).join("<br>");
   const readerPath = table(
-    ["position", "rs", "apex", "relation", "nucleus"],
+    ["position", "rs", "read from", "relation", "nucleus"],
     plan.order.map((rs, i) => {
-      const { record, apex } = records.get(rs);
       const c = joinOf.get(rs);
       return row(
         [
           esc(i + 1),
           esc(rs) + (rs === top ? ` <span class="muted">${esc(TOP_NUCLEUS)}</span>` : ""),
-          esc(sentenceOf(record, apex)),
+          readFromCell(records.get(rs)),
           esc(c ? c.relation : ""),
           esc(c ? c.nucleus : ""),
         ],
@@ -410,13 +535,17 @@ export function renderPlanPage({ name, plan, top, records }) {
     }),
   );
   const parts = [
-    part("ReaderPath", readerPath),
-    part("Connections", `<pre>${esc(connectionsText(plan, top))}</pre>`),
-    part("RS files", plan.order.map((rs) => rsFilePart(rs, records.get(rs).record)).join("")),
+    part("ReaderPath", graphDiv(readerPathGraphText(plan, top)) + readerPath),
+    part("Shared Roles", sharedRolesPart(plan, records, shared)),
+    part(
+      "RS files",
+      `<div class="cards">${plan.order.map((rs, i) => rsCard(rs, i, records.get(rs), joinOf.get(rs), shared)).join("")}</div>`,
+    ),
   ];
   return (
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>BriefPlanPlayground ${esc(name)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>` +
+    `<title>BriefPlanPlayground ${esc(name)}</title><style>${proofSheetCss()}\n${ACCENT}${BRIEF_CSS}${PLAN_CSS}</style>` +
+    `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true, theme: "dark" });</script></head><body>` +
     `<h1>BriefPlanPlayground — ${esc(name)}</h1>` +
     parts.join("") +
     "</body></html>\n"
@@ -448,6 +577,11 @@ function showPlanMain(planPath) {
       process.exit(1);
     }
     records.set(rs, r);
+  }
+  const unheld = unheldMemberRefusal(read.plan, records);
+  if (unheld) {
+    process.stderr.write(`sheet: ${unheld}\n`);
+    process.exit(1);
   }
   const html = renderPlanPage({ name, plan: read.plan, top: read.top, records });
   const home = join(root, "runs", "brief-plan-playground", `plan-${name}`);

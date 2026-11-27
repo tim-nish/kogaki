@@ -931,25 +931,26 @@ for (const args of [
 }
 ok(!existsSync(nHome) && !existsSync(join(nRoot, "out-bad")), "(n) a refused satellites.yaml wrote a sheet");
 
-// (o) a DocumentPlan's page (kogaki#1977): `show --plan` over three RS files, `b` as evidence to `a` and `c` as background
-// to `b`, `a` read from Units and `c` from a statement, with a model binary that fails.
-const { PLAN_PARTS, TOP_NUCLEUS } = await load("src/brief-plan-playground/sheet.mjs");
+// (o) a DocumentPlan's page (kogaki#1977, kogaki#1982): `show --plan` over three RS files, `b` as evidence to `a` and `c`
+// as background to `b`, `b` read from a statement and `a` and `c` from Units, one shared Role `reader` holding `a:r_1`
+// and `b:r_1`, with a model binary that fails.
+const { PLAN_PARTS, TOP_NUCLEUS, SHARED_COLOURS } = await load("src/brief-plan-playground/sheet.mjs");
 const oRoot = join(root, "plan");
 mkdirSync(join(oRoot, "rs"), { recursive: true });
 mkdirSync(join(oRoot, "document-plans"));
 const oCite = (n) => `coding::lesson/${n}@${"b".repeat(64)}`;
-const oRole = (id, name, source = "S1") => ({
+const oRole = (id, name, words = name, source = "S1") => ({
   id,
   name,
   context: `A kind of ${name}.`,
-  in: [{ source, words: name, attributes: [] }],
+  in: [{ source, words, attributes: [] }],
 });
 const oA = {
   sources: [
     { id: "S1", cite: oCite("walker_skips"), text: "A walker skips a file." },
     { id: "S2", cite: oCite("team_reads_green"), text: "A team reads green as whole." },
   ],
-  roles: [oRole("r_1", "walker"), oRole("r_2", "file"), oRole("r_3", "team", "S2")],
+  roles: [oRole("r_1", "walker"), oRole("r_2", "file"), oRole("r_3", "team", "team", "S2")],
   relations: [
     { id: "c_1", name: "skips", holds: "The {r_1} skips a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
     { id: "c_2", name: "reads", holds: "The {r_3} reads the {r_1}.", from: ["S2"], between: ["r_3", "r_1"] },
@@ -962,21 +963,27 @@ const oA = {
     },
   ],
 };
+const oStatement = "A check runs only where it is told to look, so a skipped file stays green.";
 const oB = {
+  sources: [{ id: "S1", text: oStatement }],
+  roles: [
+    oRole("r_1", "check", "A check"),
+    oRole("r_2", "place", "where it is told to look"),
+    oRole("r_3", "skipped", "a skipped file"),
+  ],
+  relations: [
+    { id: "c_1", name: "looks", holds: "The {r_1} looks only at a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
+    { id: "c_2", name: "misses", holds: "The {r_1} never sees the {r_3}.", from: ["S1"], between: ["r_1", "r_3"] },
+    { id: "c_3", name: "so", holds: "Looking only there is why it misses.", from: ["S1"], relates: ["c_1", "c_2"] },
+  ],
+  rests_on: [oCite("scope_lesson"), oCite("walk_lesson")],
+};
+const oC = {
   sources: [{ id: "S1", cite: oCite("suite_budget"), text: "A suite has a budget." }],
   roles: [oRole("r_1", "suite"), oRole("r_2", "budget")],
   relations: [
     { id: "c_1", name: "bounded", holds: "The {r_1} stays under its {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
   ],
-};
-const oStatement = "A check runs only where it is told to look.";
-const oC = {
-  sources: [{ id: "S1", text: oStatement }],
-  roles: [oRole("r_1", "check"), oRole("r_2", "place")],
-  relations: [
-    { id: "c_1", name: "looks", holds: "The {r_1} looks at a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
-  ],
-  rests_on: [oCite("scope_lesson"), oCite("walk_lesson")],
 };
 for (const [n, r] of [
   ["a", oA],
@@ -985,15 +992,22 @@ for (const [n, r] of [
 ])
   writeFileSync(join(oRoot, "rs", `${n}.yaml`), stringifyYaml(r));
 const oPlan = join(oRoot, "document-plans", "p.yaml");
-const oPlanOf = (order) =>
+const oReader = {
+  name: "reader",
+  members: [
+    { rs: "a", role: "r_1" },
+    { rs: "b", role: "r_1" },
+  ],
+};
+const oPlanOf = (order, shared) =>
   stringifyYaml({
     order,
     connections: [
       { satellite: "b", relation: "evidence", nucleus: "a" },
-      { satellite: "c", relation: "background", nucleus: "b" },
+      { satellite: order[2], relation: "background", nucleus: "b" },
     ],
+    ...(shared ? { shared_roles: shared } : {}),
   });
-writeFileSync(oPlan, oPlanOf(["a", "b", "c"]));
 const oFailing = join(root, "failing.sh");
 writeFileSync(oFailing, "#!/bin/sh\necho called >&2\nexit 3\n", { mode: 0o755 });
 const oRun = (args) =>
@@ -1003,99 +1017,180 @@ const oRun = (args) =>
     timeout: 60000,
   });
 const oHome = join(oRoot, "runs", "brief-plan-playground", "plan-p");
-const o = oRun(["show", "--plan", oPlan]);
-const oPage = existsSync(join(oHome, "sheet.html")) ? readFileSync(join(oHome, "sheet.html"), "utf8") : "";
+const oShow = (shared) => {
+  rmSync(oHome, { recursive: true, force: true });
+  writeFileSync(oPlan, oPlanOf(["a", "b", "c"], shared));
+  const r = oRun(["show", "--plan", oPlan]);
+  const page = existsSync(join(oHome, "sheet.html")) ? readFileSync(join(oHome, "sheet.html"), "utf8") : "";
+  return { r, page };
+};
+const { r: o, page: oPage } = oShow([oReader]);
 ok(
   o.status === 0 && o.stdout === `${pathToFileURL(join(oHome, "sheet.html")).href}\n` && o.stderr === "",
   `(o) show --plan did not exit 0 printing the page's file:// URL as its one line: ${o.status} ${o.stdout} ${o.stderr}`,
 );
 const oH2 = [...oPage.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
-ok(isDeepStrictEqual(oH2, PLAN_PARTS), `(o) the page's parts are not ${PLAN_PARTS.join(", ")} in order: ${oH2}`);
-const oPart = (name) => {
-  const at = oPage.indexOf(`<h2>${name}</h2>`);
-  const next = PLAN_PARTS[PLAN_PARTS.indexOf(name) + 1];
-  return at < 0 ? "" : oPage.slice(at, next ? oPage.indexOf(`<h2>${next}</h2>`) : undefined);
-};
-const oCells = (tr) => [...tr.matchAll(/<td>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
-const oRows = [...oPart("ReaderPath").matchAll(/<tr( class="([^"]*)")?>(?!<th)([\s\S]*?)<\/tr>/g)].map((m) => ({
-  cls: m[2] || "",
-  cells: oCells(m[3]),
-}));
-const oHead = [...oPart("ReaderPath").matchAll(/<th>([^<]*)<\/th>/g)].map((m) => m[1]);
 ok(
-  isDeepStrictEqual(oHead, ["position", "rs", "apex", "relation", "nucleus"]),
-  `(o) the ReaderPath table's columns are not position, rs, apex, relation, nucleus: ${oHead}`,
+  isDeepStrictEqual(oH2, ["ReaderPath", "Shared Roles", "RS files"]) &&
+    isDeepStrictEqual(PLAN_PARTS, oH2) &&
+    !oPage.includes("Connections"),
+  `(o) the page's parts are not ReaderPath, Shared Roles, RS files in order with no Connections: ${oH2}`,
+);
+const oPartOf = (page, name) => {
+  const at = page.indexOf(`<h2>${name}</h2>`);
+  const next = PLAN_PARTS[PLAN_PARTS.indexOf(name) + 1];
+  return at < 0 ? "" : page.slice(at, next ? page.indexOf(`<h2>${next}</h2>`) : undefined);
+};
+const oPart = (name) => oPartOf(oPage, name);
+const oUnesc = (s) =>
+  s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&");
+const oGraphs = (html) => [...html.matchAll(/<pre>([\s\S]*?)<\/pre>/g)].map((m) => oUnesc(m[1]));
+const oPathGraph = oGraphs(oPart("ReaderPath"))[0] || "";
+const oNodes = [...oPathGraph.matchAll(/^ {2}(p\d+)\["(\d+) · ([^"]*)"\]$/gm)].map((m) => ({ id: m[1], rs: m[3] }));
+const oNode = (rs) => (oNodes.find((n) => n.rs === rs) || {}).id;
+const oArrows = [...oPathGraph.matchAll(/^ {2}(p\d+) -- "([^"]*)" --> (p\d+)$/gm)].map((m) => m.slice(1).join(" "));
+const oMarked = [...oPathGraph.matchAll(/^ {2}class (\S+) apex$/gm)].map((m) => m[1]);
+ok(
+  /^flowchart LR\n/.test(oPathGraph) &&
+    isDeepStrictEqual(
+      oNodes.map((n) => n.rs),
+      ["a", "b", "c"],
+    ) &&
+    isDeepStrictEqual(
+      oArrows.sort(),
+      [`${oNode("b")} evidence ${oNode("a")}`, `${oNode("c")} background ${oNode("b")}`].sort(),
+    ) &&
+    isDeepStrictEqual(oMarked, [oNode("a")]),
+  `(o) the ReaderPath graph is not three nodes, b evidence to a and c background to b, a alone marked: ${oPathGraph}`,
+);
+const oCells = (tr) => [...tr.matchAll(/<td>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
+const oRowsOf = (html) =>
+  [...html.matchAll(/<tr( class="([^"]*)")?>(?!<th)([\s\S]*?)<\/tr>/g)].map((m) => ({
+    cls: m[2] || "",
+    cells: oCells(m[3]),
+  }));
+const oTables = (html) =>
+  html
+    .split("<table>")
+    .slice(1)
+    .map((t) => t.slice(0, t.indexOf("</table>")));
+const oHeadOf = (t) => [...t.matchAll(/<th>([^<]*)<\/th>/g)].map((m) => m[1]);
+const oPathTable = oTables(oPart("ReaderPath"))[0] || "";
+const oRows = oRowsOf(oPathTable);
+const oByRs = (n) => oRows.find((r) => r.cells[1].replace(/ <span[\s\S]*$/, "") === n) || { cls: "", cells: [] };
+ok(
+  isDeepStrictEqual(oHeadOf(oPathTable), ["position", "rs", "read from", "relation", "nucleus"]) &&
+    !oPage.includes("<th>apex</th>"),
+  `(o) the ReaderPath table's columns are not position, rs, read from, relation, nucleus: ${oHeadOf(oPathTable)}`,
 );
 ok(
   oRows.length === 3 &&
+    oByRs("b").cells[2] === oStatement &&
+    oByRs("b").cells[3] === "evidence" &&
+    oByRs("b").cells[4] === "a" &&
+    oByRs("a").cells[2] === oA.sources.map((s) => s.cite).join("<br>") &&
+    oByRs("a").cls.split(" ").includes("top") &&
+    oByRs("a").cells[1].includes(TOP_NUCLEUS),
+  `(o) the ReaderPath table does not hold three rows, b's the statement, evidence and a: ${JSON.stringify(oRows)}`,
+);
+const [oSharedTable, oRestTable] = oTables(oPart("Shared Roles"));
+const oColour = SHARED_COLOURS[0];
+const oSharedRows = oRowsOf(oSharedTable || "");
+ok(
+  isDeepStrictEqual(oHeadOf(oSharedTable || ""), ["shared", "rs", "id", "name", "words"]) &&
+    oSharedRows.length === 2 &&
+    oSharedRows.every((r) => r.cells[0].includes("reader") && r.cells[0].includes(`background:${oColour}`)) &&
     isDeepStrictEqual(
-      oRows.map((r) => r.cells[1].replace(/ <span[\s\S]*$/, "")),
-      ["a", "b", "c"],
+      oSharedRows.map((r) => r.cells.slice(1)),
+      [
+        ["a", "r_1", "walker", "walker"],
+        ["b", "r_1", "check", "A check"],
+      ],
     ),
-  `(o) the ReaderPath table does not hold three rows a, b, c in the plan's order: ${JSON.stringify(oRows)}`,
+  `(o) the Shared Roles table is not two rows of reader in its colour: ${JSON.stringify(oSharedRows)}`,
 );
-const oByRs = (n) => oRows.find((r) => r.cells[1].replace(/ <span[\s\S]*$/, "") === n) || { cls: "", cells: [] };
+const oRest = oRowsOf(oRestTable || "").map((r) => r.cells.slice(0, 2).join(":"));
 ok(
-  oByRs("b").cells[3] === "evidence" && oByRs("b").cells[4] === "a",
-  `(o) the row of b does not hold evidence and a: ${oByRs("b").cells}`,
+  oPart("Shared Roles").includes("<h3>Roles not shared</h3>") &&
+    isDeepStrictEqual(oRest, ["a:r_2", "a:r_3", "b:r_2", "b:r_3", "c:r_1", "c:r_2"]),
+  `(o) the Roles not shared table does not hold every other Role and neither member: ${oRest}`,
 );
-ok(
-  oByRs("a").cells[3] === "" &&
-    oByRs("a").cells[4] === "" &&
-    oRows.filter((r) => r.cls.split(" ").includes("top") && r.cells[1].includes(TOP_NUCLEUS)).length === 1 &&
-    oByRs("a").cls.split(" ").includes("top"),
-  `(o) the row of a is not the one row marked the top Nucleus with no relation and no nucleus: ${JSON.stringify(oRows)}`,
-);
-ok(
-  oByRs("a").cells[2] === "The team trusts a file no one read.",
-  `(o) the apex of a is not its ApexRelation's sentence with Role names: ${oByRs("a").cells[2]}`,
-);
-const oHolds = [...oPart("RS files").matchAll(/<tr><td>c_\d+<\/td><td>[^<]*<\/td><td>([^<]*)<\/td><\/tr>/g)].map(
-  (m) => m[1],
-);
-ok(
-  oHolds.length === 5 && ![...oRows.map((r) => r.cells[2] || ""), ...oHolds].some((x) => /\{[^{}]*\}/.test(x)),
-  `(o) an apex or holds cell carries a Role id in braces, or the holds cells are not five: ${JSON.stringify(oHolds)}`,
-);
-const oPre = (oPart("Connections").match(/<pre>([\s\S]*?)<\/pre>/) || [])[1] ?? "";
-ok(
-  oPre === "a\n  evidence: b\n    background: c",
-  `(o) the Connections text is not a, then b one step in with evidence, then c two steps in with background: ${JSON.stringify(oPre)}`,
-);
-const oRsPart = (n) => {
-  const files = oPart("RS files");
-  const at = files.indexOf(`<h3>${n}</h3>`);
-  const next = files.indexOf("<h3>", at + 1);
-  return at < 0 ? "" : files.slice(at, next < 0 ? undefined : next);
+const oCard = (page, n) => {
+  const files = oPartOf(page, "RS files");
+  const i = ["a", "b", "c"].indexOf(n);
+  const at = files.indexOf(`<h3>${i + 1} · ${n}</h3>`);
+  const end = files.indexOf("</article>", at);
+  return at < 0 ? "" : files.slice(at, end);
 };
+const oCardB = oCard(oPage, "b");
+const oMarks = [
+  ...oCardB.matchAll(/<mark( style="background:([^"]*)"| class="plain") title="([^"]*)">([^<]*)<sub>/g),
+].map((m) => ({ colour: m[2] || null, id: m[3], words: m[4] }));
 ok(
-  oRsPart("c").includes(`<p class="line">${oStatement}</p>`) &&
-    oC.rests_on.every((c) => oRsPart("c").includes(`<td>${c}</td>`)),
-  "(o) the part of c, made from a statement, does not show the statement's text and each rests_on cite",
+  isDeepStrictEqual(
+    oMarks.map((m) => `${m.id}=${m.words}`),
+    ["r_1=A check", "r_2=where it is told to look", "r_3=a skipped file"],
+  ) &&
+    oMarks.find((m) => m.id === "r_1").colour === oColour &&
+    oMarks.filter((m) => m.colour).length === 1,
+  `(o) the card of b does not mark each Role's words with its id, r_1 in reader's colour: ${JSON.stringify(oMarks)}`,
 );
+const oBGraph = oGraphs(oCardB)[0] || "";
+const oBNodes = [...oBGraph.matchAll(/^ {2}(\w+)(\[|\(\[)"/gm)].map((m) => m[1]);
+const oBShared = [...oBGraph.matchAll(/^ {2}classDef (shared\d+) fill:([^,]+),/gm)];
 ok(
-  oA.sources.every((s) => oRsPart("a").includes(`<td>${s.cite}</td>`)),
-  "(o) the part of a, made from Units, does not show each source's cite",
+  isDeepStrictEqual(oBNodes, ["r_1", "r_2", "r_3", "c_1", "c_2", "c_3"]) &&
+    isDeepStrictEqual(
+      [...oBGraph.matchAll(/^ {2}class (\S+) apex$/gm)].map((m) => m[1]),
+      ["c_3"],
+    ) &&
+    oBShared.length === 1 &&
+    oBShared[0][2] === oColour &&
+    oBGraph.includes(`  class r_1 ${oBShared[0][1]}`),
+  `(o) the graph of b's card is not one node per Role and Relation, c_3 marked and r_1 in reader's colour: ${oBGraph}`,
 );
+const oBRelations = oTables(oCardB).find((t) => oHeadOf(t).includes("over")) || "";
 ok(
-  ["a", "b", "c"].every((n) => {
-    const t = oRsPart(n);
-    return (
-      t.indexOf("<h4>Read from</h4>") < t.indexOf("<h4>Roles</h4>") &&
-      t.indexOf("<h4>Roles</h4>") < t.indexOf("<h4>Relations</h4>")
-    );
-  }),
-  "(o) an RS part does not show what it was read from, then its Roles, then its Relations",
+  isDeepStrictEqual(oHeadOf(oBRelations), ["id", "name", "over", "holds"]) &&
+    oRowsOf(oBRelations)[0].cells[2] === "r_1, r_2" &&
+    oRowsOf(oBRelations)[0].cells[3] === "The {r_1} looks only at a {r_2}.",
+  `(o) in the card of b, the holds of a Relation between Roles is not the file's sentence with braces: ${oBRelations}`,
 );
 const oWord = BRIEF_RETIRED_WORDS.find((w) => new RegExp(`\\b${w}`).test(oPage));
 ok(oWord === undefined, `(o) the page carries the word ${oWord}`);
-rmSync(oHome, { recursive: true, force: true });
-writeFileSync(
-  oPlan,
-  oPlanOf(["a", "b", "d"])
-    .replace("nucleus: b", "nucleus: b")
-    .replace(/satellite: c/, "satellite: d"),
+const { r: oNone, page: oNonePage } = oShow(null);
+ok(
+  oNone.status === 0 &&
+    oRowsOf(oTables(oPartOf(oNonePage, "Shared Roles"))[0] || "").length === 0 &&
+    oRowsOf(oTables(oPartOf(oNonePage, "Shared Roles"))[1] || "").length === 8 &&
+    !/classDef shared/.test(oNonePage) &&
+    !SHARED_COLOURS.some((c) => oNonePage.includes(c)),
+  `(o) with no shared_roles the Shared Roles table holds a row or a card carries a shared colour: ${oNone.stderr}`,
 );
+const oUnheld = oShow([
+  {
+    name: "reader",
+    members: [
+      { rs: "a", role: "r_1" },
+      { rs: "b", role: "r_9" },
+    ],
+  },
+]).r;
+ok(
+  oUnheld.status === 1 &&
+    oUnheld.stdout === "" &&
+    oUnheld.stderr.split("\n").filter(Boolean).length === 1 &&
+    oUnheld.stderr.includes("reader") &&
+    oUnheld.stderr.includes("b:r_9") &&
+    !existsSync(oHome),
+  `(o) a shared Role naming b:r_9 did not exit 1 naming reader and b:r_9 with no page: ${oUnheld.status} ${oUnheld.stderr}`,
+);
+rmSync(oHome, { recursive: true, force: true });
+writeFileSync(oPlan, oPlanOf(["a", "b", "d"]));
 const oMissing = oRun(["show", "--plan", oPlan]);
 ok(
   oMissing.status === 1 &&
