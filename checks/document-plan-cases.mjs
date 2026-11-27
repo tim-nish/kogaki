@@ -1,7 +1,7 @@
 // The cases of checks/check-document-plan.sh (kogaki#1976), each stated in that member's `contract` in
 // checks/registry.json: (a) `create` over three RS files writes one DocumentPlan; (b) the file holds two keys alone;
 // (c) no model is called; (d) each refusal writes nothing; (e) `readDocumentPlan`; (f) the `check` verb; (g) the
-// relation list. The RS files are written into a folder of the cases' own.
+// relation list; (h) to (l) the shared Roles (kogaki#1981). The RS files are written into a folder of the cases' own.
 import {
   mkdtempSync,
   mkdirSync,
@@ -225,6 +225,150 @@ ok(
     "volitional_result",
   ]),
   `(g) relations.json does not hold the twenty-one names alone: ${JSON.stringify(listed)}`,
+);
+
+// (h) SHARE (kogaki#1981): `a:r_1` and `b:r_1` are one shared Role, `reader`.
+const pPath = join(plansDir, "p.yaml");
+const pText = () => readFileSync(pPath, "utf8");
+ok(!Object.hasOwn(p, "shared_roles"), `(h) a plan written by create carries shared_roles: ${Object.keys(p)}`);
+const sharedRuns = [];
+const shared = (args) => {
+  const r = run(args);
+  sharedRuns.push(r);
+  return r;
+};
+const h = shared(["share", "--plan", pPath, "--name", "reader", "--member", "a:r_1", "--member", "b:r_1"]);
+ok(h.status === 0, `(h) share exited ${h.status}: ${h.out}${h.err}`);
+const ph = parseYaml(pText(), "p");
+ok(
+  isDeepStrictEqual(Object.keys(ph), ["order", "connections", "shared_roles"]) &&
+    isDeepStrictEqual(ph.shared_roles, [
+      {
+        name: "reader",
+        members: [
+          { rs: "a", role: "r_1" },
+          { rs: "b", role: "r_1" },
+        ],
+      },
+    ]),
+  `(h) the file does not carry one shared Role reader of a:r_1 and b:r_1: ${JSON.stringify(ph)}`,
+);
+ok(
+  isDeepStrictEqual(h.out.trim().split("\n"), ["shared: reader", "a\tr_1\tcheck\tcheck", "b\tr_1\tsuite\tsuite"]),
+  `(h) share does not print shared: reader and two member lines: ${h.out}`,
+);
+
+// (i) EACH REFUSAL EXITS 1, NAMES WHAT IT FOUND, AND LEAVES THE FILE AS IT WAS.
+for (const [label, args, found] of [
+  ["one member", ["share", "--name", "x", "--member", "a:r_1"], "fewer than two"],
+  [
+    "a name that is not one snake_case word",
+    ["share", "--name", "Bad-Name", "--member", "a:r_1", "--member", "b:r_1"],
+    "Bad-Name",
+  ],
+  ["a member with no colon", ["share", "--name", "x", "--member", "a", "--member", "b:r_2"], "<rs>:<role id>"],
+  [
+    "a member naming an RS outside the order",
+    ["share", "--name", "x", "--member", "zed:r_1", "--member", "b:r_2"],
+    "zed",
+  ],
+  ["a member naming a:r_9", ["share", "--name", "x", "--member", "a:r_9", "--member", "b:r_2"], "r_9"],
+  [
+    "a:r_1 beside a:r_2",
+    ["share", "--name", "reader", "--member", "a:r_1", "--member", "a:r_2"],
+    "second Role of the RS a",
+  ],
+  ["b:r_1 given to a second shared Role", ["share", "--name", "x", "--member", "b:r_1", "--member", "c:r_1"], "reader"],
+  ["unshare of a name not held", ["unshare", "--name", "x"], "no shared Role x"],
+]) {
+  const before = pText();
+  const r = shared([args[0], "--plan", pPath, ...args.slice(1)]);
+  ok(
+    r.status === 1 && r.out.startsWith("refused: ") && r.out.includes(found) && pText() === before,
+    `(i) ${label}: did not exit 1 naming ${JSON.stringify(found)} with the file unchanged: ${r.status} ${r.out}${r.err}`,
+  );
+}
+
+// (j) A SECOND SHARE OF ONE NAME REPLACES ITS MEMBERS; `roles` MARKS THEM.
+const j = shared(["share", "--plan", pPath, "--name", "reader", "--member", "a:r_1", "--member", "c:r_1"]);
+ok(
+  j.status === 0 &&
+    isDeepStrictEqual(parseYaml(pText(), "p").shared_roles, [
+      {
+        name: "reader",
+        members: [
+          { rs: "a", role: "r_1" },
+          { rs: "c", role: "r_1" },
+        ],
+      },
+    ]),
+  `(j) the second share does not leave reader of a:r_1 and c:r_1: ${j.status} ${j.out} ${pText()}`,
+);
+const rl = shared(["roles", "--plan", pPath]);
+ok(
+  rl.status === 0 &&
+    isDeepStrictEqual(rl.out.trim().split("\n"), [
+      "a\tr_1\tcheck\tcheck\treader",
+      "a\tr_2\trunner\trunner\t-",
+      "b\tr_1\tsuite\tsuite\t-",
+      "b\tr_2\tteam\tteam\t-",
+      "c\tr_1\tbudget\tbudget\treader",
+      "c\tr_2\thour\thour\t-",
+    ]),
+  `(j) roles does not print each Role in the plan's order with reader on the two members: ${rl.status} ${rl.out}`,
+);
+
+// (k) THE READER over shared Roles, and the `check` verb.
+const pj = parseYaml(pText(), "p");
+const sharedRead = readDocumentPlan(pPath, "p.yaml");
+ok(
+  !sharedRead.error && isDeepStrictEqual(sharedRead.plan.shared_roles, pj.shared_roles),
+  `(k) readDocumentPlan does not answer the shared Roles: ${JSON.stringify(sharedRead)}`,
+);
+const withShared = (label, mutate) => {
+  const f = structuredClone(pj);
+  mutate(f);
+  const at = join(root, `${label}.yaml`);
+  writeFileSync(at, stringifyYaml(f));
+  return readDocumentPlan(at, label);
+};
+const twice = withShared("twice", (f) =>
+  f.shared_roles.push({
+    name: "reader",
+    members: [
+      { rs: "a", role: "r_2" },
+      { rs: "b", role: "r_2" },
+    ],
+  }),
+);
+ok(twice.error?.includes("reader is repeated"), `(k) a name held twice is not refused: ${JSON.stringify(twice)}`);
+const keyed = withShared("keyed", (f) => (f.shared_roles[0].why = "x"));
+ok(keyed.error?.includes("`why`"), `(k) a shared Role with a third key is not refused: ${JSON.stringify(keyed)}`);
+const ck = run(["check"]);
+ok(
+  ck.status === 0 && ck.out.includes("p.yaml\ttop nucleus a\trs 3\tconnections 2\tshared roles 1"),
+  `(k) check does not print shared roles 1: ${ck.status} ${ck.out}`,
+);
+
+// (l) UNSHARE removes the key with its last shared Role; `check` finds a member its RS file no longer holds.
+const u = shared(["unshare", "--plan", pPath, "--name", "reader"]);
+ok(
+  u.status === 0 && isDeepStrictEqual(Object.keys(parseYaml(pText(), "p")), ["order", "connections"]),
+  `(l) unshare does not leave order and connections alone: ${u.status} ${u.out} ${pText()}`,
+);
+shared(["share", "--plan", pPath, "--name", "reader", "--member", "a:r_1", "--member", "b:r_1"]);
+const bAgain = rsFile("b", "suite", "team");
+bAgain.roles = bAgain.roles.map((r) => ({ ...r, id: r.id === "r_1" ? "r_3" : r.id }));
+bAgain.relations[0] = { ...bAgain.relations[0], holds: "The {r_3} meets the {r_2}.", between: ["r_3", "r_2"] };
+writeFileSync(join(rsDir, "b.yaml"), stringifyYaml(bAgain));
+const cr = run(["check"]);
+ok(
+  cr.status === 1 && cr.out.includes("refused: ") && cr.out.includes("reader") && cr.out.includes("b:r_1"),
+  `(l) check does not refuse reader's member b:r_1 once b no longer holds it: ${cr.status} ${cr.out}`,
+);
+ok(
+  sharedRuns.every((r) => !r.err.includes("called")),
+  `(l) share, unshare or roles ran the model binary: ${sharedRuns.map((r) => r.err).join("")}`,
 );
 
 rmSync(root, { recursive: true, force: true });

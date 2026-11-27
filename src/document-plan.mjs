@@ -1,6 +1,7 @@
 // document-plan — the command that joins RS files under rs/ into one DocumentPlan under document-plans/ (kogaki#1976):
 // the RSs in reading order and each connection's Satellite, relation and Nucleus, as the maintainer settled them with
-// the Session. It calls no model. The file's reader is src/document-plan/file.mjs.
+// the Session, and the shared Roles `share` adds (kogaki#1981). It calls no model. The file's reader is
+// src/document-plan/file.mjs.
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,8 +10,10 @@ import {
   documentPlanRefusal,
   orderRefusal,
   readDocumentPlan,
+  SHARED_ROLES,
   topsOf,
 } from "./document-plan/file.mjs";
+import { membersRefusal, PLAN_HEADER, roles, share, unshare } from "./document-plan/shared-roles.mjs";
 import { readRs, sentenceOf, SNAKE_WORD } from "./rs/file.mjs";
 import { REPO, relFromRepo } from "./workflow/run-record.mjs";
 import { stringifyYaml } from "./yaml.mjs";
@@ -18,12 +21,12 @@ import { stringifyYaml } from "./yaml.mjs";
 // `KOGAKI_RS_DIR` replaces rs/ and `KOGAKI_DOCUMENT_PLANS_DIR` replaces document-plans/, FOR FIXTURES ONLY.
 const rsDir = () => process.env.KOGAKI_RS_DIR || join(REPO, "rs");
 const plansDir = () => process.env.KOGAKI_DOCUMENT_PLANS_DIR || join(REPO, "document-plans");
-const HEADER =
-  "A DocumentPlan written by `node src/document-plan.mjs create`: RS files under rs/ in reading order, and each " +
-  "connection's Satellite, relation and Nucleus. `node src/document-plan.mjs check` reads it.";
 const USAGE =
   "usage: node src/document-plan.mjs create --name <name> --order <rs>[,<rs> ...] " +
   "--connect <satellite>:<relation>:<nucleus> [--connect ...]\n" +
+  "       node src/document-plan.mjs share --plan <file> --name <name> --member <rs>:<role id> --member ... \n" +
+  "       node src/document-plan.mjs unshare --plan <file> --name <name>\n" +
+  "       node src/document-plan.mjs roles --plan <file>\n" +
   "       node src/document-plan.mjs check [<file> ...]";
 const CONNECT = /^([^:]+):([^:]+):([^:]+)$/;
 
@@ -60,7 +63,7 @@ export function create({ name, order, connects }) {
   const [top] = topsOf(plan);
   const { record, apex } = records.get(top);
   mkdirSync(plansDir(), { recursive: true });
-  writeFileSync(path, stringifyYaml(plan, { header: HEADER }));
+  writeFileSync(path, stringifyYaml(plan, { header: PLAN_HEADER }));
   return {
     status: 0,
     lines: [
@@ -93,9 +96,41 @@ export function check(files) {
       lines.push(`refused: ${r.error}`);
       continue;
     }
-    lines.push(`${at}\ttop nucleus ${r.top}\trs ${r.plan.order.length}\tconnections ${r.plan.connections.length}`);
+    const members = membersRefusal(r.plan, at, rsDir());
+    if (members) {
+      status = 1;
+      lines.push(`refused: ${members}`);
+      continue;
+    }
+    const shared = (r.plan[SHARED_ROLES] || []).length;
+    lines.push(
+      `${at}\ttop nucleus ${r.top}\trs ${r.plan.order.length}\tconnections ${r.plan.connections.length}\t` +
+        `shared roles ${shared}`,
+    );
   }
   return { status, lines };
+}
+
+// SHARE, UNSHARE, ROLES (kogaki#1981): the arguments each takes, read into the verb of src/document-plan/shared-roles.mjs.
+function sharedVerb(verb, rest) {
+  let plan = null;
+  let name = null;
+  const members = [];
+  let stray = null;
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "--plan") plan = rest[++i] ?? "";
+    else if (rest[i] === "--name" && verb !== "roles") name = rest[++i] ?? "";
+    else if (rest[i] === "--member" && verb === "share") members.push(rest[++i] ?? "");
+    else stray ??= rest[i];
+  }
+  if (stray !== null) return refused(`the argument ${JSON.stringify(stray)} is not declared`);
+  if (!plan) return refused("no --plan is given");
+  const path = resolve(plan);
+  const at = relFromRepo(path);
+  if (!existsSync(path)) return refused(`${at} does not exist`);
+  if (verb === "share") return share({ path, at, name, members, rsDir: rsDir() });
+  if (verb === "unshare") return unshare({ path, at, name });
+  return roles({ path, at, rsDir: rsDir() });
 }
 
 function main(argv) {
@@ -116,7 +151,8 @@ function main(argv) {
       stray !== null
         ? refused(`the argument ${JSON.stringify(stray)} is not declared`)
         : create({ name, order, connects });
-  } else if (verb === "check") r = check(rest);
+  } else if (verb === "share" || verb === "unshare" || verb === "roles") r = sharedVerb(verb, rest);
+  else if (verb === "check") r = check(rest);
   else {
     process.stderr.write(`${USAGE}\n`);
     process.exit(2);
