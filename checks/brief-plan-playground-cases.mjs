@@ -931,6 +931,181 @@ for (const args of [
 }
 ok(!existsSync(nHome) && !existsSync(join(nRoot, "out-bad")), "(n) a refused satellites.yaml wrote a sheet");
 
+// (o) a DocumentPlan's page (kogaki#1977): `show --plan` over three RS files, `b` as evidence to `a` and `c` as background
+// to `b`, `a` read from Units and `c` from a statement, with a model binary that fails.
+const { PLAN_PARTS, TOP_NUCLEUS } = await load("src/brief-plan-playground/sheet.mjs");
+const oRoot = join(root, "plan");
+mkdirSync(join(oRoot, "rs"), { recursive: true });
+mkdirSync(join(oRoot, "document-plans"));
+const oCite = (n) => `coding::lesson/${n}@${"b".repeat(64)}`;
+const oRole = (id, name, source = "S1") => ({
+  id,
+  name,
+  context: `A kind of ${name}.`,
+  in: [{ source, words: name, attributes: [] }],
+});
+const oA = {
+  sources: [
+    { id: "S1", cite: oCite("walker_skips"), text: "A walker skips a file." },
+    { id: "S2", cite: oCite("team_reads_green"), text: "A team reads green as whole." },
+  ],
+  roles: [oRole("r_1", "walker"), oRole("r_2", "file"), oRole("r_3", "team", "S2")],
+  relations: [
+    { id: "c_1", name: "skips", holds: "The {r_1} skips a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
+    { id: "c_2", name: "reads", holds: "The {r_3} reads the {r_1}.", from: ["S2"], between: ["r_3", "r_1"] },
+    {
+      id: "c_3",
+      name: "misread",
+      holds: "The {r_3} trusts a {r_2} no one read.",
+      from: ["S1", "S2"],
+      relates: ["c_1", "c_2"],
+    },
+  ],
+};
+const oB = {
+  sources: [{ id: "S1", cite: oCite("suite_budget"), text: "A suite has a budget." }],
+  roles: [oRole("r_1", "suite"), oRole("r_2", "budget")],
+  relations: [
+    { id: "c_1", name: "bounded", holds: "The {r_1} stays under its {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
+  ],
+};
+const oStatement = "A check runs only where it is told to look.";
+const oC = {
+  sources: [{ id: "S1", text: oStatement }],
+  roles: [oRole("r_1", "check"), oRole("r_2", "place")],
+  relations: [
+    { id: "c_1", name: "looks", holds: "The {r_1} looks at a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
+  ],
+  rests_on: [oCite("scope_lesson"), oCite("walk_lesson")],
+};
+for (const [n, r] of [
+  ["a", oA],
+  ["b", oB],
+  ["c", oC],
+])
+  writeFileSync(join(oRoot, "rs", `${n}.yaml`), stringifyYaml(r));
+const oPlan = join(oRoot, "document-plans", "p.yaml");
+const oPlanOf = (order) =>
+  stringifyYaml({
+    order,
+    connections: [
+      { satellite: "b", relation: "evidence", nucleus: "a" },
+      { satellite: "c", relation: "background", nucleus: "b" },
+    ],
+  });
+writeFileSync(oPlan, oPlanOf(["a", "b", "c"]));
+const oFailing = join(root, "failing.sh");
+writeFileSync(oFailing, "#!/bin/sh\necho called >&2\nexit 3\n", { mode: 0o755 });
+const oRun = (args) =>
+  spawnSync(process.execPath, ["src/brief-plan-playground/sheet.mjs", ...args], {
+    encoding: "utf8",
+    env: { ...process.env, KOGAKI_JUDGE_CLI: oFailing },
+    timeout: 60000,
+  });
+const oHome = join(oRoot, "runs", "brief-plan-playground", "plan-p");
+const o = oRun(["show", "--plan", oPlan]);
+const oPage = existsSync(join(oHome, "sheet.html")) ? readFileSync(join(oHome, "sheet.html"), "utf8") : "";
+ok(
+  o.status === 0 && o.stdout === `${pathToFileURL(join(oHome, "sheet.html")).href}\n` && o.stderr === "",
+  `(o) show --plan did not exit 0 printing the page's file:// URL as its one line: ${o.status} ${o.stdout} ${o.stderr}`,
+);
+const oH2 = [...oPage.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
+ok(isDeepStrictEqual(oH2, PLAN_PARTS), `(o) the page's parts are not ${PLAN_PARTS.join(", ")} in order: ${oH2}`);
+const oPart = (name) => {
+  const at = oPage.indexOf(`<h2>${name}</h2>`);
+  const next = PLAN_PARTS[PLAN_PARTS.indexOf(name) + 1];
+  return at < 0 ? "" : oPage.slice(at, next ? oPage.indexOf(`<h2>${next}</h2>`) : undefined);
+};
+const oCells = (tr) => [...tr.matchAll(/<td>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
+const oRows = [...oPart("ReaderPath").matchAll(/<tr( class="([^"]*)")?>(?!<th)([\s\S]*?)<\/tr>/g)].map((m) => ({
+  cls: m[2] || "",
+  cells: oCells(m[3]),
+}));
+const oHead = [...oPart("ReaderPath").matchAll(/<th>([^<]*)<\/th>/g)].map((m) => m[1]);
+ok(
+  isDeepStrictEqual(oHead, ["position", "rs", "apex", "relation", "nucleus"]),
+  `(o) the ReaderPath table's columns are not position, rs, apex, relation, nucleus: ${oHead}`,
+);
+ok(
+  oRows.length === 3 &&
+    isDeepStrictEqual(
+      oRows.map((r) => r.cells[1].replace(/ <span[\s\S]*$/, "")),
+      ["a", "b", "c"],
+    ),
+  `(o) the ReaderPath table does not hold three rows a, b, c in the plan's order: ${JSON.stringify(oRows)}`,
+);
+const oByRs = (n) => oRows.find((r) => r.cells[1].replace(/ <span[\s\S]*$/, "") === n) || { cls: "", cells: [] };
+ok(
+  oByRs("b").cells[3] === "evidence" && oByRs("b").cells[4] === "a",
+  `(o) the row of b does not hold evidence and a: ${oByRs("b").cells}`,
+);
+ok(
+  oByRs("a").cells[3] === "" &&
+    oByRs("a").cells[4] === "" &&
+    oRows.filter((r) => r.cls.split(" ").includes("top") && r.cells[1].includes(TOP_NUCLEUS)).length === 1 &&
+    oByRs("a").cls.split(" ").includes("top"),
+  `(o) the row of a is not the one row marked the top Nucleus with no relation and no nucleus: ${JSON.stringify(oRows)}`,
+);
+ok(
+  oByRs("a").cells[2] === "The team trusts a file no one read.",
+  `(o) the apex of a is not its ApexRelation's sentence with Role names: ${oByRs("a").cells[2]}`,
+);
+const oHolds = [...oPart("RS files").matchAll(/<tr><td>c_\d+<\/td><td>[^<]*<\/td><td>([^<]*)<\/td><\/tr>/g)].map(
+  (m) => m[1],
+);
+ok(
+  oHolds.length === 5 && ![...oRows.map((r) => r.cells[2] || ""), ...oHolds].some((x) => /\{[^{}]*\}/.test(x)),
+  `(o) an apex or holds cell carries a Role id in braces, or the holds cells are not five: ${JSON.stringify(oHolds)}`,
+);
+const oPre = (oPart("Connections").match(/<pre>([\s\S]*?)<\/pre>/) || [])[1] ?? "";
+ok(
+  oPre === "a\n  evidence: b\n    background: c",
+  `(o) the Connections text is not a, then b one step in with evidence, then c two steps in with background: ${JSON.stringify(oPre)}`,
+);
+const oRsPart = (n) => {
+  const files = oPart("RS files");
+  const at = files.indexOf(`<h3>${n}</h3>`);
+  const next = files.indexOf("<h3>", at + 1);
+  return at < 0 ? "" : files.slice(at, next < 0 ? undefined : next);
+};
+ok(
+  oRsPart("c").includes(`<p class="line">${oStatement}</p>`) &&
+    oC.rests_on.every((c) => oRsPart("c").includes(`<td>${c}</td>`)),
+  "(o) the part of c, made from a statement, does not show the statement's text and each rests_on cite",
+);
+ok(
+  oA.sources.every((s) => oRsPart("a").includes(`<td>${s.cite}</td>`)),
+  "(o) the part of a, made from Units, does not show each source's cite",
+);
+ok(
+  ["a", "b", "c"].every((n) => {
+    const t = oRsPart(n);
+    return (
+      t.indexOf("<h4>Read from</h4>") < t.indexOf("<h4>Roles</h4>") &&
+      t.indexOf("<h4>Roles</h4>") < t.indexOf("<h4>Relations</h4>")
+    );
+  }),
+  "(o) an RS part does not show what it was read from, then its Roles, then its Relations",
+);
+const oWord = BRIEF_RETIRED_WORDS.find((w) => new RegExp(`\\b${w}`).test(oPage));
+ok(oWord === undefined, `(o) the page carries the word ${oWord}`);
+rmSync(oHome, { recursive: true, force: true });
+writeFileSync(
+  oPlan,
+  oPlanOf(["a", "b", "d"])
+    .replace("nucleus: b", "nucleus: b")
+    .replace(/satellite: c/, "satellite: d"),
+);
+const oMissing = oRun(["show", "--plan", oPlan]);
+ok(
+  oMissing.status === 1 &&
+    oMissing.stdout === "" &&
+    oMissing.stderr.split("\n").filter(Boolean).length === 1 &&
+    oMissing.stderr.includes("the RS d") &&
+    !existsSync(oHome),
+  `(o) a plan naming an RS with no file did not exit 1 naming it with no page: ${oMissing.status} ${oMissing.stderr}`,
+);
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);

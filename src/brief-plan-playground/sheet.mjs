@@ -18,15 +18,21 @@ import { readBriefFiles } from "../compose/brief-files.mjs";
 import { readSatellites, rolesFirstUsed, wholeReaderPath } from "../compose/satellites.mjs";
 import { relationsAmongRelations, relationsAmongRoles } from "../sme/structure.mjs";
 import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
+import { readDocumentPlan } from "../document-plan/file.mjs";
+import { readRs, sentenceOf, RESTS_ON } from "../rs/file.mjs";
 
 // THE BRIEFPLANPLAYGROUND'S PARTS, in order (kogaki#1776, kogaki#1805).
 export const BRIEF_PARTS = ["Thesis", "Claims", "Structure Mapping", "Legs"];
+// THE PARTS OF A DOCUMENTPLAN'S PAGE, in order (kogaki#1977).
+export const PLAN_PARTS = ["ReaderPath", "Connections", "RS files"];
 // THE PART DRAWN BETWEEN STRUCTURE MAPPING AND LEGS where satellites.yaml holds an entry (kogaki#1964).
 export const ADDED_PART = "Added structures";
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these, and one per entry of satellites.yaml.
 export const BRIEF_HEADINGS = [
   ...BRIEF_PARTS,
   ADDED_PART,
+  ...PLAN_PARTS,
+  "Read from",
   "Roles",
   "Relations",
   "Higher-order relations",
@@ -50,6 +56,11 @@ export const BRIEF_COLUMNS = [
   "cite",
   "structure",
   "Roles first used here",
+  "position",
+  "rs",
+  "apex",
+  "nucleus",
+  "context",
 ];
 // THE WORDS THE BRIEFPLANPLAYGROUND NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
@@ -329,9 +340,127 @@ export function renderBriefPlanPlayground({ brief, claims, satellites = [] }) {
   );
 }
 
+// ---- A DOCUMENTPLAN'S PAGE (kogaki#1977): its RS files in reading order and the relation joining each to its Nucleus ----
+// THE MARK ON THE TOP NUCLEUS'S ROW.
+export const TOP_NUCLEUS = "top Nucleus";
+
+// THE CONNECTIONS AS INDENTED TEXT: the top Nucleus first, each Satellite one step in under its Nucleus with its
+// relation's name before its own, the Satellites of one Nucleus in the plan's order.
+export function connectionsText(plan, top) {
+  const lines = [top];
+  const walk = (nucleus, depth) => {
+    for (const rs of plan.order) {
+      const c = plan.connections.find((x) => x.satellite === rs && x.nucleus === nucleus);
+      if (!c) continue;
+      lines.push(`${"  ".repeat(depth)}${c.relation}: ${rs}`);
+      walk(rs, depth + 1);
+    }
+  };
+  walk(top, 1);
+  return lines.join("\n");
+}
+
+// ONE RS FILE'S PART: what it was read from, its Roles and its Relations.
+function rsFilePart(name, record) {
+  const readFrom = Object.hasOwn(record, RESTS_ON)
+    ? record.sources.map((s) => line(s.text)).join("") +
+      table(
+        ["cite"],
+        record[RESTS_ON].map((c) => row([esc(c)])),
+      )
+    : table(
+        ["id", "cite"],
+        record.sources.map((s) => row([esc(s.id), esc(s.cite)])),
+      );
+  return (
+    `<h3>${esc(name)}</h3>` +
+    heading(4, "Read from") +
+    readFrom +
+    heading(4, "Roles") +
+    table(
+      ["id", "name", "context"],
+      record.roles.map((r) => row([esc(r.id), esc(r.name), esc(r.context)])),
+    ) +
+    heading(4, "Relations") +
+    table(
+      ["id", "name", "holds"],
+      record.relations.map((c) => row([esc(c.id), esc(c.name), esc(sentenceOf(record, c))])),
+    )
+  );
+}
+
+// `records` maps each RS of the plan to what readRs returned for it.
+export function renderPlanPage({ name, plan, top, records }) {
+  const joinOf = new Map(plan.connections.map((c) => [c.satellite, c]));
+  const readerPath = table(
+    ["position", "rs", "apex", "relation", "nucleus"],
+    plan.order.map((rs, i) => {
+      const { record, apex } = records.get(rs);
+      const c = joinOf.get(rs);
+      return row(
+        [
+          esc(i + 1),
+          esc(rs) + (rs === top ? ` <span class="muted">${esc(TOP_NUCLEUS)}</span>` : ""),
+          esc(sentenceOf(record, apex)),
+          esc(c ? c.relation : ""),
+          esc(c ? c.nucleus : ""),
+        ],
+        rs === top ? "named top" : "",
+      );
+    }),
+  );
+  const parts = [
+    part("ReaderPath", readerPath),
+    part("Connections", `<pre>${esc(connectionsText(plan, top))}</pre>`),
+    part("RS files", plan.order.map((rs) => rsFilePart(rs, records.get(rs).record)).join("")),
+  ];
+  return (
+    `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+    `<title>BriefPlanPlayground ${esc(name)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>` +
+    `<h1>BriefPlanPlayground — ${esc(name)}</h1>` +
+    parts.join("") +
+    "</body></html>\n"
+  );
+}
+
+// `show --plan` (kogaki#1977): the plan at `<root>/document-plans/<name>.yaml` and its RS files at `<root>/rs/`, the page
+// written under `<root>/runs/brief-plan-playground/plan-<name>/`. A refusal exits 1 before anything is written.
+function showPlanMain(planPath) {
+  const abs = resolve(planPath);
+  if (!abs.endsWith(".yaml") || basename(dirname(abs)) !== "document-plans") {
+    process.stderr.write(`sheet: ${planPath} is not a document-plans/<name>.yaml\n`);
+    process.exit(2);
+  }
+  const root = dirname(dirname(abs));
+  const at = (p) => relative(root, p).split("\\").join("/");
+  const name = basename(abs, ".yaml");
+  const read = existsSync(abs) ? readDocumentPlan(abs, at(abs)) : { error: `${at(abs)} does not exist` };
+  if (read.error) {
+    process.stderr.write(`sheet: ${read.error}\n`);
+    process.exit(1);
+  }
+  const records = new Map();
+  for (const rs of read.plan.order) {
+    const file = join(root, "rs", `${rs}.yaml`);
+    const r = existsSync(file) ? readRs(file, at(file)) : { error: `the RS ${rs} has no file ${at(file)}` };
+    if (r.error) {
+      process.stderr.write(`sheet: ${r.error.startsWith("the RS") ? r.error : `the RS ${rs}: ${r.error}`}\n`);
+      process.exit(1);
+    }
+    records.set(rs, r);
+  }
+  const html = renderPlanPage({ name, plan: read.plan, top: read.top, records });
+  const home = join(root, "runs", "brief-plan-playground", `plan-${name}`);
+  mkdirSync(home, { recursive: true });
+  const out = join(home, "sheet.html");
+  writeFileSync(out, html);
+  process.stdout.write(`${pathToFileURL(out).href}\n`);
+}
+
 const BRIEF_USAGE =
   "usage: node src/brief-plan-playground/sheet.mjs brief --brief <theses/<slug>/brief.yaml> --out <dir>\n" +
-  "       node src/brief-plan-playground/sheet.mjs show --brief <theses/<slug>/brief.yaml>";
+  "       node src/brief-plan-playground/sheet.mjs show --brief <theses/<slug>/brief.yaml>\n" +
+  "       node src/brief-plan-playground/sheet.mjs show --plan <document-plans/<name>.yaml>";
 
 // Reads and renders the Brief at `briefPath`; a refusal exits 1 before anything is written.
 function renderOrExit(briefPath) {
@@ -391,6 +520,7 @@ function briefMain(argv) {
   };
   const briefPath = arg("brief");
   if (argv[0] === "show" && briefPath) return showMain(briefPath);
+  if (argv[0] === "show" && arg("plan")) return showPlanMain(arg("plan"));
   const outDir = arg("out");
   if (argv[0] !== "brief" || !briefPath || !outDir) {
     process.stderr.write(`${BRIEF_USAGE}\n`);
