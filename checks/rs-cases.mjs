@@ -3,9 +3,10 @@
 // Decision is read by its headline; (d) two structures are two candidates, either written by `--reading --apex` with no
 // call; (e) a source no Relation is from is left out; (f) a refused reading is
 // asked three times, and a mended one is written; (g) a refused argument or an unserved address makes no call; (h) a
-// second file of the same name ends `_2`; (i) the `check` verb. A stub stands in for the model and a file for the
-// gateway.
+// second file of the same name ends `_2`; (i) the `check` verb; (j) `create --statement` reads a written statement and
+// keeps the cites it rests on (kogaki#1975). A stub stands in for the model and a file for the gateway.
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, chmodSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -30,7 +31,9 @@ const L1 = "coding::lesson/costly-checks";
 const L2 = "coding::lesson/hour-long-suite";
 const D1 = "coding::decision/cut-tests";
 const L3 = "coding::lesson/budget-hours";
+const J1 = "coding::journey/a-slow-week";
 const TEXT = {
+  [J1]: "The week the suite slowed, the team stopped running it.",
   [L1]: "A check that costs too much is dropped. Then no one runs it.",
   [L2]: "A suite that runs for an hour costs too much.\nThe team cuts it.",
   [D1]: "**We removed Tests to reduce computational costs.** The suite ran for an hour.",
@@ -45,6 +48,7 @@ writeFileSync(
     [L2]: { cite: cite(L2, "b"), text: TEXT[L2] },
     [D1]: { cite: cite(D1, "c"), text: TEXT[D1] },
     [L3]: { cite: cite(L3, "d"), text: TEXT[L3] },
+    [J1]: { cite: cite(J1, "e"), text: TEXT[J1] },
   }),
 );
 
@@ -92,6 +96,13 @@ const READINGS = {
     relations: [rel("skips", "runner", "check", ["S1", "S2"])] },
   idle: { roles: [...ROLES, role("hour", ins("S2", "hour"))], relations: [rel("skips", "runner", "check", ["S1"]),
     rel("cuts", "team", "check", ["S1", "S2"]), high("costly", "skips", "cuts", ["S1", "S2"])] },
+  stated: { roles: [role("check", ins("S1", "slow check")), role("team", ins("S1", "team"))],
+    relations: [rel("drops", "team", "check", ["S1"], "The {team} drops the {check}.")] },
+  "stated-words": { roles: [role("check", ins("S1", "widget")), role("team", ins("S1", "team"))],
+    relations: [rel("drops", "team", "check", ["S1"])] },
+  "stated-two": { roles: [role("check", ins("S1", "slow check")), role("team", ins("S1", "team")),
+    role("runner", ins("S1", "No one"))], relations: [rel("drops", "team", "check", ["S1"]),
+    rel("skips", "runner", "check", ["S1"])] },
 };
 console.log(JSON.stringify({ result: JSON.stringify(READINGS[mode]) }));
 `,
@@ -414,6 +425,153 @@ for (const [label, args, key] of [
     f.roles[0].in[0].words = "a costly check";
   });
   ok(rw.status === 0, `(i) a holds and a words reworded by hand are refused: ${rw.out}`);
+}
+
+// (j) A WRITTEN STATEMENT (kogaki#1975): the statement alone is handed to the call, under S1, and the cites of the
+// Units named beside it are kept under `rests_on`.
+{
+  const STATEMENT = "A slow check is dropped by the team.\nNo one runs it after that.";
+  const said = join(root, "statement.txt");
+  writeFileSync(said, `\n${STATEMENT}\n\n`);
+  const dir = join(root, "rs-statement");
+  const inDir = () => (existsSync(dir) ? readdirSync(dir).sort() : []);
+  const at = (n) => parseYaml(readFileSync(join(dir, n), "utf8"), n);
+  const lastInput = () => {
+    const runs = join(root, "runs");
+    const last = readdirSync(runs).sort().at(-1);
+    return JSON.parse(readFileSync(join(runs, last, "call-1", "input.json"), "utf8"));
+  };
+  const r = rs(["create", "--statement", said, "--name", "x", L1, J1], "stated", dir);
+  ok(r.status === 0 && r.calls === 1, `(j) create --statement: ${r.status} ${r.calls} call(s) ${r.out}${r.err}`);
+  ok(
+    isDeepStrictEqual(lastInput(), { sources: [{ id: "S1", text: STATEMENT }] }),
+    `(j) the call's input is not the one source S1 holding the statement: ${JSON.stringify(lastInput())}`,
+  );
+  const handed = readFileSync(promptFile, "utf8");
+  ok(
+    !handed.includes(TEXT[L1]) && !handed.includes(TEXT[J1]),
+    "(j) the instruction carries a Unit's text beside the statement",
+  );
+  ok(isDeepStrictEqual(inDir(), ["x.yaml"]), `(j) rs/ does not hold x.yaml alone: ${inDir()}`);
+  const fx = inDir().includes("x.yaml") ? at("x.yaml") : {};
+  ok(
+    isDeepStrictEqual(Object.keys(fx), ["sources", "roles", "relations", "rests_on"]),
+    `(j) the file does not hold the three keys and rests_on: ${Object.keys(fx)}`,
+  );
+  ok(
+    isDeepStrictEqual(fx.sources, [{ id: "S1", text: STATEMENT }]),
+    `(j) the sources are not S1 with the statement and no cite: ${JSON.stringify(fx.sources)}`,
+  );
+  ok(
+    isDeepStrictEqual(fx.rests_on, [cite(L1, "a"), cite(J1, "e")]),
+    `(j) rests_on is not the two cites in the order given: ${JSON.stringify(fx.rests_on)}`,
+  );
+  ok(
+    isDeepStrictEqual(r.out.trim().split("\n"), [
+      `written: ${join(dir, "x.yaml")}`,
+      "apex: c_1 The team drops the check.",
+      "depth: 1",
+      "source: S1 statement",
+      `rests on: ${cite(L1, "a")}`,
+      `rests on: ${cite(J1, "e")}`,
+    ]),
+    `(j) create --statement does not print written, apex, depth, the statement and two rests on lines: ${r.out}`,
+  );
+  ok(
+    /^# [^\n]*statement/.test(inDir().includes("x.yaml") ? readFileSync(join(dir, "x.yaml"), "utf8") : ""),
+    "(j) the file's head comment does not say it was read from a statement",
+  );
+
+  const bare = rs(["create", "--statement", said, "--name", "y"], "stated", dir);
+  const fy = inDir().includes("y.yaml") ? at("y.yaml") : {};
+  ok(
+    bare.status === 0 && isDeepStrictEqual(fy.rests_on, []) && !bare.out.includes("rests on:"),
+    `(j) with no address rests_on is not empty, or a rests on line is printed: ${bare.out}${bare.err}`,
+  );
+
+  const mended = rs(["create", "--statement", said, "--name", "z", L1], "stated-words>stated", dir);
+  ok(
+    mended.status === 0 && mended.calls === 2 && inDir().includes("z.yaml"),
+    `(j) a words not in the statement was not asked again and mended: ${mended.calls} ${mended.out}${mended.err}`,
+  );
+  ok(
+    readFileSync(promptFile, "utf8").includes("does not occur in the text of S1"),
+    "(j) the refusal put back does not name S1",
+  );
+
+  const twoDir = join(root, "rs-statement-two");
+  const two = rs(["create", "--statement", said, L1], "stated-two", twoDir);
+  const twoLines = two.out.trim().split("\n");
+  ok(
+    two.status === 0 && two.calls === 1 && twoLines[0] === "candidates: 2" && !existsSync(twoDir),
+    `(j) two Relations no other names are not two candidates with nothing written: ${two.out}`,
+  );
+  const stamp = (twoLines[1] || "").slice("reading: ".length);
+  const chosen = rs(["create", "--reading", stamp, "--apex", "2"], "stated-two", twoDir);
+  const fc = existsSync(join(twoDir, "skips.yaml"))
+    ? parseYaml(readFileSync(join(twoDir, "skips.yaml"), "utf8"), "s")
+    : {};
+  ok(
+    chosen.status === 0 &&
+      chosen.calls === 0 &&
+      isDeepStrictEqual(fc.sources, [{ id: "S1", text: STATEMENT }]) &&
+      isDeepStrictEqual(fc.rests_on, [cite(L1, "a")]),
+    `(j) --apex 2 does not write S1 and the same rests_on with no call: ${chosen.out}${chosen.err} ${JSON.stringify(fc)}`,
+  );
+
+  const empty = join(root, "empty.txt");
+  writeFileSync(empty, " \n\n");
+  for (const [label, args, key] of [
+    ["an unserved address", ["--statement", said, "coding::lesson/not-there"], "not-served"],
+    ["--statement naming no file", ["--statement"], "arguments"],
+    ["--statement naming a path that is no file", ["--statement", join(root, "absent.txt")], "arguments"],
+    ["a statement file with no text", ["--statement", empty], "arguments"],
+    ["--statement given twice", ["--statement", said, "--statement", said], "arguments"],
+    ["an address of a Rule", ["--statement", said, "coding::rule/a-rule"], "arguments"],
+  ]) {
+    const before = inDir();
+    const x = rs(["create", ...args], "stated", dir);
+    ok(
+      x.status === 1 && x.out.startsWith(`stopped: ${key}\n`) && x.calls === 0 && isDeepStrictEqual(inDir(), before),
+      `(j) ${label}: ${x.status} ${x.calls} call(s) ${x.out}`,
+    );
+  }
+  ok(!Object.hasOwn(fa, "rests_on"), "(j) the file create writes over Lessons carries rests_on");
+
+  const mixed = (label, from, mutate) => {
+    const f = parseYaml(readFileSync(from, "utf8"), label);
+    mutate(f);
+    const path = join(root, `${label}.yaml`);
+    writeFileSync(path, stringifyYaml(f));
+    return { path, r: rs(["check", path]) };
+  };
+  const xPath = join(dir, "x.yaml");
+  for (const [label, mutate, says] of [
+    ["cite-beside", (f) => (f.sources[0].cite = cite(L1, "a")), "carries a cite beside `rests_on`"],
+    ["no-cite", (f) => delete f.rests_on, "carries no cite, and the file carries no `rests_on`"],
+    ["two-sources", (f) => f.sources.push({ id: "S2", text: "More." }), "stands beside 2 sources"],
+    ["bad-cite", (f) => (f.rests_on = ["coding::lesson/costly-checks"]), "is not <address>@<hash>"],
+  ]) {
+    const { path, r: m } = mixed(label, xPath, mutate);
+    ok(
+      m.status === 1 && m.out.includes(path) && m.out.includes(says),
+      `(j) readRs does not refuse ${label} naming the file: ${m.status} ${m.out}`,
+    );
+  }
+  const both = rs(["check", xPath, join(rsDir, "costly.yaml")]);
+  ok(
+    both.status === 0 &&
+      isDeepStrictEqual(both.out.trim().split("\n"), [
+        `${xPath}\tapex c_1\tThe team drops the check.\tdepth 1\t1 sources, 2 roles, 1 relations`,
+        `${join(rsDir, "costly.yaml")}\tapex c_3\tWhere the check costs too much, it goes.\tdepth 2\t2 sources, 3 roles, 3 relations`,
+      ]),
+    `(j) check does not print one line for a file of each form: ${both.status} ${both.out}`,
+  );
+  ok(
+    createHash("sha256").update(readFileSync("prompts/rs/read.prompt")).digest("hex") ===
+      "1adc95917ca6bc933a97b6bed3b139f2550a84ed9f1e37d3d34a3579f9b09e2b",
+    "(j) prompts/rs/read.prompt changed",
+  );
 }
 
 rmSync(root, { recursive: true, force: true });

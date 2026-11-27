@@ -1,10 +1,13 @@
 // rs/file — the one reader of an RS file under rs/ (kogaki#1970): its sources, its Roles with each source's own words
-// for them, and its Relations. It reads form only; the ApexRelation and the depth are derived, never stored.
+// for them, and its Relations; a file read from a statement carries `rests_on` beside them (kogaki#1975). It reads form
+// only; the ApexRelation and the depth are derived, never stored.
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
 
 export const FILE_KEYS = Object.freeze(["sources", "roles", "relations"]);
-const SOURCE_KEYS = ["id", "cite", "text"];
+export const RESTS_ON = "rests_on";
+const SOURCE_KEYS = ["id", "text"];
+const CITE = /^[^\s:/@]+::(?:lesson|decision|journey)\/[^\s/@]+@[0-9a-f]+$/;
 const ROLE_KEYS = ["id", "name", "context", "in"];
 const IN_KEYS = ["source", "words", "attributes"];
 const RELATION_KEYS = ["id", "name", "holds", "from"];
@@ -82,14 +85,26 @@ export function relationsUnder(record, id) {
 // one Relation no other names, to the caller.
 export function rsRefusal(record, at, { oneApex = true } = {}) {
   if (!isMap(record)) return `${at} is not a record of ${FILE_KEYS.join(", ")}`;
-  const top = keysRefusal(record, FILE_KEYS, [], at);
+  const top = keysRefusal(record, FILE_KEYS, [RESTS_ON], at);
   if (top) return top;
   for (const k of FILE_KEYS) if (!Array.isArray(record[k])) return `${at}: \`${k}\` is not a list`;
   if (!record.relations.length) return `${at}: \`relations\` is empty, so no Relation is named by no other`;
+  const statement = Object.hasOwn(record, RESTS_ON);
   for (const s of record.sources) {
-    const bad = keysRefusal(s, SOURCE_KEYS, [], `${at}: the source ${isMap(s) ? s.id : JSON.stringify(s)}`);
+    const bad = keysRefusal(s, SOURCE_KEYS, ["cite"], `${at}: the source ${isMap(s) ? s.id : JSON.stringify(s)}`);
     if (bad) return bad;
-    if (!isText(s.cite) || typeof s.text !== "string") return `${at}: the source ${s.id} carries no cite or no text`;
+    if (typeof s.text !== "string") return `${at}: the source ${s.id} carries no text`;
+    if (statement && Object.hasOwn(s, "cite"))
+      return `${at}: the source ${s.id} carries a cite beside \`${RESTS_ON}\`, which a file read from Units does not carry`;
+    if (!statement && !isText(s.cite))
+      return `${at}: the source ${s.id} carries no cite, and the file carries no \`${RESTS_ON}\``;
+  }
+  if (statement) {
+    if (!Array.isArray(record[RESTS_ON])) return `${at}: \`${RESTS_ON}\` is not a list`;
+    if (record.sources.length !== 1)
+      return `${at}: \`${RESTS_ON}\` stands beside ${record.sources.length} sources, and a statement is one`;
+    const bad = record[RESTS_ON].find((c) => typeof c !== "string" || !CITE.test(c));
+    if (bad !== undefined) return `${at}: the \`${RESTS_ON}\` entry ${JSON.stringify(bad)} is not <address>@<hash>`;
   }
   for (const r of record.roles) {
     const where = `${at}: the Role ${isMap(r) ? r.id : JSON.stringify(r)}`;
