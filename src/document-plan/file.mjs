@@ -1,11 +1,15 @@
 // document-plan/file — the one reader of a DocumentPlan under document-plans/ (kogaki#1976): RS names in reading order
-// and the connections joining each Satellite to its Nucleus. The top Nucleus is derived, never stored.
+// and the connections joining each Satellite to its Nucleus, and the shared Roles where the file carries them
+// (kogaki#1981). The top Nucleus is derived, never stored.
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
 import { SNAKE_WORD } from "../rs/file.mjs";
 
 export const FILE_KEYS = Object.freeze(["order", "connections"]);
+export const SHARED_ROLES = "shared_roles";
 export const CONNECTION_KEYS = Object.freeze(["satellite", "relation", "nucleus"]);
+const SHARED_KEYS = ["name", "members"];
+const MEMBER_KEYS = ["rs", "role"];
 export const RELATIONS = Object.freeze(JSON.parse(readFileSync(new URL("./relations.json", import.meta.url), "utf8")));
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -42,10 +46,44 @@ export function connectionRefusal(c, order, at) {
   return null;
 }
 
+// The refusal of a plan's shared Roles against its order (kogaki#1981), or null. It opens no RS file.
+export function sharedRolesRefusal(shared, order, at) {
+  if (!Array.isArray(shared) || !shared.length) return `${at}: \`${SHARED_ROLES}\` is not a list of shared Roles`;
+  const names = new Set();
+  const held = new Map();
+  for (const s of shared) {
+    if (!isMap(s)) return `${at}: a shared Role is not a record of ${SHARED_KEYS.join(", ")}`;
+    const stray = Object.keys(s).find((k) => !SHARED_KEYS.includes(k));
+    if (stray !== undefined) return `${at}: a shared Role carries the key \`${stray}\`, which it does not declare`;
+    if (typeof s.name !== "string" || !SNAKE_WORD.test(s.name))
+      return `${at}: the shared Role ${JSON.stringify(s.name)} is not one snake_case word`;
+    const where = `${at}: the shared Role ${s.name}`;
+    if (names.has(s.name)) return `${where} is repeated`;
+    names.add(s.name);
+    if (!Array.isArray(s.members) || s.members.length < 2) return `${where} has fewer than two members`;
+    const rsSeen = new Set();
+    for (const m of s.members) {
+      if (!isMap(m)) return `${where}: a member is not a record of ${MEMBER_KEYS.join(", ")}`;
+      const strayM = Object.keys(m).find((k) => !MEMBER_KEYS.includes(k));
+      if (strayM !== undefined) return `${where}: a member carries the key \`${strayM}\`, which it does not declare`;
+      const missing = MEMBER_KEYS.find((k) => typeof m[k] !== "string" || m[k] === "");
+      if (missing !== undefined) return `${where}: a member carries no \`${missing}\``;
+      const member = `${m.rs}:${m.role}`;
+      if (!order.includes(m.rs))
+        return `${where}: the member ${member} names the RS ${m.rs}, which is not in the order`;
+      if (rsSeen.has(m.rs)) return `${where}: two members are Roles of the RS ${m.rs}`;
+      rsSeen.add(m.rs);
+      if (held.has(member)) return `${where}: the member ${member} is a member of ${held.get(member)} too`;
+      held.set(member, s.name);
+    }
+  }
+  return null;
+}
+
 // THE REFUSAL OF A PLAN (kogaki#1976), the first one met, or null.
 export function documentPlanRefusal(plan, at) {
   if (!isMap(plan)) return `${at} is not a record of ${FILE_KEYS.join(", ")}`;
-  const stray = Object.keys(plan).find((k) => !FILE_KEYS.includes(k));
+  const stray = Object.keys(plan).find((k) => !FILE_KEYS.includes(k) && k !== SHARED_ROLES);
   if (stray !== undefined) return `${at} carries the key \`${stray}\`, which it does not declare`;
   const missing = FILE_KEYS.find((k) => !Object.hasOwn(plan, k));
   if (missing !== undefined) return `${at} carries no \`${missing}\``;
@@ -74,7 +112,7 @@ export function documentPlanRefusal(plan, at) {
     return tops.length
       ? `${at}: the RSs ${tops.join(", ")} are each the Satellite of no connection; one is`
       : `${at}: every RS is the Satellite of a connection; one is not`;
-  return null;
+  return Object.hasOwn(plan, SHARED_ROLES) ? sharedRolesRefusal(plan[SHARED_ROLES], plan.order, at) : null;
 }
 
 // READ ONE DOCUMENTPLAN FILE: `{ plan, top }` or `{ error }`, the error naming the file and the entry.
