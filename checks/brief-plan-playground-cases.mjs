@@ -958,6 +958,7 @@ const oA = {
       id: "c_3",
       name: "misread",
       holds: "The {r_3} trusts a {r_2} no one read.",
+      holds_over_relations: "The {c_2} trusts what the {c_1} left unread.",
       from: ["S1", "S2"],
       relates: ["c_1", "c_2"],
     },
@@ -974,7 +975,14 @@ const oB = {
   relations: [
     { id: "c_1", name: "looks", holds: "The {r_1} looks only at a {r_2}.", from: ["S1"], between: ["r_1", "r_2"] },
     { id: "c_2", name: "misses", holds: "The {r_1} never sees the {r_3}.", from: ["S1"], between: ["r_1", "r_3"] },
-    { id: "c_3", name: "so", holds: "Looking only there is why it misses.", from: ["S1"], relates: ["c_1", "c_2"] },
+    {
+      id: "c_3",
+      name: "so",
+      holds: "The {r_1} looking only at a {r_2} is why it misses the {r_3}.",
+      holds_over_relations: "The {c_1} is why the {c_2}.",
+      from: ["S1"],
+      relates: ["c_1", "c_2"],
+    },
   ],
   rests_on: [oCite("scope_lesson"), oCite("walk_lesson")],
 };
@@ -1155,10 +1163,17 @@ ok(
 );
 const oBRelations = oTables(oCardB).find((t) => oHeadOf(t).includes("over")) || "";
 ok(
-  isDeepStrictEqual(oHeadOf(oBRelations), ["id", "name", "over", "holds"]) &&
+  isDeepStrictEqual(oHeadOf(oBRelations), ["id", "name", "over", "holds", "over relations"]) &&
     oRowsOf(oBRelations)[0].cells[2] === "r_1, r_2" &&
     oRowsOf(oBRelations)[0].cells[3] === "The {r_1} looks only at a {r_2}.",
   `(o) in the card of b, the holds of a Relation between Roles is not the file's sentence with braces: ${oBRelations}`,
+);
+// (o) THE OVER RELATIONS COLUMN (kogaki#1984): the sentence over the two a Relation relates, empty between Roles.
+ok(
+  oRowsOf(oBRelations)[2]?.cells[4] === "The {c_1} is why the {c_2}." &&
+    oRowsOf(oBRelations)[0].cells[4] === "" &&
+    oRowsOf(oBRelations)[1].cells[4] === "",
+  `(o) in the card of b, the over relations cell is not the file's sentence with both ids, or is not empty between Roles: ${oBRelations}`,
 );
 const oWord = BRIEF_RETIRED_WORDS.find((w) => new RegExp(`\\b${w}`).test(oPage));
 ok(oWord === undefined, `(o) the page carries the word ${oWord}`);

@@ -4,7 +4,9 @@
 // call; (e) a source no Relation is from is left out; (f) a refused reading is
 // asked three times, and a mended one is written; (g) a refused argument or an unserved address makes no call; (h) a
 // second file of the same name ends `_2`; (i) the `check` verb; (j) `create --statement` reads a written statement and
-// keeps the cites it rests on (kogaki#1975). A stub stands in for the model and a file for the gateway.
+// keeps the cites it rests on (kogaki#1975); (k) the reading is the SME's (kogaki#1984): a Relation between Relations
+// carries two sentences, `considered` gives each joining weighed its verdict and reason, and an unjoined top is printed
+// with its reason. A stub stands in for the model and a file for the gateway.
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
@@ -69,7 +71,11 @@ const mode = n === 1 || !then ? first : then;
 const ins = (source, words, attributes = []) => ({ source, words, attributes });
 const role = (name, ...entries) => ({ name, context: "A kind of " + name + ".", in: entries });
 const rel = (name, a, b, from, holds) => ({ name, holds: holds || "The {" + a + "} meets the {" + b + "}.", from, between: [a, b] });
-const high = (name, x, y, from) => ({ name, holds: "Where the {check} costs too much, it goes.", from, relates: [x, y] });
+const high = (name, x, y, from, extra = {}) => ({ name, holds: "Where the {check} costs too much, it goes.",
+  holds_over_relations: "The {" + x + "} and the {" + y + "} are one cost.", from, relates: [x, y], ...extra });
+const joined = (x, y) => ({ relations: [x, y], verdict: "connected", why: "One source states the two together." });
+const apart = (x, y) => ({ relations: [x, y], verdict: "not_connected", why: "No source states the " + x + " beside the " + y + "." });
+const drop = (o, k) => { const c = { ...o }; delete c[k]; return c; };
 const ROLES = [
   role("check", ins("S1", "check", ["costs too much"]), ins("S2", "suite", ["runs for an hour"])),
   role("runner", ins("S1", "no one")),
@@ -77,33 +83,56 @@ const ROLES = [
 ];
 const READINGS = {
   two: { roles: ROLES, relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1", "S2"]),
-    high("costly", "skips", "cuts", ["S1", "S2"])] },
+    high("costly", "skips", "cuts", ["S1", "S2"])], considered: [joined("skips", "cuts")] },
   single: { roles: [role("tests", ins("S1", "Tests")), role("costs", ins("S1", "computational costs"))],
-    relations: [rel("trimmed", "tests", "costs", ["S1"], "The {tests} are removed to reduce the {costs}.")] },
+    relations: [rel("trimmed", "tests", "costs", ["S1"], "The {tests} are removed to reduce the {costs}.")],
+    considered: [] },
   stray: { roles: [...ROLES, role("suite", ins("S2", "suite")), role("hour", ins("S2", "hour"))],
-    relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1"]),
-    { name: "costly", holds: "Where the {check} runs an {hour}, it goes.", from: ["S1"], relates: ["skips", "cuts"] },
-    rel("lasts", "suite", "hour", ["S2"])] },
+    relations: [rel("skips", "runner", "check", ["S1"], "The {runner} meets the {check} for an {hour}."),
+    rel("cuts", "team", "check", ["S1"]), high("costly", "skips", "cuts", ["S1"]), rel("lasts", "suite", "hour", ["S2"])],
+    considered: [joined("skips", "cuts"), apart("costly", "lasts")] },
   apart: { roles: [role("check", ins("S1", "check", ["costs too much"]), ins("S2", "suite", ["runs for an hour"]),
     ins("S3", "check")), ...ROLES.slice(1), role("budget", ins("S3", "budget")), role("hours", ins("S3", "hours"))],
     relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1", "S2"]),
-    high("costly", "skips", "cuts", ["S1", "S2"]), rel("limits", "budget", "hours", ["S3"])] },
+    high("costly", "skips", "cuts", ["S1", "S2"]), rel("limits", "budget", "hours", ["S3"])],
+    considered: [joined("skips", "cuts"), apart("costly", "limits")] },
   over: { roles: ROLES, relations: [rel("skips", "runner", "check", ["S1"]), rel("cuts", "team", "check", ["S1"]),
-    high("costly", "skips", "cuts", ["S1"])] },
+    high("costly", "skips", "cuts", ["S1"])], considered: [joined("skips", "cuts")] },
   three: { roles: ROLES, relations: [{ name: "all", holds: "The {runner} and the {team} meet the {check}.", from: ["S1"],
-    between: ["runner", "team", "check"] }] },
+    between: ["runner", "team", "check"] }], considered: [] },
   words: { roles: [role("check", ins("S1", "widget")), role("runner", ins("S1", "no one"))],
-    relations: [rel("skips", "runner", "check", ["S1", "S2"])] },
+    relations: [rel("skips", "runner", "check", ["S1", "S2"])], considered: [] },
   idle: { roles: [...ROLES, role("hour", ins("S2", "hour"))], relations: [rel("skips", "runner", "check", ["S1"]),
-    rel("cuts", "team", "check", ["S1", "S2"]), high("costly", "skips", "cuts", ["S1", "S2"])] },
+    rel("cuts", "team", "check", ["S1", "S2"]), high("costly", "skips", "cuts", ["S1", "S2"])],
+    considered: [joined("skips", "cuts")] },
   stated: { roles: [role("check", ins("S1", "slow check")), role("team", ins("S1", "team"))],
-    relations: [rel("drops", "team", "check", ["S1"], "The {team} drops the {check}.")] },
+    relations: [rel("drops", "team", "check", ["S1"], "The {team} drops the {check}.")], considered: [] },
   "stated-words": { roles: [role("check", ins("S1", "widget")), role("team", ins("S1", "team"))],
-    relations: [rel("drops", "team", "check", ["S1"])] },
+    relations: [rel("drops", "team", "check", ["S1"])], considered: [] },
+  "stated-high": { roles: [role("check", ins("S1", "slow check")), role("team", ins("S1", "team")),
+    role("runner", ins("S1", "No one"))], relations: [rel("drops", "team", "check", ["S1"]),
+    rel("skips", "runner", "check", ["S1"]), { name: "after", holds: "Once the {team} drops the {check}, it is not run.",
+    holds_over_relations: "The {skips} follows the {drops}.", from: ["S1"], relates: ["drops", "skips"] }],
+    considered: [joined("drops", "skips")] },
   "stated-two": { roles: [role("check", ins("S1", "slow check")), role("team", ins("S1", "team")),
     role("runner", ins("S1", "No one"))], relations: [rel("drops", "team", "check", ["S1"]),
-    rel("skips", "runner", "check", ["S1"])] },
+    rel("skips", "runner", "check", ["S1"])], considered: [apart("drops", "skips")] },
 };
+// (k) THE READINGS REFUSED BY THE SME'S CHECK (kogaki#1984), each a mend of \`two\` or \`apart\`.
+const twoOf = (costly, considered = READINGS.two.considered) =>
+  ({ ...READINGS.two, relations: [...READINGS.two.relations.slice(0, 2), costly], considered });
+const HIGH = READINGS.two.relations[2];
+Object.assign(READINGS, {
+  "no-over": twoOf(drop(HIGH, "holds_over_relations")),
+  "over-one": twoOf({ ...HIGH, holds_over_relations: "The {skips} is a cost." }),
+  "over-third": twoOf({ ...HIGH, holds_over_relations: "The {skips} and the {cuts} are one {check}." }),
+  "holds-bare": twoOf({ ...HIGH, holds: "Where it costs too much, it goes." }),
+  "holds-stray": { ...READINGS.apart, relations: READINGS.apart.relations.map((c) =>
+    c.name === "costly" ? { ...c, holds: "Where the {budget} is spent, the {check} goes." } : c) },
+  "tops-bare": { ...READINGS.apart, considered: [joined("skips", "cuts")] },
+  "joined-wrong": twoOf(HIGH, [joined("skips", "cuts"), joined("skips", "costly")]),
+  "joined-none": twoOf(HIGH, []),
+});
 console.log(JSON.stringify({ result: JSON.stringify(READINGS[mode]) }));
 `,
 );
@@ -171,9 +200,10 @@ ok(
       holds: "Where the {r_1} costs too much, it goes.",
       from: ["S1", "S2"],
       relates: ["c_1", "c_2"],
+      holds_over_relations: "The {c_1} and the {c_2} are one cost.",
     },
   ]),
-  `(a) the Relations are not the three with minted ids: ${JSON.stringify(fa.relations)}`,
+  `(a) the Relations are not the three with minted ids, the third with both sentences: ${JSON.stringify(fa.relations)}`,
 );
 const aLines = a.out.trim().split("\n");
 ok(
@@ -199,6 +229,18 @@ ok(
   "(b) the instruction does not carry the two sources' texts",
 );
 ok(!/persona/i.test(prompt), "(b) the instruction carries the word Persona");
+const smePrompt = readFileSync("prompts/sme/read.prompt", "utf8");
+const judgment = smePrompt.split("\n").find((l) => l.startsWith("JUDGMENT POINT:")) || "";
+ok(judgment && prompt.includes(judgment), "(b) the call's text is not rendered from prompts/sme/read.prompt");
+{
+  const runs = join(root, "runs");
+  const first = readdirSync(runs).sort()[0];
+  const input = JSON.parse(readFileSync(join(runs, first, "call-1", "input.json"), "utf8"));
+  ok(
+    isDeepStrictEqual(Object.keys(input), ["sources"]),
+    `(b) the call's input does not hold sources and nothing else: ${Object.keys(input)}`,
+  );
+}
 
 // (c) A DECISION IS READ BY ITS HEADLINE, and one Relation among two Roles is written at depth 1.
 const c = rs(["create", D1], "single");
@@ -237,8 +279,19 @@ ok(
       "\tdepth: 1",
       `\tadopts: ${cite(L3, "d")}`,
       "\tleaves out: 2",
+      "not joined: costly, limits: No source states the costly beside the limits.",
     ]),
-    `(d) the two candidates are not printed in order with depth, sources and the Relations under them: ${r.out}`,
+    `(d) the two candidates and the one not joined line are not printed in order: ${r.out}`,
+  );
+  const kept = existsSync(join(root, "runs", stamp, "reading.json"))
+    ? JSON.parse(readFileSync(join(root, "runs", stamp, "reading.json"), "utf8"))
+    : {};
+  ok(
+    isDeepStrictEqual(kept.considered, [
+      { relations: ["c_1", "c_2"], verdict: "connected", why: "One source states the two together." },
+      { relations: ["c_3", "c_4"], verdict: "not_connected", why: "No source states the costly beside the limits." },
+    ]),
+    `(d) reading.json does not hold considered: ${JSON.stringify(kept.considered)}`,
   );
   const one = rs(["create", "--reading", stamp, "--apex", "1"], "apart", dir);
   ok(one.status === 0 && one.calls === 0, `(d) --apex 1: ${one.status} ${one.calls} call(s) ${one.out}${one.err}`);
@@ -252,8 +305,8 @@ ok(
     `(d) --apex 1 holds a source or an \`in\` entry of the third Lesson: ${JSON.stringify(f1)}`,
   );
   ok(
-    isDeepStrictEqual(f1, fa),
-    `(d) --apex 1 is not the file written over the two Lessons alone: ${JSON.stringify(f1)}`,
+    isDeepStrictEqual(f1, fa) && !Object.hasOwn(f1, "considered"),
+    `(d) --apex 1 is not the file written over the two Lessons alone, with no considered: ${JSON.stringify(f1)}`,
   );
   ok(
     isDeepStrictEqual(one.out.trim().split("\n"), [
@@ -413,10 +466,13 @@ for (const [label, args, key] of [
     ],
     ["three-roles", (f) => (f.relations[0].between = ["r_1", "r_2", "r_3"]), ["c_1"]],
     ["names-nothing", (f) => (f.relations[2].relates = ["c_1", "c_9"]), ["c_3", "c_9"]],
+    ["no-over", (f) => delete f.relations[2].holds_over_relations, ["c_3", "holds_over_relations"]],
+    ["over-one", (f) => (f.relations[2].holds_over_relations = "The {c_1} is a cost."), ["c_3", "{c_2}"]],
+    ["holds-bare", (f) => (f.relations[2].holds = "Where it costs too much, it goes."), ["c_3", "no Role id"]],
   ]) {
     const { at, r } = edited(label, mutate);
     ok(
-      r.status === 1 && r.out.includes(at) && names.every((x) => r.out.includes(x)),
+      r.status === 1 && r.out.startsWith("refused: ") && r.out.includes(at) && names.every((x) => r.out.includes(x)),
       `(i) ${label}: check did not refuse naming the file and ${names.join(", ")}: ${r.status} ${r.out}`,
     );
   }
@@ -567,12 +623,90 @@ for (const [label, args, key] of [
       ]),
     `(j) check does not print one line for a file of each form: ${both.status} ${both.out}`,
   );
+}
+
+// (k) THE SME'S READING (kogaki#1984): each refused form is asked again with the refusal naming what it refuses.
+for (const [mode, args, says] of [
+  ["no-over", [L1, L2], "the Relation costly relates two Relations and carries no `holds_over_relations`"],
+  ["over-one", [L1, L2], "the Relation costly: its `holds_over_relations` does not carry {cuts}"],
+  ["over-third", [L1, L2], "the Relation costly: its `holds_over_relations` writes {check}"],
+  ["holds-bare", [L1, L2], "the Relation costly: its holds carries no Role id in braces"],
+  ["holds-stray", [L1, L2, L3], "the Relation costly: its holds writes {budget}, which is no Role a Relation under it"],
+  ["joined-wrong", [L1, L2], "is `connected`, and no Relation relates exactly skips, costly"],
+  ["joined-none", [L1, L2], "the Relation costly relates skips, cuts, and no `connected` row names exactly those"],
+]) {
+  const dir = join(root, `rs-${mode}`);
+  const mended = mode === "holds-stray" ? "apart" : "two";
+  const r = rs(["create", "--name", "k", ...args], `${mode}>${mended}`, dir);
   ok(
-    createHash("sha256").update(readFileSync("prompts/rs/read.prompt")).digest("hex") ===
-      "1adc95917ca6bc933a97b6bed3b139f2550a84ed9f1e37d3d34a3579f9b09e2b",
-    "(j) prompts/rs/read.prompt changed",
+    r.status === 0 && r.calls === 2 && readFileSync(promptFile, "utf8").includes(says),
+    `(k) ${mode}: was not asked again with the refusal ${JSON.stringify(says)}: ${r.status} ${r.calls} ${r.out}${r.err}`,
   );
 }
+{
+  const dir = join(root, "rs-tops-bare");
+  const r = rs(["create", L1, L2, L3], "tops-bare", dir);
+  ok(
+    r.status === 1 &&
+      r.out.startsWith("stopped: form\n") &&
+      r.out.includes("the Relation costly is one of 2 tops and stands in no `not_connected` row") &&
+      !existsSync(dir),
+    `(k) two tops with no not_connected row were not refused naming a top: ${r.status} ${r.out}`,
+  );
+}
+{
+  const dir = join(root, "rs-single");
+  const r = rs(["create", D1], "single", dir);
+  const f = existsSync(join(dir, "trimmed.yaml"))
+    ? parseYaml(readFileSync(join(dir, "trimmed.yaml"), "utf8"), "t")
+    : {};
+  ok(
+    r.status === 0 &&
+      r.out.includes("\ndepth: 1\n") &&
+      isDeepStrictEqual(Object.keys(f), ["sources", "roles", "relations"]),
+    `(k) one Relation between two Roles and an empty considered did not write a file of depth 1: ${r.out}`,
+  );
+}
+{
+  const said = join(root, "statement-high.txt");
+  writeFileSync(said, "A slow check is dropped by the team.\nNo one runs it after that.\n");
+  const dir = join(root, "rs-statement-high");
+  const r = rs(["create", "--statement", said, "--name", "x"], "stated-high", dir);
+  const runs = join(root, "runs");
+  const input = JSON.parse(readFileSync(join(runs, readdirSync(runs).sort().at(-1), "call-1", "input.json"), "utf8"));
+  ok(
+    r.status === 0 && r.calls === 1 && isDeepStrictEqual(Object.keys(input), ["sources"]),
+    `(k) create --statement over a Relation between Relations: ${r.status} ${r.calls} call(s) ${r.out}${r.err}`,
+  );
+  ok(
+    readFileSync(promptFile, "utf8").includes(judgment),
+    "(k) the call's text is not rendered from the SME's instruction",
+  );
+  const f = existsSync(join(dir, "x.yaml")) ? parseYaml(readFileSync(join(dir, "x.yaml"), "utf8"), "x") : {};
+  const third = (f.relations || [])[2] || {};
+  ok(
+    /\{r_[0-9]+\}/.test(third.holds || "") &&
+      (third.holds_over_relations || "").includes("{c_1}") &&
+      (third.holds_over_relations || "").includes("{c_2}") &&
+      !Object.hasOwn(f, "considered"),
+    `(k) x.yaml's third Relation does not carry both sentences with their ids, or the file carries considered: ${JSON.stringify(f)}`,
+  );
+}
+ok(!existsSync("prompts/rs/read.prompt"), "(k) prompts/rs/read.prompt exists");
+{
+  const walk = (d) =>
+    readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)],
+    );
+  const naming = walk("src").filter((f) => readFileSync(f, "utf8").includes("rs/read.prompt"));
+  ok(!naming.length, `(k) a file under src/ names prompts/rs/read.prompt: ${naming}`);
+}
+ok(!/persona/i.test(smePrompt), "(k) prompts/sme/read.prompt carries persona or Persona");
+for (const [file, digest] of [
+  ["prompts/sme/read-structure.prompt", "4a939bd7dd7c76d637faafdadb2ba3424b34495bad94e782aa6c59b3e8b30e2c"],
+  ["prompts/brief/apex.prompt", "22e950687ccc17172955a3780af2947e4d2b854090e8700c2a782ea3d7b25fec"],
+])
+  ok(createHash("sha256").update(readFileSync(file)).digest("hex") === digest, `(k) ${file} changed`);
 
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
