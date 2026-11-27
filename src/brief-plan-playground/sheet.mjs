@@ -65,6 +65,7 @@ export const BRIEF_COLUMNS = [
   "shared",
   "words",
   "over",
+  "over relations",
 ];
 // THE WORDS THE BRIEFPLANPLAYGROUND NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
@@ -481,9 +482,15 @@ function rsCard(rs, i, { record, apex }, join, shared) {
     ) +
     heading(4, "Relations") +
     table(
-      ["id", "name", "over", "holds"],
+      ["id", "name", "over", "holds", "over relations"],
       record.relations.map((c) =>
-        row([esc(c.id), esc(c.name), esc((c.between || c.relates).join(", ")), esc(c.holds)]),
+        row([
+          esc(c.id),
+          esc(c.name),
+          esc((c.between || c.relates).join(", ")),
+          esc(c.holds),
+          esc(c.holds_over_relations ?? ""),
+        ]),
       ),
     ) +
     "</article>"

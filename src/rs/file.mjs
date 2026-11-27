@@ -1,6 +1,7 @@
 // rs/file — the one reader of an RS file under rs/ (kogaki#1970): its sources, its Roles with each source's own words
-// for them, and its Relations; a file read from a statement carries `rests_on` beside them (kogaki#1975). It reads form
-// only; the ApexRelation and the depth are derived, never stored.
+// for them, and its Relations; a file read from a statement carries `rests_on` beside them (kogaki#1975), and a Relation
+// between Relations carries `holds_over_relations` beside `holds` (kogaki#1984). It reads form only; the ApexRelation and
+// the depth are derived, never stored.
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
 
@@ -11,6 +12,7 @@ const CITE = /^[^\s:/@]+::(?:lesson|decision|journey)\/[^\s/@]+@[0-9a-f]+$/;
 const ROLE_KEYS = ["id", "name", "context", "in"];
 const IN_KEYS = ["source", "words", "attributes"];
 const RELATION_KEYS = ["id", "name", "holds", "from"];
+const OVER_RELATIONS = "holds_over_relations";
 const SOURCE_ID = /^S[1-9][0-9]*$/;
 const ROLE_ID = /^r_[1-9][0-9]*$/;
 const RELATION_ID = /^c_[1-9][0-9]*$/;
@@ -122,7 +124,8 @@ export function rsRefusal(record, at, { oneApex = true } = {}) {
   }
   for (const c of record.relations) {
     const where = `${at}: the Relation ${isMap(c) ? c.id : JSON.stringify(c)}`;
-    const bad = keysRefusal(c, RELATION_KEYS, ["between", "relates"], where);
+    const extra = isMap(c) && Object.hasOwn(c, "relates") ? ["relates", OVER_RELATIONS] : ["between", "relates"];
+    const bad = keysRefusal(c, RELATION_KEYS, extra, where);
     if (bad) return bad;
     if (!isText(c.holds)) return `${where} carries no holds`;
   }
@@ -155,6 +158,13 @@ export function rsRefusal(record, at, { oneApex = true } = {}) {
     if (key === "between") {
       const unsaid = two.find((id) => !braced.includes(id));
       if (unsaid) return `${where}: its holds does not carry {${unsaid}}`;
+    } else {
+      if (!braced.length) return `${where}: its holds carries no Role id in braces`;
+      if (!Object.hasOwn(c, OVER_RELATIONS))
+        return `${where} relates two Relations and carries no \`${OVER_RELATIONS}\``;
+      const over = isText(c[OVER_RELATIONS]) ? [...c[OVER_RELATIONS].matchAll(BRACED)].map((m) => m[1]) : [];
+      const unsaid = two.find((id) => !over.includes(id));
+      if (unsaid) return `${where}: its \`${OVER_RELATIONS}\` does not carry {${unsaid}}`;
     }
     if (!Array.isArray(c.from) || !c.from.length) return `${where}: its \`from\` is empty`;
     const notSource = c.from.find((s) => !sourceIds.has(s));

@@ -1,22 +1,17 @@
 // rs — the command that reads served Lessons or Decisions, or a written statement, into one RelationalStructure and
 // keeps it under rs/ (kogaki#1970, kogaki#1973, kogaki#1975). `create` makes one reading and keeps it; each Relation no
 // other names is a candidate, written at once where it is the only one and otherwise by `--reading --apex` with no
-// call. `check` reads the files under rs/. The file's reader is src/rs/file.mjs; the instruction is
-// prompts/rs/read.prompt.
+// call. `check` reads the files under rs/. The file's reader is src/rs/file.mjs; the reading is the SME's,
+// src/sme/read.mjs (kogaki#1984).
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { oneCall } from "./analogy.mjs";
-import { renderPromptFile } from "./prompt-file.mjs";
 import { readRs, relationsUnder, rsRefusal, sentenceOf, depthOf, topsOf, RESTS_ON, SNAKE_WORD } from "./rs/file.mjs";
+import { smeReading, unjoinedOf, OVER_RELATIONS } from "./sme/read.mjs";
 import { resolveJudgeBinary } from "./workflow/judge.mjs";
 import { REPO, gatewayQuery, relFromRepo } from "./workflow/run-record.mjs";
 import { stringifyYaml } from "./yaml.mjs";
 
-export const PROMPT_NAME = "rs/read";
-// A refused reading is asked again with the refusal put back; the third refusal stops the command.
-export const READ_CALLS = 3;
-const FLOW_LABEL = "RS";
 // `KOGAKI_RS_RUNS` replaces runs/rs/ and `KOGAKI_RS_UNITS` the gateway; `KOGAKI_RS_DIR` replaces rs/ FOR FIXTURES ONLY.
 const runsRoot = () => process.env.KOGAKI_RS_RUNS || join(REPO, "runs", "rs");
 const rsDir = () => process.env.KOGAKI_RS_DIR || join(REPO, "rs");
@@ -37,11 +32,9 @@ const USAGE =
   "       node src/rs.mjs create --reading <stamp> --apex <n> [--name <name>]\n" +
   "       node src/rs.mjs check [<file> ...]";
 
-const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 // A source as the file holds it: a statement's carries no cite (kogaki#1975).
 const sourceEntry = ({ id, cite, text }) => (cite === undefined ? { id, text } : { id, cite, text });
 const citeOf = (s) => s.cite ?? "statement";
-const squeeze = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
 
 // THE WORDS READ FROM A SERVED UNIT (kogaki#1970): a Decision whose text opens with `**`, the words up to the next `**`;
 // any other Decision and every Lesson, the whole text.
@@ -96,122 +89,6 @@ function nameRefusal(name) {
   return null;
 }
 
-const KEYS = {
-  answer: ["roles", "relations"],
-  role: ["name", "context", "in"],
-  relation: ["name", "holds", "from"],
-};
-
-function keysOf(entry, keys, extra, at) {
-  if (!isMap(entry)) return `${at} is not a record`;
-  const stray = Object.keys(entry).find((k) => !keys.includes(k) && !extra.includes(k));
-  if (stray !== undefined) return `${at} carries the key \`${stray}\`, which it does not declare`;
-  const missing = keys.find((k) => !Object.hasOwn(entry, k));
-  return missing === undefined ? null : `${at} carries no \`${missing}\``;
-}
-
-// THE RECORD OF A READING, its ids minted in the order of the answer: `{ record }` or `{ refusal }`. Every refusal of
-// the file's reader but the last applies, and every `words` and attribute occurs in the text of its source.
-export function mintedReading(answer, sources, restsOn = null) {
-  const top = keysOf(answer, KEYS.answer, [], "the answer");
-  if (top) return { refusal: top };
-  if (!Array.isArray(answer.roles) || !Array.isArray(answer.relations))
-    return { refusal: "the answer's `roles` or `relations` is not a list" };
-  for (const r of answer.roles) {
-    const bad = keysOf(r, KEYS.role, [], `the Role ${isMap(r) ? JSON.stringify(r.name) : JSON.stringify(r)}`);
-    if (bad) return { refusal: bad };
-  }
-  for (const c of answer.relations) {
-    const bad = keysOf(
-      c,
-      KEYS.relation,
-      ["between", "relates"],
-      `the Relation ${isMap(c) ? JSON.stringify(c.name) : JSON.stringify(c)}`,
-    );
-    if (bad) return { refusal: bad };
-  }
-  for (const [list, what] of [
-    [answer.roles, "Role"],
-    [answer.relations, "Relation"],
-  ]) {
-    const seen = new Set();
-    for (const e of list) {
-      if (typeof e.name !== "string" || !SNAKE_WORD.test(e.name))
-        return { refusal: `the ${what} name ${JSON.stringify(e.name)} is not one snake_case word` };
-      if (seen.has(e.name)) return { refusal: `the ${what} name ${e.name} is repeated` };
-      seen.add(e.name);
-    }
-  }
-  const roleId = new Map(answer.roles.map((r, i) => [r.name, `r_${i + 1}`]));
-  const relationId = new Map(answer.relations.map((c, i) => [c.name, `c_${i + 1}`]));
-  const record = {
-    sources: sources.map(sourceEntry),
-    roles: answer.roles.map((r) => ({ id: roleId.get(r.name), name: r.name, context: r.context, in: r.in })),
-    relations: answer.relations.map((c) => {
-      const out = {
-        id: relationId.get(c.name),
-        name: c.name,
-        holds:
-          typeof c.holds === "string"
-            ? c.holds.replace(/\{([^{}]*)\}/g, (m, n) => (roleId.has(n) ? `{${roleId.get(n)}}` : m))
-            : c.holds,
-        from: c.from,
-      };
-      if (Object.hasOwn(c, "between"))
-        out.between = Array.isArray(c.between) ? c.between.map((n) => roleId.get(n) ?? n) : c.between;
-      if (Object.hasOwn(c, "relates"))
-        out.relates = Array.isArray(c.relates) ? c.relates.map((n) => relationId.get(n) ?? n) : c.relates;
-      return out;
-    }),
-  };
-  if (restsOn) record[RESTS_ON] = restsOn;
-  // A refusal is put back in the answer's own names, never in ids it did not write.
-  const names = new Map();
-  for (const ids of [roleId, relationId]) for (const [n, id] of ids) names.set(id, n);
-  const named = (text) => text.replace(/\b[rc]_[1-9][0-9]*\b/g, (id) => names.get(id) ?? id);
-  const refusal = rsRefusal(record, "the answer", { oneApex: false });
-  if (refusal) return { refusal: named(refusal) };
-  const textOf = new Map(sources.map((s) => [s.id, squeeze(s.text)]));
-  for (const r of record.roles) {
-    for (const e of r.in) {
-      const said = [e.words, ...e.attributes].find((w) => !textOf.get(e.source).includes(squeeze(w)));
-      if (said !== undefined)
-        return { refusal: `the Role ${r.name}: ${JSON.stringify(said)} does not occur in the text of ${e.source}` };
-    }
-  }
-  return { record };
-}
-
-const promptOf = (input, history) =>
-  renderPromptFile(PROMPT_NAME, {
-    flow_label: FLOW_LABEL,
-    row_id: "read",
-    input: JSON.stringify(input, null, 2),
-    history,
-    whole_new_record: false,
-  });
-
-// THE READING, each call kept under `dir`: `{ record }` or `{ stopped }`.
-function reading(binary, sources, dir, restsOn) {
-  const input = { sources: sources.map(({ id, text }) => ({ id, text })) };
-  const history = [];
-  for (let n = 1; n <= READ_CALLS; n++) {
-    const prompt = promptOf(input, history);
-    const d = join(dir, `call-${n}`);
-    mkdirSync(d, { recursive: true });
-    writeFileSync(join(d, "input.json"), `${JSON.stringify(input, null, 2)}\n`);
-    writeFileSync(join(d, "prompt.txt"), prompt);
-    const out = oneCall(binary, prompt);
-    writeFileSync(join(d, "answer.txt"), out.raw);
-    if (out.died) return { stopped: `the call died: ${out.died}` };
-    const got = out.refusal ? { refusal: out.refusal } : mintedReading(out.record, sources, restsOn);
-    if (!got.refusal) return { record: got.record };
-    writeFileSync(join(d, "refusal.txt"), `${got.refusal}\n`);
-    history.push({ call: n, answer: out.record ? JSON.stringify(out.record) : "", refusal: got.refusal });
-  }
-  return { stopped: `the reading was refused ${READ_CALLS} times; the last refusal: ${history.at(-1).refusal}` };
-}
-
 const stop = (key, lines) => ({ status: 1, lines: [`stopped: ${key}`, ...lines] });
 
 // THE CANDIDATES OF A READING (kogaki#1973): each Relation no other names, with every Relation under it, the Roles their
@@ -259,6 +136,10 @@ export function candidateRecord(candidate) {
       };
       if (c.between) out.between = c.between.map((id) => roleId.get(id));
       if (c.relates) out.relates = c.relates.map((id) => relationId.get(id));
+      if (Object.hasOwn(c, OVER_RELATIONS))
+        out[OVER_RELATIONS] = c[OVER_RELATIONS].replace(/\{([^{}]*)\}/g, (m, id) =>
+          relationId.has(id) ? `{${relationId.get(id)}}` : m,
+        );
       return out;
     }),
   };
@@ -303,7 +184,8 @@ function writeCandidate(record, candidate, name) {
   };
 }
 
-// The candidates printed under their numbers, for the maintainer to choose one.
+// The candidates printed under their numbers, for the maintainer to choose one, then each joining the reading left
+// unwritten with its reason (kogaki#1984).
 function candidateLines(record, candidates, stamp) {
   return [
     `candidates: ${candidates.length}`,
@@ -315,6 +197,7 @@ function candidateLines(record, candidates, stamp) {
       `\tleaves out: ${record.sources.length - k.sources.length}`,
       ...k.relations.filter((c) => c !== k.top).map((c) => `\tunder: ${c.name}: ${sentenceOf(record, c)}`),
     ]),
+    ...unjoinedOf(record).map((u) => `not joined: ${u.names.join(", ")}: ${u.why}`),
   ];
 }
 
@@ -354,7 +237,7 @@ export function create(addresses, { name = null, statement = null } = {}) {
   const restsOn = said ? lines.map((line) => line.cite) : null;
   const binary = resolveJudgeBinary(process.env.KOGAKI_JUDGE_CLI || "claude", process.env.PATH).path;
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const read = reading(binary, sources, join(runsRoot(), stamp), restsOn);
+  const read = smeReading(binary, sources, join(runsRoot(), stamp), restsOn);
   if (read.stopped) return stop("form", [read.stopped]);
   const { record } = read;
   writeFileSync(readingFile(stamp), `${JSON.stringify(record, null, 2)}\n`);
