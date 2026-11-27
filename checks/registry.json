@@ -978,6 +978,23 @@
       }
     },
     {
+      "id": "document-plan",
+      "file": "checks/check-document-plan.sh",
+      "covers": ["src/document-plan.mjs", "src/document-plan/", "document-plans/"],
+      "admission": {
+        "contract": "The DocumentPlans under `document-plans/` (kogaki#1976): RS files under `rs/` in reading order and each connection's Satellite, relation and Nucleus, written by `node src/document-plan.mjs create` with no model call and read by one reader, `readDocumentPlan` in `src/document-plan/file.mjs`, which derives the top Nucleus. Its cases in `checks/document-plan-cases.mjs`, over RS files `a`, `b`, `c` written into a folder of their own: (a) `create --name p --order a,b,c --connect b:evidence:a --connect c:background:b` exits 0 and writes `p.yaml` with `order` a, b, c and the two connections in the order given, printing `written:`, `top nucleus: a` with the sentence of a's ApexRelation, `rs: 3` and `connections: 2`; (b) the file holds `order` and `connections` alone; (c) with the model's binary set to one that fails, it is never run; (d) a name that exists, an RS with no file, an RS file `readRs` refuses, an order naming one RS twice, a relation not listed (`contrast`), a connection naming an RS outside the order, a Satellite that is its own Nucleus, `c` the Satellite of two connections, `a` and `c` both the Satellite of none, and `a:evidence:b` beside `b:evidence:a` each exit 1 with `refused:` naming what was found and write nothing; (e) `readDocumentPlan` answers the written file's order, connections and top Nucleus `a`, and refuses a file with a third key and a connection lacking `relation`; (f) the `check` verb prints one line for the written file and exits 0, and prints `refused:` and exits 1 for a connection naming an unlisted relation; (g) `src/document-plan/relations.json` holds the twenty-one relations of Mann and Thompson (1988) that have a Nucleus and a Satellite, and no other. The member then runs the `check` verb over `document-plans/`.",
+        "license": "kogaki#1976",
+        "tier": "pre-push",
+        "case_floor": 25,
+        "runtime_ms": 1000,
+        "runtime_ms_note": "MEASURED at kogaki#1976, 2026-11-27: three plain serial runs of the member, 0.75, 0.73 and 0.72 s; 1000 is 33% above the slowest. No model call and no gateway call.",
+        "efficacy": "case: checks/document-plan-cases.mjs::a:evidence:b beside b:evidence:a",
+        "efficacy_note": "mutation-verified at kogaki#1976: disabling the return test in `documentPlanRefusal` failed that (d) case, the command writing q.yaml with c as its top Nucleus.",
+        "removal_signal": "a ruling retires the DocumentPlans under document-plans/ or the command that writes them",
+        "removal_instrument": "probe: ! test -f src/document-plan/file.mjs"
+      }
+    },
+    {
       "id": "brief-plan-playground",
       "file": "checks/check-brief-plan-playground.sh",
       "covers": [
