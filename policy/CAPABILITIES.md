@@ -55,6 +55,13 @@ path rather than leaving it silent. Reach for the transport directly only for a
 tool whose shape the entry point does not carry, or for more framings than the
 bound.
 
+**A question reaches a second declared Package by `--package <name>` alone**
+(gukan-client#53). `consult.mjs` and `consult-thread.mjs` place it on every
+call and refuse a name `policy/source.yaml` does not declare. A question goes to
+the first declared Package unless it names another, by its `package` name or
+the title its manifest `purpose` gives; the hooks read the first declared
+Package only.
+
 **The receipt is emitted by the transport, not transcribed.** Every response
 above carries the `request_id` and the served `consulted:` line the receipt
 needs, so `gateway-query.mjs --receipt --outcome <token>` prints the complete
