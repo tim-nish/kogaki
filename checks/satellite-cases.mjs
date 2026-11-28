@@ -4,7 +4,8 @@
 // (d) a refused reading is asked three times; (e) a refused argument makes no call; (f) run again, it keeps `s_1` and
 // the file's head; (g) `wholeReaderPath`; (h) the `check` verb with no file, with the written file, after a hand edit,
 // and each refusal of the file, a relation between three Roles among them; (i) the Brief's files, their hash and a
-// plan made before are untouched. A stub stands in for the model and a file for the gateway.
+// plan made before are untouched; (j) a Statute is read as a Decision is (kogaki#1989). A stub stands in for the model
+// and a file for the gateway.
 import {
   mkdtempSync,
   mkdirSync,
@@ -91,6 +92,7 @@ const briefAt = () => {
 // THE SERVED UNITS, a file in place of the gateway.
 const DECISION = "coding::decision/cut-tests";
 const LESSON = "coding::lesson/a-lesson";
+const STATUTE = "coding::statute/a-budget";
 const units = join(root, "units.json");
 writeFileSync(
   units,
@@ -102,6 +104,10 @@ writeFileSync(
     [LESSON]: {
       cite: `${LESSON}@${"b".repeat(64)}`,
       text: "A check that costs too much is dropped. Then no one runs it.",
+    },
+    [STATUTE]: {
+      cite: `${STATUTE}@${"c".repeat(64)}`,
+      text: "**Every check runs within a budget.** The budget is set per suite. It is read each week.",
     },
   }),
 );
@@ -452,6 +458,28 @@ for (const [label, file, names] of REFUSALS) {
   const r = add(atI, ADD);
   const view = paragraphPlanView(planPath);
   ok(r.status === 0 && !view.error, `(i) a plan made before add was found stale: ${view.error}`);
+}
+
+// (j) A STATUTE (kogaki#1989): read by its headline beside a Lesson, and named among the accepted forms.
+{
+  const atJ = briefAt();
+  const r = add(atJ, ["--before", "s1", "--as", "Background", STATUTE, LESSON]);
+  const e = existsSync(S.satellitesPathFor(atJ)) ? readFile(atJ).satellites[0] || {} : {};
+  ok(
+    r.status === 0 &&
+      e.id === "s_1" &&
+      isDeepStrictEqual(e.sources, [
+        { id: "U1", cite: `${STATUTE}@${"c".repeat(64)}`, claim: "Every check runs within a budget." },
+        { id: "U2", cite: `${LESSON}@${"b".repeat(64)}`, claim: "A check that costs too much is dropped." },
+      ]),
+    `(j) add over a Statute and a Lesson does not write s_1 with both sources at their cites: ${r.err} ${JSON.stringify(e.sources)}`,
+  );
+  const atK = briefAt();
+  const other = add(atK, ["--before", "s1", "--as", "Background", "coding::rule/a-rule"]);
+  ok(
+    other.status === 1 && other.calls === 0 && other.err.includes("<package>::statute/<local-name>"),
+    `(j) an address of a Rule does not exit 1 naming the Statute's form: ${other.status} ${other.err}`,
+  );
 }
 
 rmSync(root, { recursive: true, force: true });
