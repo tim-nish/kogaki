@@ -3,12 +3,12 @@
 // between Relations carries `holds_over_relations` beside `holds` (kogaki#1984). It reads form only; the ApexRelation and
 // the depth are derived, never stored.
 import { readFileSync } from "node:fs";
+import { CITE } from "../unit-address.mjs";
 import { parseYaml } from "../yaml.mjs";
 
 export const FILE_KEYS = Object.freeze(["sources", "roles", "relations"]);
 export const RESTS_ON = "rests_on";
 const SOURCE_KEYS = ["id", "text"];
-const CITE = /^[^\s:/@]+::(?:lesson|decision|journey)\/[^\s/@]+@[0-9a-f]+$/;
 const ROLE_KEYS = ["id", "name", "context", "in"];
 const IN_KEYS = ["source", "words", "attributes"];
 const RELATION_KEYS = ["id", "name", "holds", "from"];
@@ -100,6 +100,7 @@ export function rsRefusal(record, at, { oneApex = true } = {}) {
       return `${at}: the source ${s.id} carries a cite beside \`${RESTS_ON}\`, which a file read from Units does not carry`;
     if (!statement && !isText(s.cite))
       return `${at}: the source ${s.id} carries no cite, and the file carries no \`${RESTS_ON}\``;
+    if (!statement && !CITE.test(s.cite)) return `${at}: the source ${s.id}'s cite ${s.cite} is not <address>@<hash>`;
   }
   if (statement) {
     if (!Array.isArray(record[RESTS_ON])) return `${at}: \`${RESTS_ON}\` is not a list`;

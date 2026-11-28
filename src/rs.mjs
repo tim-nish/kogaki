@@ -10,15 +10,13 @@ import { readRs, relationsUnder, rsRefusal, sentenceOf, depthOf, topsOf, RESTS_O
 import { smeReading, unjoinedOf, OVER_RELATIONS } from "./sme/read.mjs";
 import { resolveJudgeBinary } from "./workflow/judge.mjs";
 import { REPO, gatewayQuery, relFromRepo } from "./workflow/run-record.mjs";
+import { CITED_ADDRESS, CITED_KINDS, READ_ADDRESS, READ_KINDS, formsOf, headlineOf } from "./unit-address.mjs";
 import { stringifyYaml } from "./yaml.mjs";
 
 // `KOGAKI_RS_RUNS` replaces runs/rs/ and `KOGAKI_RS_UNITS` the gateway; `KOGAKI_RS_DIR` replaces rs/ FOR FIXTURES ONLY.
 const runsRoot = () => process.env.KOGAKI_RS_RUNS || join(REPO, "runs", "rs");
 const rsDir = () => process.env.KOGAKI_RS_DIR || join(REPO, "rs");
-const ADDRESS = /^([^\s:/@]+)::(lesson|decision)\/([^\s/@]+)$/;
 const JOURNEY = /^[^\s:/@]+::journey\//;
-// The addresses beside `--statement` (kogaki#1975): the Units the statement rests on.
-const RESTING = /^([^\s:/@]+)::(lesson|decision|journey)\/([^\s/@]+)$/;
 const HEADER =
   "A RelationalStructure read by `node src/rs.mjs create` from the served Units under `sources`: its Roles, with " +
   "each source's own words for them, and its Relations. Edited by hand; `node src/rs.mjs check` reads it.";
@@ -36,16 +34,9 @@ const USAGE =
 const sourceEntry = ({ id, cite, text }) => (cite === undefined ? { id, text } : { id, cite, text });
 const citeOf = (s) => s.cite ?? "statement";
 
-// THE WORDS READ FROM A SERVED UNIT (kogaki#1970): a Decision whose text opens with `**`, the words up to the next `**`;
-// any other Decision and every Lesson, the whole text.
-export function unitText(kind, text) {
-  const t = String(text ?? "");
-  if (kind === "decision" && t.startsWith("**")) {
-    const end = t.indexOf("**", 2);
-    if (end > 2) return t.slice(2, end).trim();
-  }
-  return t;
-}
+// THE WORDS READ FROM A SERVED UNIT (kogaki#1970, kogaki#1989): its headline where src/unit-address.mjs finds one,
+// otherwise the whole text.
+export const unitText = (kind, text) => headlineOf(kind, text) ?? String(text ?? "");
 
 // The served line of one address: `{ cite, text }` or null.
 function servedUnit(address, pkg) {
@@ -67,9 +58,8 @@ function argumentsRefusal(addresses, name) {
   if (twice !== undefined) return `the address ${twice} is given twice`;
   const journey = addresses.find((a) => JOURNEY.test(a));
   if (journey !== undefined) return `the address ${journey} is of kind journey, and a Journey is not read`;
-  const bad = addresses.find((a) => !ADDRESS.test(a));
-  if (bad !== undefined)
-    return `the address ${bad} is not <package>::lesson/<local-name> or <package>::decision/<local-name>`;
+  const bad = addresses.find((a) => !READ_ADDRESS.test(a));
+  if (bad !== undefined) return `the address ${bad} is not ${formsOf(READ_KINDS)}`;
   return nameRefusal(name);
 }
 
@@ -77,8 +67,8 @@ function argumentsRefusal(addresses, name) {
 function statementRefusal(addresses, name) {
   const twice = addresses.find((a, i) => addresses.indexOf(a) !== i);
   if (twice !== undefined) return `the address ${twice} is given twice`;
-  const bad = addresses.find((a) => !RESTING.test(a));
-  if (bad !== undefined) return `the address ${bad} is not of a Lesson, a Decision or a Journey`;
+  const bad = addresses.find((a) => !CITED_ADDRESS.test(a));
+  if (bad !== undefined) return `the address ${bad} is not ${formsOf(CITED_KINDS)}`;
   return nameRefusal(name);
 }
 
@@ -222,7 +212,7 @@ export function create(addresses, { name = null, statement = null } = {}) {
   if (said?.refusal) return stop("arguments", [said.refusal]);
   const lines = [];
   for (const address of addresses) {
-    const [, pkg] = RESTING.exec(address);
+    const [, pkg] = CITED_ADDRESS.exec(address);
     const line = servedUnit(address, pkg);
     if (!line || typeof line.cite !== "string") return stop("not-served", [`the served Units hold no ${address}`]);
     lines.push(line);
@@ -232,7 +222,7 @@ export function create(addresses, { name = null, statement = null } = {}) {
     : lines.map((line, i) => ({
         id: `S${i + 1}`,
         cite: line.cite,
-        text: unitText(ADDRESS.exec(addresses[i])[2], line.text),
+        text: unitText(READ_ADDRESS.exec(addresses[i])[2], line.text),
       }));
   const restsOn = said ? lines.map((line) => line.cite) : null;
   const binary = resolveJudgeBinary(process.env.KOGAKI_JUDGE_CLI || "claude", process.env.PATH).path;

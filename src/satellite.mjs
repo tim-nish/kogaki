@@ -34,6 +34,7 @@ import { renderPromptFile } from "./prompt-file.mjs";
 import { resolveJudgeBinary } from "./workflow/judge.mjs";
 import { REPO, gatewayQuery, relFromRepo } from "./workflow/run-record.mjs";
 import { printBriefPlanPlayground } from "./workflow/playground-file.mjs";
+import { READ_ADDRESS, READ_KINDS, formsOf, headlineOf } from "./unit-address.mjs";
 
 export const STRUCTURE_PROMPT = "sme/read-structure";
 export const APEX_PROMPT = "brief/apex";
@@ -42,7 +43,6 @@ export const READ_CALLS = 3;
 const FLOW_LABEL = "Satellite";
 // `KOGAKI_SATELLITE_RUNS` replaces runs/satellite/ and `KOGAKI_SATELLITE_UNITS` the gateway, FOR FIXTURES ONLY.
 const runsRoot = () => process.env.KOGAKI_SATELLITE_RUNS || join(REPO, "runs", "satellite");
-const ADDRESS = /^([^\s:/@]+)::(decision|lesson)\/([^\s/@]+)$/;
 // The expression /brief cuts a Lesson's headline with (src/workflow/strands.mjs).
 const FIRST_SENTENCE = /^.*?[.!?](?=\s|$)/;
 const USAGE =
@@ -51,14 +51,12 @@ const USAGE =
 
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 
-// THE SENTENCE READ FROM A SERVED UNIT (kogaki#1963): a Decision whose text opens with `**`, the words up to the next
-// `**`; any other Decision and every Lesson, its first sentence, or the whole text where there is none.
+// THE SENTENCE READ FROM A SERVED UNIT (kogaki#1963, kogaki#1989): its headline where src/unit-address.mjs finds one,
+// otherwise its first sentence, or the whole text where there is none.
 export function unitClaim(kind, text) {
+  const headline = headlineOf(kind, text);
+  if (headline !== null) return headline;
   const t = String(text ?? "");
-  if (kind === "decision" && t.startsWith("**")) {
-    const end = t.indexOf("**", 2);
-    if (end > 2) return t.slice(2, end).trim();
-  }
   const m = FIRST_SENTENCE.exec(t);
   return (m ? m[0] : t).trim();
 }
@@ -116,7 +114,7 @@ const promptOf = (name, rowId, input) =>
 function readUnits(addresses) {
   const sources = [];
   for (const [i, address] of addresses.entries()) {
-    const [, pkg, kind] = ADDRESS.exec(address);
+    const [, pkg, kind] = READ_ADDRESS.exec(address);
     const line = servedUnit(address, pkg);
     if (!line || !isText(line.cite)) return { error: `the served Units hold no ${address}` };
     sources.push({ id: `U${i + 1}`, cite: line.cite, claim: unitClaim(kind, line.text) });
@@ -132,10 +130,8 @@ function argumentsRefusal(record, before, as, addresses) {
   if (!addresses.length) return "no address is given";
   const twice = addresses.find((a, i) => addresses.indexOf(a) !== i);
   if (twice !== undefined) return `the address ${twice} is given twice`;
-  const bad = addresses.find((a) => !ADDRESS.test(a));
-  if (bad !== undefined) {
-    return `the address ${bad} is not <package>::decision/<local-name> or <package>::lesson/<local-name>`;
-  }
+  const bad = addresses.find((a) => !READ_ADDRESS.test(a));
+  if (bad !== undefined) return `the address ${bad} is not ${formsOf(READ_KINDS)}`;
   return null;
 }
 

@@ -6,7 +6,8 @@
 // second file of the same name ends `_2`; (i) the `check` verb; (j) `create --statement` reads a written statement and
 // keeps the cites it rests on (kogaki#1975); (k) the reading is the SME's (kogaki#1984): a Relation between Relations
 // carries two sentences, `considered` gives each joining weighed its verdict and reason, and an unjoined top is printed
-// with its reason. A stub stands in for the model and a file for the gateway.
+// with its reason; (l) a Statute is read and cited as a Decision is (kogaki#1989). A stub stands in for the model and a
+// file for the gateway.
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
@@ -34,12 +35,14 @@ const L2 = "coding::lesson/hour-long-suite";
 const D1 = "coding::decision/cut-tests";
 const L3 = "coding::lesson/budget-hours";
 const J1 = "coding::journey/a-slow-week";
+const ST1 = "coding::statute/cut-tests";
 const TEXT = {
   [J1]: "The week the suite slowed, the team stopped running it.",
   [L1]: "A check that costs too much is dropped. Then no one runs it.",
   [L2]: "A suite that runs for an hour costs too much.\nThe team cuts it.",
   [D1]: "**We removed Tests to reduce computational costs.** The suite ran for an hour.",
   [L3]: "A budget limits the hours of a check.",
+  [ST1]: "**We removed Tests to reduce computational costs.** A Statute's body follows its headline.",
 };
 const cite = (a, c) => `${a}@${c.repeat(64)}`;
 const units = join(root, "units.json");
@@ -51,6 +54,7 @@ writeFileSync(
     [D1]: { cite: cite(D1, "c"), text: TEXT[D1] },
     [L3]: { cite: cite(L3, "d"), text: TEXT[L3] },
     [J1]: { cite: cite(J1, "e"), text: TEXT[J1] },
+    [ST1]: { cite: cite(ST1, "f"), text: TEXT[ST1] },
   }),
 );
 
@@ -707,6 +711,56 @@ for (const [file, digest] of [
   ["prompts/brief/apex.prompt", "22e950687ccc17172955a3780af2947e4d2b854090e8700c2a782ea3d7b25fec"],
 ])
   ok(createHash("sha256").update(readFileSync(file)).digest("hex") === digest, `(k) ${file} changed`);
+
+// (l) A STATUTE (kogaki#1989) is read by its headline, rests a statement, is cited by a file `check` passes, and is
+// named among the accepted forms.
+{
+  const dir = join(root, "rs-statute");
+  const at = (n) => parseYaml(readFileSync(join(dir, n), "utf8"), n);
+  const r = rs(["create", ST1], "single", dir);
+  ok(
+    r.status === 0 && r.calls === 1 && r.out.includes("\ndepth: 1\n"),
+    `(l) create over a Statute did not make one call and print depth: 1: ${r.status} ${r.calls} ${r.out}${r.err}`,
+  );
+  ok(
+    readFileSync(promptFile, "utf8").includes("We removed Tests to reduce computational costs.") &&
+      !readFileSync(promptFile, "utf8").includes("A Statute's body"),
+    "(l) the call's source text is not the Statute's headline alone",
+  );
+  const f = existsSync(join(dir, "trimmed.yaml")) ? at("trimmed.yaml") : { sources: [] };
+  ok(
+    isDeepStrictEqual(f.sources, [
+      { id: "S1", cite: cite(ST1, "f"), text: "We removed Tests to reduce computational costs." },
+    ]),
+    `(l) the file's source is not the Statute's headline at its cite: ${JSON.stringify(f.sources)}`,
+  );
+  const said = join(root, "statute-statement.txt");
+  writeFileSync(said, "A slow check is dropped by the team.\n");
+  const s = rs(["create", "--statement", said, "--name", "rests", ST1], "stated", dir);
+  const fs = s.status === 0 ? at("rests.yaml") : {};
+  ok(
+    s.status === 0 && isDeepStrictEqual(fs.rests_on, [cite(ST1, "f")]),
+    `(l) create --statement beside a Statute does not write rests_on holding its cite: ${s.out}${s.err}`,
+  );
+  const checked = rs(["check", join(dir, "trimmed.yaml"), join(dir, "rests.yaml")], "single", dir);
+  ok(checked.status === 0, `(l) check refuses a file citing a Statute: ${checked.out}`);
+  const ruled = { ...f, sources: [{ ...f.sources[0], cite: "coding::rule/cut-tests@" + "f".repeat(64) }] };
+  const rulePath = join(root, "rule-cite.yaml");
+  writeFileSync(rulePath, stringifyYaml(ruled));
+  const refused = rs(["check", rulePath]);
+  ok(
+    refused.status === 1 && refused.out.includes(rulePath) && refused.out.includes("is not <address>@<hash>"),
+    `(l) check passes a source whose cite names a Rule: ${refused.status} ${refused.out}`,
+  );
+  const other = rs(["create", "coding::rule/a-rule"]);
+  ok(
+    other.status === 1 &&
+      other.calls === 0 &&
+      other.out.startsWith("stopped: arguments\n") &&
+      other.out.includes("<package>::statute/<local-name>"),
+    `(l) an address of a Rule does not stop naming the Statute's form: ${other.status} ${other.out}`,
+  );
+}
 
 rmSync(root, { recursive: true, force: true });
 if (fails.length) {
